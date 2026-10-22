@@ -1,0 +1,30 @@
+{
+  "name": "jalanjalanenak-website",
+  "version": "1.0.0",
+  "description": "Website wisata pulau jalanjalanenak.com — public site + admin panel (Node.js + Express + EJS)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node src/seed.js --force",
+    "images": "node scripts/generate-images.js"
+  },
+  "keywords": [
+    "wisata",
+    "pulau",
+    "travel",
+    "express",
+    "ejs"
+  ],
+  "author": "jalanjalanenak.com",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "ejs": "^3.1.10",
+    "express": "^4.21.2",
+    "express-ejs-layouts": "^2.0.0",
+    "express-session": "^1.18.1",
+    "method-override": "^3.0.0",
+    "multer": "^2.0.2"
+  }
+}

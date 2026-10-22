@@ -1,0 +1,696 @@
+'use strict';
+
+const express = require('express');
+const bcrypt = require('bcryptjs');
+
+const db = require('../db');
+const helpers = require('../utils/helpers');
+const { upload, removeUpload } = require('../multer');
+const { flash } = require('../middleware/context');
+const { requireLogin, loginLimiter } = require('../middleware/security');
+
+const router = express.Router();
+
+function load(req, res, next) {
+  req.data = db.read();
+  next();
+}
+
+router.get('/login', (req, res) => {
+  if (req.session.userId) return res.redirect('/admin');
+  res.render('admin/login', { title: 'Masuk Admin', layout: false, error: null });
+});
+
+router.post('/login', loginLimiter(), (req, res) => {
+  const { username, password } = req.body;
+  const data = db.read();
+  const user = (data.users || []).find((u) => u.username === String(username || '').trim());
+  if (!user || !bcrypt.compareSync(String(password || ''), user.passwordHash)) {
+    return res.status(401).render('admin/login', {
+      title: 'Masuk Admin',
+      layout: false,
+      error: 'Username atau password salah.'
+    });
+  }
+  req.session.userId = user.id;
+  res.redirect('/admin');
+});
+
+router.post('/logout', requireLogin, (req, res) => {
+  req.session.destroy(() => res.redirect('/admin/login'));
+});
+
+router.use(requireLogin, load);
+
+// Semua halaman setelah login memakai layout admin
+router.use((req, res, next) => {
+  res.locals.layout = 'layouts/admin';
+  next();
+});
+
+// Modul marketing (kontak + blast WhatsApp) di bawah /admin/marketing
+router.use('/marketing', require('./marketing.routes').createMarketingRouter());
+
+/* ------------------------------------------------------------------ */
+/* Dashboard                                                           */
+/* ------------------------------------------------------------------ */
+router.get('/', (req, res) => {
+  const d = req.data;
+  const pendingBookings = d.bookings.filter((b) => b.status === 'pending').length;
+  const unread = d.messages.filter((m) => !m.read).length;
+  res.render('admin/dashboard', {
+    title: 'Dashboard',
+    stats: {
+      destinations: d.destinations.length,
+      packages: d.packages.length,
+      articles: d.articles.length,
+      pendingBookings,
+      unread,
+      bookings: d.bookings.length
+    },
+    recentBookings: d.bookings.slice(0, 5),
+    recentMessages: d.messages.slice(0, 5)
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Destinasi                                                           */
+/* ------------------------------------------------------------------ */
+router.get('/destinasi', (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase();
+  let list = [...req.data.destinations];
+  if (q) list = list.filter((x) => x.name.toLowerCase().includes(q) || x.region.toLowerCase().includes(q));
+  const pg = helpers.paginate(list, req.query.page, 8);
+  res.render('admin/destinations', { title: 'Kelola Destinasi', pg, q: req.query.q || '' });
+});
+
+router.get('/destinasi/baru', (req, res) => {
+  res.render('admin/destination-form', { title: 'Tambah Destinasi', item: null, action: '/admin/destinasi' });
+});
+
+function destFromBody(body, oldImage) {
+  return {
+    name: String(body.name || '').trim(),
+    region: String(body.region || '').trim(),
+    tagline: String(body.tagline || '').trim(),
+    description: String(body.description || '').trim(),
+    highlights: String(body.highlights || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    bestSeason: String(body.bestSeason || '').trim(),
+    duration: String(body.duration || '').trim(),
+    gettingThere: String(body.gettingThere || '').trim(),
+    facilities: String(body.facilities || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    priceFrom: parseInt(body.priceFrom, 10) || 0,
+    lat: body.lat !== '' && body.lat != null ? parseFloat(body.lat) : null,
+    lng: body.lng !== '' && body.lng != null ? parseFloat(body.lng) : null,
+    image: oldImage || '/img/dest-default.svg',
+    gallery: [],
+    featured: body.featured === 'on',
+    status: body.status === 'published' ? 'published' : 'draft'
+  };
+}
+
+router.post('/destinasi', upload.single('imageFile'), (req, res) => {
+  const body = req.body;
+  const errors = [];
+  if (!body.name || body.name.trim().length < 3) errors.push('Nama destinasi wajib diisi.');
+  if (!body.region || body.region.trim().length < 3) errors.push('Lokasi/region wajib diisi.');
+  if (!body.description || body.description.trim().length < 20) errors.push('Deskripsi minimal 20 karakter.');
+  if (errors.length) {
+    flash('error', errors.join(' '), req);
+    return res.redirect('/admin/destinasi/baru');
+  }
+  const data = req.data;
+  const record = destFromBody(body, req.file ? `/uploads/${req.file.filename}` : null);
+  record.id = db.uid('dst');
+  record.slug = db.uniqueSlug(data.destinations, db.slugify(body.name));
+  record.gallery = record.image ? [record.image] : [];
+  record.createdAt = new Date().toISOString();
+  data.destinations.unshift(record);
+  db.write();
+  flash('success', `Destinasi "${record.name}" berhasil ditambahkan.`, req);
+  res.redirect('/admin/destinasi');
+});
+
+router.get('/destinasi/:id/edit', (req, res, next) => {
+  const item = req.data.destinations.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  res.render('admin/destination-form', {
+    title: `Edit: ${item.name}`,
+    item,
+    action: `/admin/destinasi/${item.id}`
+  });
+});
+
+router.post('/destinasi/:id', upload.single('imageFile'), (req, res, next) => {
+  const data = req.data;
+  const item = data.destinations.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  const oldImage = item.image;
+  const updated = destFromBody(req.body, oldImage);
+  if (req.file) {
+    if (oldImage && oldImage.startsWith('/uploads/')) removeUpload(oldImage.replace('/uploads/', ''));
+    updated.image = `/uploads/${req.file.filename}`;
+    updated.gallery = [updated.image];
+  }
+  Object.assign(item, updated);
+  item.slug = db.uniqueSlug(data.destinations, db.slugify(req.body.name || item.name), item.id);
+  db.write();
+  flash('success', 'Destinasi berhasil diperbarui.', req);
+  res.redirect('/admin/destinasi');
+});
+
+router.post('/destinasi/:id/hapus', (req, res, next) => {
+  const data = req.data;
+  const idx = data.destinations.findIndex((x) => x.id === req.params.id);
+  if (idx < 0) return next();
+  const [removed] = data.destinations.splice(idx, 1);
+  if (removed.image && removed.image.startsWith('/uploads/')) removeUpload(removed.image.replace('/uploads/', ''));
+  db.write();
+  flash('success', `Destinasi "${removed.name}" dihapus.`, req);
+  res.redirect('/admin/destinasi');
+});
+
+/* ------------------------------------------------------------------ */
+/* Paket                                                               */
+/* ------------------------------------------------------------------ */
+router.get('/paket', (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase();
+  let list = [...req.data.packages];
+  if (q) list = list.filter((x) => x.title.toLowerCase().includes(q) || x.destinationName.toLowerCase().includes(q));
+  const pg = helpers.paginate(list, req.query.page, 8);
+  res.render('admin/packages', { title: 'Kelola Paket Wisata', pg, q: req.query.q || '' });
+});
+
+router.get('/paket/baru', (req, res) => {
+  res.render('admin/package-form', {
+    title: 'Tambah Paket',
+    item: null,
+    action: '/admin/paket',
+    destinations: req.data.destinations
+  });
+});
+
+function pkgFromBody(body, oldImage) {
+  const parseItinerary = (raw) =>
+    String(raw || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line, i) => {
+        const [first, ...rest] = line.split('|');
+        return { day: i + 1, title: first.trim(), detail: rest.join('|').trim() };
+      });
+  const parseList = (raw) =>
+    String(raw || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  return {
+    title: String(body.title || '').trim(),
+    destinationSlug: body.destinationSlug,
+    destinationName: String(body.destinationName || '').trim(),
+    days: parseInt(body.days, 10) || 1,
+    nights: parseInt(body.nights, 10) || 0,
+    price: parseInt(body.price, 10) || 0,
+    groupSize: String(body.groupSize || '').trim(),
+    summary: String(body.summary || '').trim(),
+    itinerary: parseItinerary(body.itinerary),
+    includes: parseList(body.includes),
+    excludes: parseList(body.excludes),
+    image: oldImage || '/img/dest-default.svg',
+    featured: body.featured === 'on',
+    status: body.status === 'published' ? 'published' : 'draft'
+  };
+}
+
+router.post('/paket', upload.single('imageFile'), (req, res) => {
+  const errors = [];
+  if (!req.body.title || req.body.title.trim().length < 3) errors.push('Judul paket wajib diisi.');
+  if (!req.body.destinationSlug) errors.push('Destinasi wajib dipilih.');
+  if (!(parseInt(req.body.price, 10) > 0)) errors.push('Harga harus lebih dari 0.');
+  if (errors.length) {
+    flash('error', errors.join(' '), req);
+    return res.redirect('/admin/paket/baru');
+  }
+  const data = req.data;
+  const record = pkgFromBody(req.body, req.file ? `/uploads/${req.file.filename}` : null);
+  record.id = db.uid('pkg');
+  record.slug = db.uniqueSlug(data.packages, db.slugify(req.body.title));
+  record.createdAt = new Date().toISOString();
+  data.packages.unshift(record);
+  db.write();
+  flash('success', `Paket "${record.title}" berhasil ditambahkan.`, req);
+  res.redirect('/admin/paket');
+});
+
+router.get('/paket/:id/edit', (req, res, next) => {
+  const item = req.data.packages.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  res.render('admin/package-form', {
+    title: `Edit: ${item.title}`,
+    item,
+    action: `/admin/paket/${item.id}`,
+    destinations: req.data.destinations
+  });
+});
+
+router.post('/paket/:id', upload.single('imageFile'), (req, res, next) => {
+  const data = req.data;
+  const item = data.packages.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  const oldImage = item.image;
+  const updated = pkgFromBody(req.body, oldImage);
+  if (req.file) {
+    if (oldImage && oldImage.startsWith('/uploads/')) removeUpload(oldImage.replace('/uploads/', ''));
+    updated.image = `/uploads/${req.file.filename}`;
+  }
+  Object.assign(item, updated);
+  item.slug = db.uniqueSlug(data.packages, db.slugify(req.body.title || item.title), item.id);
+  db.write();
+  flash('success', 'Paket wisata berhasil diperbarui.', req);
+  res.redirect('/admin/paket');
+});
+
+router.post('/paket/:id/hapus', (req, res, next) => {
+  const data = req.data;
+  const idx = data.packages.findIndex((x) => x.id === req.params.id);
+  if (idx < 0) return next();
+  const [removed] = data.packages.splice(idx, 1);
+  if (removed.image && removed.image.startsWith('/uploads/')) removeUpload(removed.image.replace('/uploads/', ''));
+  db.write();
+  flash('success', `Paket "${removed.title}" dihapus.`, req);
+  res.redirect('/admin/paket');
+});
+
+/* ------------------------------------------------------------------ */
+/* Artikel                                                             */
+/* ------------------------------------------------------------------ */
+router.get('/artikel', (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase();
+  let list = [...req.data.articles];
+  if (q) list = list.filter((x) => x.title.toLowerCase().includes(q) || x.category.toLowerCase().includes(q));
+  const pg = helpers.paginate(list, req.query.page, 8);
+  res.render('admin/articles', { title: 'Kelola Artikel', pg, q: req.query.q || '' });
+});
+
+router.get('/artikel/baru', (req, res) => {
+  res.render('admin/article-form', { title: 'Tambah Artikel', item: null, action: '/admin/artikel' });
+});
+
+function artFromBody(body, oldImage) {
+  return {
+    title: String(body.title || '').trim(),
+    excerpt: String(body.excerpt || '').trim(),
+    body: String(body.body || '').trim(),
+    category: String(body.category || 'Umum').trim() || 'Umum',
+    author: String(body.author || 'Tim JJE').trim() || 'Tim JJE',
+    coverImage: oldImage || '/img/dest-default.svg',
+    status: body.status === 'published' ? 'published' : 'draft',
+    publishedAt: body.status === 'published' ? new Date().toISOString() : null
+  };
+}
+
+router.post('/artikel', upload.single('imageFile'), (req, res) => {
+  const errors = [];
+  if (!req.body.title || req.body.title.trim().length < 5) errors.push('Judul artikel wajib minimal 5 karakter.');
+  if (!req.body.body || req.body.body.trim().length < 50) errors.push('Isi artikel minimal 50 karakter.');
+  if (errors.length) {
+    flash('error', errors.join(' '), req);
+    return res.redirect('/admin/artikel/baru');
+  }
+  const data = req.data;
+  const record = artFromBody(req.body, req.file ? `/uploads/${req.file.filename}` : null);
+  record.id = db.uid('art');
+  record.slug = db.uniqueSlug(data.articles, db.slugify(req.body.title));
+  record.createdAt = new Date().toISOString();
+  data.articles.unshift(record);
+  db.write();
+  flash('success', `Artikel "${record.title}" berhasil ditambahkan.`, req);
+  res.redirect('/admin/artikel');
+});
+
+router.get('/artikel/:id/edit', (req, res, next) => {
+  const item = req.data.articles.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  res.render('admin/article-form', {
+    title: `Edit: ${item.title}`,
+    item,
+    action: `/admin/artikel/${item.id}`
+  });
+});
+
+router.post('/artikel/:id', upload.single('imageFile'), (req, res, next) => {
+  const data = req.data;
+  const item = data.articles.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  const oldImage = item.coverImage;
+  const updated = artFromBody(req.body, oldImage);
+  if (req.file) {
+    if (oldImage && oldImage.startsWith('/uploads/')) removeUpload(oldImage.replace('/uploads/', ''));
+    updated.coverImage = `/uploads/${req.file.filename}`;
+  }
+  if (item.status === 'published' && updated.status === 'published') updated.publishedAt = item.publishedAt;
+  Object.assign(item, updated);
+  item.slug = db.uniqueSlug(data.articles, db.slugify(req.body.title || item.title), item.id);
+  db.write();
+  flash('success', 'Artikel berhasil diperbarui.', req);
+  res.redirect('/admin/artikel');
+});
+
+router.post('/artikel/:id/hapus', (req, res, next) => {
+  const data = req.data;
+  const idx = data.articles.findIndex((x) => x.id === req.params.id);
+  if (idx < 0) return next();
+  const [removed] = data.articles.splice(idx, 1);
+  if (removed.coverImage && removed.coverImage.startsWith('/uploads/')) removeUpload(removed.coverImage.replace('/uploads/', ''));
+  db.write();
+  flash('success', `Artikel "${removed.title}" dihapus.`, req);
+  res.redirect('/admin/artikel');
+});
+
+/* ------------------------------------------------------------------ */
+/* Booking                                                             */
+/* ------------------------------------------------------------------ */
+router.get('/booking', (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const status = String(req.query.status || '').trim();
+  let list = [...req.data.bookings];
+  if (q) {
+    list = list.filter(
+      (b) => b.name.toLowerCase().includes(q) || b.code.toLowerCase().includes(q) || b.packageName.toLowerCase().includes(q)
+    );
+  }
+  if (status) list = list.filter((b) => b.status === status);
+  const pg = helpers.paginate(list, req.query.page, 10);
+  res.render('admin/bookings', { title: 'Booking Masuk', pg, q: req.query.q || '', status });
+});
+
+/* Detail booking: info, pembayaran, peta check-in & waypoint perjalanan. */
+router.get('/booking/:id', (req, res, next) => {
+  const data = req.data;
+  const booking = data.bookings.find((x) => x.id === req.params.id);
+  if (!booking) return next();
+  const destination = (data.destinations || []).find((d) => d.slug === booking.packageSlug);
+  const customer = (data.customers || []).find((c) => c.id === booking.customerId) || null;
+  res.render('admin/booking-detail', {
+    title: `Booking ${booking.code}`,
+    booking,
+    destination,
+    customer,
+    mapData: JSON.stringify({
+      dest: destination && destination.lat ? { lat: destination.lat, lng: destination.lng, name: destination.name } : null,
+      checkIn: booking.checkIn || null,
+      track: booking.track || []
+    })
+  });
+});
+
+router.post('/booking/:id/waypoint', (req, res, next) => {
+  const data = req.data;
+  const booking = data.bookings.find((x) => x.id === req.params.id);
+  if (!booking) return next();
+  const label = String(req.body.label || '').trim();
+  const lat = parseFloat(req.body.lat);
+  const lng = parseFloat(req.body.lng);
+  if (!label || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    flash('error', 'Waypoint tidak valid: label wajib dan koordinat harus benar.', req);
+    return res.redirect(`/admin/booking/${booking.id}`);
+  }
+  booking.track = booking.track || [];
+  booking.track.push({ label, lat, lng, at: new Date().toISOString() });
+  db.write();
+  flash('success', `Waypoint "${label}" ditambahkan ke rute booking ${booking.code}.`, req);
+  res.redirect(`/admin/booking/${booking.id}`);
+});
+
+router.post('/booking/:id/waypoint/hapus', (req, res, next) => {
+  const data = req.data;
+  const booking = data.bookings.find((x) => x.id === req.params.id);
+  if (!booking) return next();
+  const idx = parseInt(req.body.index, 10);
+  if (Number.isInteger(idx) && idx >= 0 && idx < (booking.track || []).length) {
+    booking.track.splice(idx, 1);
+    db.write();
+    flash('success', 'Waypoint dihapus.', req);
+  }
+  res.redirect(`/admin/booking/${booking.id}`);
+});
+
+router.post('/booking/:id/status', (req, res, next) => {
+  const data = req.data;
+  const item = data.bookings.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  const allowed = ['pending', 'confirmed', 'completed', 'cancelled'];
+  if (!allowed.includes(req.body.status)) {
+    flash('error', 'Status tidak dikenal.', req);
+    return res.redirect(`/admin/booking/${item.id}`);
+  }
+  item.status = req.body.status;
+  db.write();
+  flash('success', `Status booking ${item.code} diperbarui menjadi "${helpers.bookingStatusLabel(item.status)}".`, req);
+  res.redirect(`/admin/booking/${item.id}`);
+});
+
+/* Verifikasi pembayaran manual (bukti transfer dari tamu). */
+router.post('/booking/:id/bayar', (req, res, next) => {
+  const data = req.data;
+  const item = data.bookings.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  item.paymentStatus = 'paid';
+  item.paidAt = new Date().toISOString();
+  item.paymentMethod = item.paymentMethod || 'manual';
+  if (item.status === 'pending') item.status = 'confirmed';
+  db.write();
+  flash('success', `Pembayaran booking ${item.code} ditandai LUNAS. Status booking dikonfirmasi.`, req);
+  res.redirect(`/admin/booking/${item.id}`);
+});
+
+router.post('/booking/:id/tolak-bayar', (req, res, next) => {
+  const data = req.data;
+  const item = data.bookings.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  item.paymentStatus = 'unpaid';
+  item.proofImage = null;
+  db.write();
+  flash('error', `Bukti pembayaran booking ${item.code} ditolak. Tamu diminta mengunggah ulang.`, req);
+  res.redirect(`/admin/booking/${item.id}`);
+});
+
+router.post('/booking/:id/hapus', (req, res, next) => {
+  const data = req.data;
+  const idx = data.bookings.findIndex((x) => x.id === req.params.id);
+  if (idx < 0) return next();
+  const [removed] = data.bookings.splice(idx, 1);
+  db.write();
+  flash('success', `Booking ${removed.code} dihapus.`, req);
+  res.redirect('/admin/booking');
+});
+
+/* ------------------------------------------------------------------ */
+/* Pesan / Kontak                                                      */
+/* ------------------------------------------------------------------ */
+router.get('/pesan', (req, res) => {
+  const pg = helpers.paginate([...req.data.messages], req.query.page, 10);
+  res.render('admin/messages', { title: 'Kotak Pesan', pg });
+});
+
+router.post('/pesan/:id/baca', (req, res, next) => {
+  const data = req.data;
+  const item = data.messages.find((x) => x.id === req.params.id);
+  if (!item) return next();
+  item.read = !item.read;
+  db.write();
+  res.redirect('/admin/pesan');
+});
+
+router.post('/pesan/:id/hapus', (req, res, next) => {
+  const data = req.data;
+  const idx = data.messages.findIndex((x) => x.id === req.params.id);
+  if (idx < 0) return next();
+  data.messages.splice(idx, 1);
+  db.write();
+  flash('success', 'Pesan dihapus.', req);
+  res.redirect('/admin/pesan');
+});
+
+/* ------------------------------------------------------------------ */
+/* Pelanggan (portal akun)                                              */
+/* ------------------------------------------------------------------ */
+router.get('/pelanggan', (req, res) => {
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const data = req.data;
+  let list = (data.customers || []).map((c) => {
+    const bookings = (data.bookings || []).filter((b) => b.customerId === c.id);
+    return {
+      ...c,
+      bookingCount: bookings.length,
+      lastBooking: bookings.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0] || null
+    };
+  });
+  if (q) list = list.filter((c) => c.name.toLowerCase().includes(q) || c.email.includes(q) || (c.phone || '').includes(q));
+  list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const pg = helpers.paginate(list, req.query.page, 10);
+  res.render('admin/customers', { title: 'Pelanggan', pg, q: req.query.q || '' });
+});
+
+router.post('/pelanggan/:id/hapus', (req, res, next) => {
+  const data = req.data;
+  const idx = (data.customers || []).findIndex((x) => x.id === req.params.id);
+  if (idx < 0) return next();
+  const [removed] = data.customers.splice(idx, 1);
+  (data.bookings || []).forEach((b) => {
+    if (b.customerId === removed.id) b.customerId = null;
+  });
+  db.write();
+  flash('success', `Akun pelanggan "${removed.name}" dihapus. Booking-nya tetap tersimpan.`, req);
+  res.redirect('/admin/pelanggan');
+});
+
+/* ------------------------------------------------------------------ */
+/* Testimoni / ulasan                                                  */
+/* ------------------------------------------------------------------ */
+router.get('/testimoni', (req, res) => {
+  const status = String(req.query.status || '').trim();
+  let list = [...(req.data.reviews || [])];
+  if (status) list = list.filter((r) => r.status === status);
+  list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const pg = helpers.paginate(list, req.query.page, 10);
+  res.render('admin/testimoni', { title: 'Testimoni & Ulasan', pg, status });
+});
+
+router.post('/testimoni/:id/status', (req, res, next) => {
+  const data = req.data;
+  const item = (data.reviews || []).find((x) => x.id === req.params.id);
+  if (!item) return next();
+  const allowed = ['pending', 'approved', 'rejected'];
+  if (!allowed.includes(req.body.status)) {
+    flash('error', 'Status testimoni tidak dikenal.', req);
+    return res.redirect('/admin/testimoni');
+  }
+  item.status = req.body.status;
+  db.write();
+  const word = { pending: 'ditunda', approved: 'DISETUJUI & tampil di beranda', rejected: 'ditolak' }[item.status];
+  flash('success', `Ulasan dari "${item.customerName}" ${word}.`, req);
+  res.redirect(req.get('Referrer') || '/admin/testimoni');
+});
+
+router.post('/testimoni/:id/hapus', (req, res, next) => {
+  const data = req.data;
+  const idx = (data.reviews || []).findIndex((x) => x.id === req.params.id);
+  if (idx < 0) return next();
+  data.reviews.splice(idx, 1);
+  db.write();
+  flash('success', 'Testimoni dihapus.', req);
+  res.redirect('/admin/testimoni');
+});
+
+/* ------------------------------------------------------------------ */
+/* Pengaturan & akun                                                   */
+/* ------------------------------------------------------------------ */
+router.get('/pengaturan', (req, res) => {
+  res.render('admin/settings', { title: 'Pengaturan Situs', item: req.data.settings });
+});
+
+router.post('/pengaturan', upload.fields([{ name: 'logoFile', maxCount: 1 }, { name: 'heroFile', maxCount: 1 }]), (req, res) => {
+  const data = req.data;
+  const b = req.body;
+  const s = data.settings;
+  s.siteName = String(b.siteName || s.siteName).trim();
+  s.tagline = String(b.tagline || s.tagline).trim();
+  s.whatsapp = String(b.whatsapp || s.whatsapp).replace(/[^0-9]/g, '');
+  s.email = String(b.email || s.email).trim();
+  s.phone = String(b.phone || s.phone).trim();
+  s.address = String(b.address || s.address).trim();
+  s.instagram = String(b.instagram || s.instagram).trim();
+  s.facebook = String(b.facebook || s.facebook).trim();
+  s.about = String(b.about || s.about).trim();
+  s.heroTitle = String(b.heroTitle || s.heroTitle).trim();
+  s.heroSubtitle = String(b.heroSubtitle || s.heroSubtitle).trim();
+  // Pembayaran
+  s.paymentBank = String(b.paymentBank || s.paymentBank || 'BCA').trim();
+  s.paymentAccount = String(b.paymentAccount || s.paymentAccount || '').trim();
+  s.paymentAccountName = String(b.paymentAccountName || s.paymentAccountName || '').trim();
+  s.midtransServerKey = String(b.midtransServerKey || s.midtransServerKey || '').trim();
+  s.midtransClientKey = String(b.midtransClientKey || s.midtransClientKey || '').trim();
+  if ('midtransProduction' in b) s.midtransProduction = b.midtransProduction === 'on';
+  s.tripayMerchantCode = String(b.tripayMerchantCode || s.tripayMerchantCode || '').trim();
+  s.tripayPrivateKey = String(b.tripayPrivateKey || s.tripayPrivateKey || '').trim();
+  s.tripayApiKey = String(b.tripayApiKey || s.tripayApiKey || '').trim();
+  if ('tripayProduction' in b) s.tripayProduction = b.tripayProduction === 'on';
+  // WhatsApp marketing (hanya token & phone id resmi Cloud API)
+  s.waToken = String(b.waToken || s.waToken || '').trim();
+  s.waPhoneId = String(b.waPhoneId || s.waPhoneId || '').trim();
+  s.waDefaultTemplate = String(b.waDefaultTemplate || s.waDefaultTemplate || '').trim();
+  if (req.files && req.files.logoFile && req.files.logoFile[0]) s.logo = `/uploads/${req.files.logoFile[0].filename}`;
+  if (req.files && req.files.heroFile && req.files.heroFile[0]) s.heroImageUrl = `/uploads/${req.files.heroFile[0].filename}`;
+  if (b.heroImageReset === '1') s.heroImageUrl = '';
+  // Menu WhatsApp mengambang
+  s.waFloatEnabled = b.waFloatEnabled === 'on';
+  s.waFloatMessage = String(b.waFloatMessage || s.waFloatMessage || '').trim();
+  db.write();
+  flash('success', 'Pengaturan situs berhasil disimpan.', req);
+  res.redirect('/admin/pengaturan');
+});
+
+/* ------------------------------------------------------------------ */
+/* SEO & Peta Situs                                                    */
+/* ------------------------------------------------------------------ */
+router.get('/seo', (req, res) => {
+  const seo = require('../seo');
+  const data = req.data;
+  const sitemap = seo.buildSitemap(data.settings || {}, data);
+  res.render('admin/seo', {
+    title: 'SEO & Peta Situs',
+    item: data.settings,
+    sitemapPreview: sitemap,
+    robotsPreview: seo.buildRobots(data.settings || {}),
+    urlCount: (sitemap.match(/<loc>/g) || []).length
+  });
+});
+
+router.post('/seo', upload.fields([{ name: 'ogFile', maxCount: 1 }]), (req, res) => {
+  const s = req.data.settings;
+  const b = req.body;
+  s.siteUrl = String(b.siteUrl || '').trim().replace(/\/+$/, '');
+  s.seoDescription = String(b.seoDescription || '').trim().slice(0, 300);
+  s.seoIndex = b.seoIndex === 'on';
+  if (req.files && req.files.ogFile && req.files.ogFile[0]) s.ogImageUrl = `/uploads/${req.files.ogFile[0].filename}`;
+  if (b.ogImageReset === '1') s.ogImageUrl = '';
+  db.write();
+  flash('success', 'Pengaturan SEO berhasil disimpan.', req);
+  res.redirect('/admin/seo');
+});
+
+router.get('/akun', (req, res) => {
+  const user = req.data.users.find((u) => u.id === req.session.userId);
+  res.render('admin/account', { title: 'Akun Saya', user });
+});
+
+router.post('/akun/password', (req, res) => {
+  const user = req.data.users.find((u) => u.id === req.session.userId);
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+  if (!bcrypt.compareSync(String(currentPassword || ''), user.passwordHash)) {
+    flash('error', 'Password saat ini salah.', req);
+    return res.redirect('/admin/akun');
+  }
+  if (!newPassword || String(newPassword).length < 8) {
+    flash('error', 'Password baru minimal 8 karakter.', req);
+    return res.redirect('/admin/akun');
+  }
+  if (newPassword !== confirmPassword) {
+    flash('error', 'Konfirmasi password tidak cocok.', req);
+    return res.redirect('/admin/akun');
+  }
+  user.passwordHash = bcrypt.hashSync(String(newPassword), 10);
+  db.write();
+  flash('success', 'Password berhasil diperbarui.', req);
+  res.redirect('/admin/akun');
+});
+
+module.exports = router;

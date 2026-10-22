@@ -1,0 +1,50 @@
+<section class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / Kontak</div>
+    <h1>Hubungi Kami</h1>
+    <p>Punya pertanyaan soal destinasi atau ingin itinerary custom? Tulis pesan di bawah ini.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container detail-grid">
+    <div>
+      <form action="/kontak" method="post" class="form-grid">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="field">
+          <label for="c-name">Nama lengkap</label>
+          <input id="c-name" type="text" name="name" required>
+        </div>
+        <div class="field">
+          <label for="c-email">Email</label>
+          <input id="c-email" type="email" name="email" required>
+        </div>
+        <div class="field">
+          <label for="c-phone">Nomor WhatsApp (opsional)</label>
+          <input id="c-phone" type="tel" name="phone">
+        </div>
+        <div class="field">
+          <label for="c-subject">Subjek</label>
+          <input id="c-subject" type="text" name="subject" placeholder="Contoh: Private trip Sabesi">
+        </div>
+        <div class="field field--full">
+          <label for="c-message">Pesan</label>
+          <textarea id="c-message" name="message" rows="5" required placeholder="Ceritakan rencana perjalanan Anda…"></textarea>
+        </div>
+        <div class="field--full">
+          <button type="submit" class="btn btn--sunset">Kirim Pesan</button>
+        </div>
+      </form>
+    </div>
+    <aside class="sidebar-card">
+      <h3>Kontak Langsung</h3>
+      <dl class="info-rows">
+        <div><dt>WhatsApp</dt><dd>+<%= settings.whatsapp %></dd></div>
+        <div><dt>Email</dt><dd><%= settings.email %></dd></div>
+        <div><dt>Telepon</dt><dd><%= settings.phone %></dd></div>
+        <div><dt>Alamat</dt><dd style="text-align:right"><%= settings.address %></dd></div>
+      </dl>
+      <a href="https://wa.me/<%= settings.whatsapp %>" target="_blank" rel="noopener" class="btn btn--deep" style="width:100%">Chat via WhatsApp</a>
+    </aside>
+  </div>
+</section>

@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <% const ogTitle = (seo && seo.title) ? seo.title : title; %>
+  <% const ogDesc = (seo && seo.description) ? seo.description : (settings.tagline || 'Liburan pulau yang enak, terencana, tanpa ribet'); %>
+  <% const ogImage = (seo && seo.image) ? seo.image : (settings.ogImageUrl || settings.heroImageUrl || '/img/dest-sabesi.svg'); %>
+  <% const ogType = (seo && seo.type) ? seo.type : 'website'; %>
+  <% const canonical = absoluteUrl(currentPath); %>
+  <title><%= ogTitle %> · <%= settings.siteName || 'jalanjalanenak.com' %></title>
+  <meta name="description" content="<%= ogDesc %>">
+  <% if (canonical) { %><link rel="canonical" href="<%= canonical %>"><% } %>
+  <% if (settings.seoIndex === false) { %><meta name="robots" content="noindex, nofollow"><% } %>
+  <!-- Open Graph -->
+  <meta property="og:site_name" content="<%= settings.siteName %>">
+  <meta property="og:type" content="<%= ogType %>">
+  <meta property="og:title" content="<%= ogTitle %>">
+  <meta property="og:description" content="<%= ogDesc %>">
+  <% if (canonical) { %><meta property="og:url" content="<%= canonical %>"><% } %>
+  <% if (ogImage) { %><meta property="og:image" content="<%= absoluteUrl(ogImage) %>"><% } %>
+  <meta property="og:locale" content="id_ID">
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="<%= ogImage ? 'summary_large_image' : 'summary' %>">
+  <meta name="twitter:title" content="<%= ogTitle %>">
+  <meta name="twitter:description" content="<%= ogDesc %>">
+  <% if (ogImage) { %><meta name="twitter:image" content="<%= absoluteUrl(ogImage) %>"><% } %>
+  <% const jsonLdItems = (seo && seo.jsonLd && seo.jsonLd.length)
+    ? [{ '@context': 'https://schema.org', '@graph': seo.jsonLd }]
+    : []; %>
+  <% jsonLdItems.forEach((ld) => { %>
+  <script type="application/ld+json"><%- JSON.stringify(ld).replace(/</g, '\\u003c') %></script>
+  <% }); %>
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+  <% if (typeof mapData !== 'undefined' && mapData) { %>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <% } %>
+</head>
+<body>
+  <%- include('../partials/flash') %>
+  <%- include('../partials/header') %>
+  <main>
+    <%- body %>
+  </main>
+  <%- include('../partials/footer') %>
+  <%- include('../partials/wa-float') %>
+  <script>
+    document.querySelector('.nav-toggle')?.addEventListener('click', function () {
+      document.querySelector('.nav')?.classList.toggle('open');
+    });
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+  </script>
+  <script src="/js/depth.js" defer></script>
+  <% if (typeof mapData !== 'undefined' && mapData) { %>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="/js/map.js"></script>
+  <% } %>
+</body>
+</html>

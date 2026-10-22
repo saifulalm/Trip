@@ -1,0 +1,59 @@
+<div class="admin-head">
+  <div>
+    <h1>Kontak Marketing</h1>
+    <p><%= contacts.length %> kontak terdaftar · <strong><%= marketable %></strong> siap menerima blast (opt-in &amp; bukan opt-out)</p>
+  </div>
+  <div class="admin-head__actions">
+    <% if (!waActive) { %><span class="badge badge--cancelled">WA Cloud API belum aktif</span><% } %>
+    <% if (quietHour) { %><span class="badge badge--pending">Jam tenang (21.00–08.00)</span><% } %>
+    <a href="/admin/marketing/blast" class="btn-a btn-a--sunset">📣 Buat Blast</a>
+  </div>
+</div>
+
+<div class="panel" style="margin-bottom:1.4rem">
+  <div class="panel__head"><h2>Tambah Kontak Manual</h2></div>
+  <form action="/admin/marketing/kontak" method="post" class="a-form" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:0.8rem; align-items:end">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="a-field" style="margin:0"><label>Nama</label><input type="text" name="name" required></div>
+    <div class="a-field" style="margin:0"><label>WhatsApp</label><input type="text" name="phone" placeholder="0812xxxx / 62812…" required></div>
+    <div class="a-field" style="margin:0"><label>Email (opsional)</label><input type="email" name="email"></div>
+    <label class="a-check" style="margin:0 0 0.4rem"><input type="checkbox" name="optIn"> Sudah minta izin promo</label>
+    <button type="submit" class="btn-a btn-a--primary">Tambah</button>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="a-table-wrap">
+    <table class="a-table">
+      <thead><tr><th>Nama</th><th>WhatsApp</th><th>Sumber</th><th>Izin Promo</th><th>Kelola</th></tr></thead>
+      <tbody>
+        <% contacts.forEach((c) => { %>
+          <tr>
+            <td><strong><%= c.name %></strong><br><small style="color:var(--a-soft)"><%= c.email || '—' %></small></td>
+            <td><%= c.phone %></td>
+            <td><span class="badge badge--<%= c.source === 'booking' ? 'completed' : c.source === 'manual' ? 'pending' : 'pending' %>"><%= c.source %></span></td>
+            <td>
+              <form action="/admin/marketing/kontak/<%= c.id %>/toggle" method="post" style="display:flex; gap:0.3rem; flex-wrap:wrap">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="field" value="optIn">
+                <button type="submit" class="badge badge--<%= c.optIn ? 'completed' : 'cancelled' %>" style="border:0; cursor:pointer"><%= c.optIn ? '✓ Opt-in' : '✕ Belum izin' %></button>
+              </form>
+              <form action="/admin/marketing/kontak/<%= c.id %>/toggle" method="post" style="display:inline">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="field" value="optOut">
+                <button type="submit" class="badge badge--<%= c.optOut ? 'cancelled' : 'pending' %>" style="border:0; cursor:pointer"><%= c.optOut ? 'Minta berhenti' : '—' %></button>
+              </form>
+            </td>
+            <td>
+              <form action="/admin/marketing/kontak/<%= c.id %>/hapus" method="post" onsubmit="return confirm('Hapus kontak <%= c.name %>?')">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (!contacts.length) { %><tr><td colspan="5" style="text-align:center; padding:2rem">Belum ada kontak. Tamu booking &amp; pesan kontak otomatis terdaftar di sini.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>

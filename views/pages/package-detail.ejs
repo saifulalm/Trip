@@ -1,0 +1,87 @@
+<section class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / <a href="/paket">Paket Wisata</a> / <%= pkg.title %></div>
+    <h1><%= pkg.title %></h1>
+    <p><%= pkg.destinationName %> — <%= pkg.days %> hari <%= pkg.nights %> malam, kelompok <%= pkg.groupSize %></p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container detail-grid">
+    <div>
+      <img src="<%= pkg.image %>" alt="<%= pkg.title %>" style="border-radius:var(--radius-m); margin-bottom:1.8rem; width:100%; height:300px; object-fit:cover">
+      <div class="prose"><p><%= pkg.summary %></p></div>
+
+      <h3 style="margin-top:1.8rem; font-size:1.3rem">Itinerary Harian</h3>
+      <ul class="timeline">
+        <% (pkg.itinerary || []).forEach(function (it) { %>
+          <li>
+            <span class="day-tag">Hari <%= it.day %></span>
+            <h4><%= it.title %></h4>
+            <p><%= it.detail %></p>
+          </li>
+        <% }) %>
+      </ul>
+
+      <div class="grid grid--2" style="margin-top:1.4rem">
+        <div>
+          <h3 style="font-size:1.1rem; margin-bottom:0.6rem">✔ Termasuk</h3>
+          <ul class="fact-list" style="margin:0">
+            <% (pkg.includes || []).forEach(function (i) { %><li><%= i %></li><% }) %>
+          </ul>
+        </div>
+        <div>
+          <h3 style="font-size:1.1rem; margin-bottom:0.6rem">✖ Belum termasuk</h3>
+          <ul class="fact-list" style="margin:0">
+            <% (pkg.excludes || []).forEach(function (i) { %><li><%= i %></li><% }) %>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <aside class="sidebar-card" id="booking">
+      <h3>Pesan Paket Ini</h3>
+      <span class="price-big"><%= formatRupiah(pkg.price) %> <small>per orang</small></span>
+      <dl class="info-rows">
+        <div><dt>Destinasi</dt><dd><%= pkg.destinationName %></dd></div>
+        <div><dt>Durasi</dt><dd><%= pkg.days %>H<%= pkg.nights %>M</dd></div>
+        <div><dt>Ukuran grup</dt><dd><%= pkg.groupSize %></dd></div>
+      </dl>
+
+      <form action="/paket/<%= pkg.slug %>/booking" method="post" class="form-grid" style="grid-template-columns:1fr">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="field">
+          <label for="bk-name">Nama lengkap</label>
+          <input id="bk-name" type="text" name="name" required placeholder="Nama sesuai KTP">
+        </div>
+        <div class="field">
+          <label for="bk-email">Email</label>
+          <input id="bk-email" type="email" name="email" required placeholder="email@contoh.com">
+        </div>
+        <div class="field">
+          <label for="bk-phone">Nomor WhatsApp</label>
+          <input id="bk-phone" type="tel" name="phone" required placeholder="08xxxxxxxxxx">
+        </div>
+        <div class="field">
+          <label for="bk-date">Tanggal keberangkatan</label>
+          <input id="bk-date" type="date" name="departureDate" min="<%= minDate %>" required>
+        </div>
+        <div class="field">
+          <label for="bk-pax">Jumlah peserta</label>
+          <select id="bk-pax" name="participants">
+            <% for (let i = 1; i <= 12; i++) { %><option value="<%= i %>"><%= i %> orang</option><% } %>
+          </select>
+        </div>
+        <div class="field">
+          <label for="bk-notes">Catatan (opsional)</label>
+          <textarea id="bk-notes" name="notes" rows="2" placeholder="Alergi makanan, kebutuhan khusus…"></textarea>
+        </div>
+        <label style="font-size:0.78rem; color:var(--ink-soft); display:flex; gap:0.5rem; align-items:flex-start">
+          <input type="checkbox" name="waConsent" style="margin-top:0.2rem"> Izinkan saya dihubungi via WhatsApp untuk promo &amp; info trip (bisa berhenti kapan saja)
+        </label>
+        <button type="submit" class="btn btn--sunset" style="width:100%">Kirim Permintaan Booking</button>
+        <p style="font-size:0.76rem; color:var(--ink-soft); text-align:center">Tim kami menghubungi Anda maksimal 1×24 jam.</p>
+      </form>
+    </aside>
+  </div>
+</section>

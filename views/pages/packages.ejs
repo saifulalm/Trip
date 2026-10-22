@@ -1,0 +1,33 @@
+<section class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / Paket Wisata</div>
+    <h1>Paket Wisata</h1>
+    <p>Itinerary tersusun, harga transparan, pemandu lokal berpengalaman.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <% if (packages.length === 0) { %>
+      <div class="empty-state">Belum ada paket tersedia saat ini.</div>
+    <% } else { %>
+      <div class="grid grid--3">
+        <% packages.forEach(function (p) { %>
+          <div class="pass-card reveal">
+            <div class="pass-card__top">
+              <span class="pass-card__code"><%= p.days %>H<%= p.nights %>M · <%= p.destinationName %></span>
+              <h3><%= p.title %></h3>
+              <p class="route"><%= excerpt(p.summary, 100) %></p>
+              <p class="route" style="margin-top:0.5rem">👥 <%= p.groupSize %></p>
+            </div>
+            <div class="pass-card__perf"></div>
+            <div class="pass-card__bottom">
+              <span class="pass-card__price"><%= formatRupiah(p.price) %> <small>per orang</small></span>
+              <a href="/paket/<%= p.slug %>" class="btn btn--deep btn--sm">Detail &amp; Pesan</a>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</section>

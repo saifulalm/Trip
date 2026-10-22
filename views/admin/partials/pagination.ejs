@@ -1,0 +1,14 @@
+<% if (pg && pg.pages > 1) { %>
+  <div class="pagination">
+    <a class="<%= pg.hasPrev ? '' : 'disabled' %>" href="?page=<%= pg.page - 1 %>&q=<%= q || '' %><%= typeof status !== 'undefined' && status ? '&status=' + status : '' %>">‹ Prev</a>
+    <% for (let i = 1; i <= pg.pages; i++) { %>
+      <% if (i === pg.page) { %>
+        <span class="current"><%= i %></span>
+      <% } else if (Math.abs(i - pg.page) <= 2 || i === 1 || i === pg.pages) { %>
+        <a href="?page=<%= i %>&q=<%= q || '' %><%= typeof status !== 'undefined' && status ? '&status=' + status : '' %>"><%= i %></a>
+      <% } %>
+    <% } %>
+    <a class="<%= pg.hasNext ? '' : 'disabled' %>" href="?page=<%= pg.page + 1 %>&q=<%= q || '' %><%= typeof status !== 'undefined' && status ? '&status=' + status : '' %>">Next ›</a>
+    <span class="info">Menampilkan <%= pg.from %>–<%= pg.to %> dari <%= pg.total %></span>
+  </div>
+<% } %>

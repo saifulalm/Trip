@@ -1,0 +1,121 @@
+<div class="panel">
+  <div class="panel__head"><h2>Pengaturan Situs</h2></div>
+  <form action="/admin/pengaturan" method="post" enctype="multipart/form-data" class="a-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="a-form-grid">
+      <div class="a-field">
+        <label>Nama Situs</label>
+        <input type="text" name="siteName" value="<%= item.siteName %>">
+      </div>
+      <div class="a-field">
+        <label>Tagline</label>
+        <input type="text" name="tagline" value="<%= item.tagline %>">
+      </div>
+      <div class="a-field a-field--full">
+        <label>Judul Hero (boleh pakai baris baru)</label>
+        <textarea name="heroTitle" rows="2"><%= item.heroTitle %></textarea>
+      </div>
+      <div class="a-field a-field--full">
+        <label>Subjudul Hero</label>
+        <textarea name="heroSubtitle" rows="2"><%= item.heroSubtitle %></textarea>
+      </div>
+      <div class="a-field">
+        <label>WhatsApp (hanya angka, contoh: 6281234567890)</label>
+        <input type="text" name="whatsapp" value="<%= item.whatsapp %>">
+      </div>
+      <div class="a-field">
+        <label>Email</label>
+        <input type="email" name="email" value="<%= item.email %>">
+      </div>
+      <div class="a-field">
+        <label>Telepon</label>
+        <input type="text" name="phone" value="<%= item.phone %>">
+      </div>
+      <div class="a-field">
+        <label>Alamat</label>
+        <input type="text" name="address" value="<%= item.address %>">
+      </div>
+      <div class="a-field">
+        <label>Instagram (URL)</label>
+        <input type="url" name="instagram" value="<%= item.instagram %>">
+      </div>
+      <div class="a-field">
+        <label>Facebook (URL)</label>
+        <input type="url" name="facebook" value="<%= item.facebook %>">
+      </div>
+      <div class="a-field a-field--full">
+        <label>Tentang Kami (halaman /tentang &amp; footer)</label>
+        <textarea name="about" rows="4"><%= item.about %></textarea>
+      </div>
+      <div class="a-field">
+        <label>Menu WhatsApp Mengambang (situs publik)</label>
+        <label class="a-check">
+          <input type="hidden" name="waFloatEnabled" value="off">
+          <input type="checkbox" name="waFloatEnabled" <%= item.waFloatEnabled !== false ? 'checked' : '' %>> Tampilkan tombol WhatsApp mengambang
+        </label>
+      </div>
+      <div class="a-field">
+        <label>Pesan Awal Chat WhatsApp (template pesan pertama)</label>
+        <textarea name="waFloatMessage" rows="2"><%= item.waFloatMessage || '' %></textarea>
+      </div>
+      <div class="a-field">
+        <label>Logo (opsional)</label>
+        <input type="file" name="logoFile" accept="image/*">
+        <% if (item.logo) { %><img src="<%= item.logo %>" alt="" class="img-preview" style="margin-top:0.5rem"><% } %>
+      </div>
+      <div class="a-field a-field--full">
+        <label>Gambar Hero Beranda (JPG/PNG/WEBP, maks 5 MB — opsional, tampil di kartu hero)</label>
+        <input type="file" name="heroFile" accept="image/*">
+        <% if (item.heroImageUrl) { %>
+          <img src="<%= item.heroImageUrl %>" alt="" class="img-preview" style="margin-top:0.5rem; max-height:160px">
+          <label class="a-check" style="margin-top:0.4rem">
+            <input type="checkbox" name="heroImageReset" value="1"> Kembalikan ke gambar default
+          </label>
+        <% } %>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn-a btn-a--sunset">Simpan Pengaturan</button>
+    </div>
+  </form>
+</div>
+
+<div class="panel-grid">
+  <div class="panel">
+    <div class="panel__head"><h2>Pembayaran — Transfer Manual</h2></div>
+    <form action="/admin/pengaturan" method="post" class="a-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="a-field"><label>Nama Bank</label><input type="text" name="paymentBank" value="<%= item.paymentBank || 'BCA' %>"></div>
+      <div class="a-field"><label>Nomor Rekening</label><input type="text" name="paymentAccount" value="<%= item.paymentAccount || '' %>"></div>
+      <div class="a-field"><label>Atas Nama</label><input type="text" name="paymentAccountName" value="<%= item.paymentAccountName || '' %>"></div>
+      <div class="form-actions"><button type="submit" class="btn-a btn-a--sunset">Simpan Rekening</button></div>
+    </form>
+  </div>
+  <div class="panel">
+    <div class="panel__head"><h2>Payment Gateway</h2></div>
+    <form action="/admin/pengaturan" method="post" class="a-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <p class="help" style="margin-bottom:0.8rem">Isi kunci dari dashboard masing-masing gateway. Kosongkan untuk menonaktifkan. (Midtrans &amp; Tripay dipanggil via REST resmi.)</p>
+      <div class="a-field"><label>Midtrans Server Key</label><input type="text" name="midtransServerKey" value="<%= item.midtransServerKey || '' %>" placeholder="SB-Mid-server-…"></div>
+      <div class="a-field"><label>Midtrans Client Key</label><input type="text" name="midtransClientKey" value="<%= item.midtransClientKey || '' %>" placeholder="SB-Mid-client-…"></div>
+      <label class="a-check" style="margin-bottom:0.8rem"><input type="checkbox" name="midtransProduction" <%= item.midtransProduction ? 'checked' : '' %>> Midtrans mode production (tanpa centang = sandbox)</label>
+      <hr style="border-color:var(--a-line); margin:0.8rem 0">
+      <div class="a-field"><label>Tripay Merchant Code</label><input type="text" name="tripayMerchantCode" value="<%= item.tripayMerchantCode || '' %>" placeholder="TRX-…"></div>
+      <div class="a-field"><label>Tripay Private Key</label><input type="password" name="tripayPrivateKey" value="<%= item.tripayPrivateKey || '' %>" autocomplete="off"></div>
+      <div class="a-field"><label>Tripay API Key</label><input type="password" name="tripayApiKey" value="<%= item.tripayApiKey || '' %>" autocomplete="off"></div>
+      <label class="a-check" style="margin-bottom:0.8rem"><input type="checkbox" name="tripayProduction" <%= item.tripayProduction ? 'checked' : '' %>> Tripay mode production</label>
+      <div class="form-actions"><button type="submit" class="btn-a btn-a--sunset">Simpan Gateway</button></div>
+    </form>
+  </div>
+  <div class="panel">
+    <div class="panel__head"><h2>WhatsApp Cloud API (Marketing)</h2></div>
+    <form action="/admin/pengaturan" method="post" class="a-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <p class="help" style="margin-bottom:0.8rem">Gunakan token resmi <strong>WhatsApp Cloud API</strong> (Meta) — bukan automasi ilegal. Token disimpan di server, tidak pernah ditampilkan kembali setelah disimpan.</p>
+      <div class="a-field"><label>Access Token</label><input type="password" name="waToken" value="<%= item.waToken || '' %>" autocomplete="off" placeholder="EAAG…"></div>
+      <div class="a-field"><label>Phone Number ID</label><input type="text" name="waPhoneId" value="<%= item.waPhoneId || '' %>" placeholder="123456789"></div>
+      <div class="a-field"><label>Template Blast Bawaan</label><textarea name="waDefaultTemplate" rows="4"><%= item.waDefaultTemplate || '' %></textarea><span class="help">Gunakan {'{{nama}}'} sebagai placeholder nama kontak.</span></div>
+      <div class="form-actions"><button type="submit" class="btn-a btn-a--sunset">Simpan Pengaturan WA</button></div>
+    </form>
+  </div>
+</div>

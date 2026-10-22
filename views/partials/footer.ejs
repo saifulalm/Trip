@@ -1,0 +1,43 @@
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="brand">
+          <img src="/img/logo.svg" alt="Logo" style="width:40px;height:40px">
+          <span class="brand__name" style="color:#f6f0e6">jalanjalan<span style="color:#f2a65a">enak</span>.com</span>
+        </div>
+        <p><%= settings.about ? settings.about.slice(0, 140) + '…' : '' %></p>
+      </div>
+      <div>
+        <h4>Jelajahi</h4>
+        <ul>
+          <li><a href="/destinasi">Semua Destinasi</a></li>
+          <li><a href="/paket">Paket Wisata</a></li>
+          <li><a href="/artikel">Artikel &amp; Panduan</a></li>
+          <li><a href="/tentang">Tentang Kami</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Bantuan</h4>
+        <ul>
+          <li><a href="/kontak">Hubungi Kami</a></li>
+          <li><a href="/kontak">Tanya Ketersediaan</a></li>
+          <li><a href="/artikel">Tips Sebelum Berangkat</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4>Kontak</h4>
+        <ul>
+          <li>WhatsApp: +<%= settings.whatsapp || '-' %></li>
+          <li>Email: <%= settings.email || '-' %></li>
+          <li><%= settings.address || '-' %></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© <%= year %> <%= settings.siteName || 'jalanjalanenak.com' %>. Seluruh hak cipta dilindungi.</span>
+      <span class="dotline">✦ ✦ ✦</span>
+      <span>Dibuat dengan ♥ untuk lautan Indonesia</span>
+    </div>
+  </div>
+</footer>

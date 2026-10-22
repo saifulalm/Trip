@@ -1,0 +1,50 @@
+<% /* Menu WhatsApp mengambang — nomor & pesan dari Pengaturan Situs. */ %>
+<% if (settings.waFloatEnabled !== false && settings.whatsapp) { %>
+<div class="wa-float" id="waFloat">
+  <div class="wa-float__panel" id="waFloatPanel" hidden>
+    <p class="wa-float__head">Butuh bantuan? Chat kami 👋</p>
+    <a
+      class="wa-float__item"
+      href="https://wa.me/<%= settings.whatsapp %>?text=<%= encodeURIComponent(settings.waFloatMessage || 'Halo! Saya mau tanya-tanya soal trip ya.') %>"
+      target="_blank"
+      rel="noopener"
+    >💬 Tanya Trip &amp; Harga</a>
+    <a
+      class="wa-float__item"
+      href="https://wa.me/<%= settings.whatsapp %>?text=<%= encodeURIComponent('Halo, saya mau konsultasi soal paket wisata yang cocok untuk saya.') %>"
+      target="_blank"
+      rel="noopener"
+    >🏝️ Konsultasi Paket</a>
+    <a
+      class="wa-float__item"
+      href="https://wa.me/<%= settings.whatsapp %>?text=<%= encodeURIComponent('Halo, saya butuh bantuan terkait booking saya.') %>"
+      target="_blank"
+      rel="noopener"
+    >🎫 Bantuan Booking</a>
+  </div>
+  <button type="button" class="wa-float__btn" id="waFloatBtn" aria-label="Buka menu WhatsApp" aria-expanded="false">
+    <svg viewBox="0 0 32 32" width="26" height="26" fill="currentColor" aria-hidden="true">
+      <path d="M16.04 3C9.06 3 3.4 8.66 3.4 15.64c0 2.23.58 4.4 1.7 6.32L3 29.5l7.72-2.03a12.6 12.6 0 0 0 5.32 1.2h.01c6.98 0 12.64-5.66 12.64-12.64C28.69 8.66 23.02 3 16.04 3zm0 23.06h-.01c-1.66 0-3.29-.45-4.71-1.29l-.34-.2-3.61.95.96-3.52-.22-.36a10.28 10.28 0 0 1-1.58-5.47c0-5.7 4.64-10.33 10.35-10.33 2.76 0 5.36 1.08 7.31 3.03a10.27 10.27 0 0 1 3.03 7.31c0 5.7-4.64 10.33-10.33 10.33zm5.67-7.73c-.31-.16-1.84-.91-2.13-1.01-.29-.1-.5-.16-.71.16-.21.31-.81 1.01-1 1.22-.19.21-.37.24-.68.08-.31-.16-1.31-.48-2.5-1.54-.92-.83-1.55-1.85-1.73-2.16-.18-.31-.02-.48.14-.64.14-.14.31-.37.47-.55.16-.19.21-.31.31-.52.1-.21.05-.39-.03-.55-.08-.16-.71-1.72-.98-2.35-.26-.62-.52-.54-.71-.55l-.61-.01c-.21 0-.55.08-.84.39-.29.31-1.1 1.08-1.1 2.63s1.13 3.05 1.29 3.26c.16.21 2.22 3.4 5.39 4.77.75.33 1.34.52 1.8.67.76.24 1.45.2 2 .12.61-.09 1.84-.75 2.1-1.48.26-.73.26-1.35.18-1.48-.08-.13-.29-.21-.6-.37z"/>
+    </svg>
+  </button>
+</div>
+<script>
+  (function () {
+    var btn = document.getElementById('waFloatBtn');
+    var panel = document.getElementById('waFloatPanel');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = panel.hasAttribute('hidden');
+      if (open) { panel.removeAttribute('hidden'); } else { panel.setAttribute('hidden', ''); }
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', function (e) {
+      if (!e.target.closest('#waFloat')) {
+        panel.setAttribute('hidden', '');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  })();
+</script>
+<% } %>

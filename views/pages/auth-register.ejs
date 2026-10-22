@@ -1,0 +1,40 @@
+<section class="section">
+  <div class="container container--narrow">
+    <div class="portal-card reveal">
+      <span class="eyebrow">Portal Pelanggan</span>
+      <h1 style="font-family:var(--display); font-size:1.9rem; color:var(--deep-teal); margin:0.4rem 0 0.3rem">Daftar Akun Baru</h1>
+      <p style="color:var(--ink-soft); margin-bottom:1.5rem">
+        Punya akun? Lacak booking, lakukan check-in GPS saat berangkat, dan tinggalkan ulasan.
+      </p>
+      <form action="/daftar" method="post" class="portal-form" novalidate>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="portal-field">
+          <label for="name">Nama Lengkap <span class="req">*</span></label>
+          <input type="text" id="name" name="name" required minlength="3" placeholder="Nama sesuai identitas" autocomplete="name">
+        </div>
+        <div class="portal-field">
+          <label for="email">Email <span class="req">*</span></label>
+          <input type="email" id="email" name="email" required placeholder="nama@email.com" autocomplete="email">
+        </div>
+        <div class="portal-field">
+          <label for="phone">Nomor HP / WhatsApp <span class="req">*</span></label>
+          <input type="tel" id="phone" name="phone" required placeholder="08xx atau 62xx" autocomplete="tel">
+        </div>
+        <div class="portal-form-row">
+          <div class="portal-field">
+            <label for="password">Kata Sandi <span class="req">*</span></label>
+            <input type="password" id="password" name="password" required minlength="8" placeholder="Minimal 8 karakter" autocomplete="new-password">
+          </div>
+          <div class="portal-field">
+            <label for="passwordConfirm">Ulangi Kata Sandi <span class="req">*</span></label>
+            <input type="password" id="passwordConfirm" name="passwordConfirm" required minlength="8" placeholder="Ketik ulang" autocomplete="new-password">
+          </div>
+        </div>
+        <button type="submit" class="btn btn--sunset" style="width:100%">Daftar Sekarang →</button>
+      </form>
+      <p style="margin-top:1.2rem; font-size:0.92rem; color:var(--ink-soft)">
+        Sudah punya akun? <a href="/masuk"><strong>Masuk di sini</strong></a>
+      </p>
+    </div>
+  </div>
+</section>

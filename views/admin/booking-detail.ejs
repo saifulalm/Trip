@@ -1,0 +1,96 @@
+<div style="margin-bottom:1rem">
+  <a href="/admin/booking" class="btn-a btn-a--ghost btn-a--sm">← Kembali ke daftar booking</a>
+</div>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel__head">
+      <h2><%= booking.code %> · <%= booking.packageName %></h2>
+      <div style="display:flex; gap:0.4rem">
+        <span class="badge badge--<%= bookingStatusTone(booking.status) %>"><%= bookingStatusLabel(booking.status) %></span>
+        <span class="badge badge--<%= paymentStatusTone(booking.paymentStatus || 'unpaid') %>"><%= paymentStatusLabel(booking.paymentStatus || 'unpaid') %></span>
+      </div>
+    </div>
+
+    <dl class="a-info">
+      <div><dt>Tamu</dt><dd><%= booking.name %> · <%= booking.email %> · <%= booking.phone %></dd></div>
+      <div><dt>Keberangkatan</dt><dd><%= formatDateLong(booking.departureDate) %> · <%= booking.participants %> orang</dd></div>
+      <div><dt>Total</dt><dd><%= formatRupiah(booking.totalAmount || 0) %><%= booking.paymentMethod ? ' · ' + booking.paymentMethod : '' %></dd></div>
+      <% if (booking.notes) { %><div><dt>Catatan</dt><dd><%= booking.notes %></dd></div><% } %>
+      <% if (customer) { %><div><dt>Akun Pelanggan</dt><dd><%= customer.name %> (<%= customer.email %>)</dd></div><% } else { %><div><dt>Akun Pelanggan</dt><dd style="color:var(--a-soft)">Belum terhubung ke akun portal</dd></div><% } %>
+      <% if (booking.proofImage) { %><div><dt>Bukti Transfer</dt><dd><a href="<%= booking.proofImage %>" target="_blank" rel="noopener">Lihat bukti ↗</a></dd></div><% } %>
+      <% if (booking.checkIn) { %>
+        <div><dt>📍 Check-in GPS</dt><dd><%= booking.checkIn.lat.toFixed(5) %>, <%= booking.checkIn.lng.toFixed(5) %> · <%= formatDateLong(booking.checkIn.at) %><%= booking.checkIn.accuracy ? ' · ± ' + Math.round(booking.checkIn.accuracy) + ' m' : '' %></dd></div>
+      <% } %>
+    </dl>
+
+    <div class="a-form-grid" style="margin-top:1.2rem; gap:0.8rem">
+      <% if (booking.paymentStatus === 'awaiting_review' || booking.paymentStatus !== 'paid') { %>
+        <form action="/admin/booking/<%= booking.id %>/bayar" method="post">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-a btn-a--primary">Tandai LUNAS</button>
+        </form>
+      <% } else { %>
+        <form action="/admin/booking/<%= booking.id %>/tolak-bayar" method="post" onsubmit="return confirm('Tolak pembayaran booking ini?')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-a btn-a--danger">Tolak Bayar</button>
+        </form>
+      <% } %>
+      <form action="/admin/booking/<%= booking.id %>/status" method="post" style="display:flex; gap:0.4rem">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <select name="status" style="padding:0.35rem 0.6rem; border-radius:8px; border:1px solid var(--a-line)">
+          <option value="pending" <%= booking.status === 'pending' ? 'selected' : '' %>>Menunggu</option>
+          <option value="confirmed" <%= booking.status === 'confirmed' ? 'selected' : '' %>>Dikonfirmasi</option>
+          <option value="completed" <%= booking.status === 'completed' ? 'selected' : '' %>>Selesai</option>
+          <option value="cancelled" <%= booking.status === 'cancelled' ? 'selected' : '' %>>Dibatalkan</option>
+        </select>
+        <button type="submit" class="btn-a btn-a--primary">Ubah Status</button>
+      </form>
+      <form action="/admin/booking/<%= booking.id %>/hapus" method="post" onsubmit="return confirm('Hapus booking <%= booking.code %>?')">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn-a btn-a--danger">Hapus Booking</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel__head"><h2>Peta Check-in &amp; Rute</h2></div>
+    <div id="jje-map" class="jje-map jje-map--admin" role="img" aria-label="Peta check-in booking"></div>
+    <script id="map-data" type="application/json"><%- mapData %></script>
+
+    <h3 style="font-size:0.95rem; margin:1.2rem 0 0.5rem">Tambah Waypoint Perjalanan</h3>
+    <form action="/admin/booking/<%= booking.id %>/waypoint" method="post" class="a-form" style="display:grid; grid-template-columns:2fr 1fr 1fr auto; gap:0.5rem; align-items:end">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="a-field" style="margin:0">
+        <label>Label</label>
+        <input type="text" name="label" required placeholder="Dermaga Waisai">
+      </div>
+      <div class="a-field" style="margin:0">
+        <label>Lat</label>
+        <input type="text" name="lat" required placeholder="-0.4644">
+      </div>
+      <div class="a-field" style="margin:0">
+        <label>Lng</label>
+        <input type="text" name="lng" required placeholder="130.8924">
+      </div>
+      <button type="submit" class="btn-a btn-a--deep">+ Waypoint</button>
+    </form>
+
+    <% if (booking.track && booking.track.length) { %>
+      <ul class="waypoint-list">
+        <% booking.track.forEach(function (p, i) { %>
+          <li>
+            <span><strong><%= p.label %></strong> — <%= p.lat.toFixed(4) %>, <%= p.lng.toFixed(4) %></span>
+            <form action="/admin/booking/<%= booking.id %>/waypoint/hapus" method="post" onsubmit="return confirm('Hapus waypoint ini?')">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="hidden" name="index" value="<%= i %>">
+              <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p style="color:var(--a-soft); font-size:0.85rem; margin-top:0.8rem">Belum ada waypoint. Tambahkan titik perjalanan agar keluarga tamu dapat melihat rute di portal.</p>
+    <% } %>
+  </section>
+</div>

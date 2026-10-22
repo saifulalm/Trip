@@ -1,0 +1,86 @@
+<section class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / Pembayaran / <%= booking.code %></div>
+    <h1>Pembayaran Booking</h1>
+    <p>Kode booking Anda: <strong><%= booking.code %></strong></p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container detail-grid">
+    <div>
+      <div class="pass-card" style="max-width:560px">
+        <div class="pass-card__top">
+          <span class="pass-card__code"><%= booking.code %></span>
+          <h3><%= booking.packageName %></h3>
+          <p class="route">Keberangkatan <%= formatDateLong(booking.departureDate) %> · <%= booking.participants %> peserta</p>
+        </div>
+        <div class="pass-card__perf"></div>
+        <div class="pass-card__bottom" style="flex-direction:column; align-items:flex-start; gap:0.5rem">
+          <span class="pass-card__price"><%= formatRupiah(booking.totalAmount) %> <small>total tagihan</small></span>
+          <span class="badge badge--<%= payStatus === 'paid' ? 'completed' : payStatus === 'failed' ? 'cancelled' : 'pending' %>"><%= payLabel(payStatus) %></span>
+        </div>
+      </div>
+
+      <% if (payStatus === 'paid') { %>
+        <div class="flash flash--success" style="margin-top:1.6rem">
+          Pembayaran lunas! Booking Anda sudah dikonfirmasi. Detail perjalanan dikirim ke <%= booking.email %>.
+        </div>
+      <% } else { %>
+        <h3 style="margin-top:2rem; font-size:1.2rem">Pilih metode pembayaran</h3>
+
+        <% if (midtransOn || tripayOn) { %>
+          <form action="/pembayaran/<%= booking.code %>/bayar" method="post" style="display:grid; gap:0.8rem; max-width:560px; margin-top:0.8rem">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <% if (midtransOn) { %>
+              <button type="submit" name="method" value="midtrans" class="btn btn--deep" style="justify-content:space-between; width:100%">
+                <span>💳 Bayar via Midtrans</span><span>→</span>
+              </button>
+              <p style="font-size:0.76rem; color:var(--ink-soft); margin-top:-0.4rem">QRIS, VA, kartu kredit, e-wallet, &amp; gerai retail.</p>
+            <% } %>
+            <% if (tripayOn) { %>
+              <button type="submit" name="method" value="tripay" class="btn btn--ghost" style="justify-content:space-between; width:100%">
+                <span>🏦 Bayar via Tripay</span><span>→</span>
+              </button>
+              <p style="font-size:0.76rem; color:var(--ink-soft); margin-top:-0.4rem">Transfer bank virtual &amp; e-wallet lain.</p>
+            <% } %>
+          </form>
+        <% } %>
+
+        <div style="margin-top:1.8rem; max-width:560px">
+          <h3 style="font-size:1.1rem">atau Transfer Bank Manual</h3>
+          <dl class="info-rows">
+            <div><dt>Bank</dt><dd><%= settings.paymentBank || 'BCA' %></dd></div>
+            <div><dt>No. Rekening</dt><dd><%= settings.paymentAccount || '1234567890' %></dd></div>
+            <div><dt>a.n.</dt><dd><%= settings.paymentAccountName || 'PT JalanJalanEnak' %></dd></div>
+            <div><dt>Jumlah Transfer</dt><dd><strong><%= formatRupiah(booking.totalAmount) %></strong></dd></div>
+          </dl>
+          <form action="/pembayaran/<%= booking.code %>/manual" method="post" enctype="multipart/form-data" class="form-grid" style="grid-template-columns:1fr">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="field">
+              <label for="proof">Unggah bukti transfer (opsional)</label>
+              <input id="proof" type="file" name="proof" accept="image/*">
+            </div>
+            <div class="field">
+              <label for="pnote">Catatan transfer (opsional)</label>
+              <input id="pnote" type="text" name="note" placeholder="Atas nama, jam transfer…">
+            </div>
+            <button type="submit" class="btn btn--sunset">Saya Sudah Transfer</button>
+          </form>
+        </div>
+      <% } %>
+    </div>
+
+    <aside class="sidebar-card">
+      <h3>Ringkasan Booking</h3>
+      <dl class="info-rows">
+        <div><dt>Pemesan</dt><dd style="text-align:right"><%= booking.name %></dd></div>
+        <div><dt>Email</dt><dd style="text-align:right"><%= booking.email %></dd></div>
+        <div><dt>WhatsApp</dt><dd style="text-align:right"><%= booking.phone %></dd></div>
+        <div><dt>Metode</dt><dd style="text-align:right"><%= booking.paymentMethod || '—' %></dd></div>
+        <div><dt>Status booking</dt><dd style="text-align:right"><%= bookingStatusLabel(booking.status) %></dd></div>
+      </dl>
+      <a href="https://wa.me/<%= settings.whatsapp %>?text=Halo%2C%20saya%20ingin%20menanyakan%20booking%20<%= booking.code %>" target="_blank" rel="noopener" class="btn btn--ghost" style="width:100%">Butuh bantuan? Chat kami</a>
+    </aside>
+  </div>
+</section>

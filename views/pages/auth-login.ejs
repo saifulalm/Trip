@@ -1,0 +1,27 @@
+<section class="section">
+  <div class="container container--narrow">
+    <div class="portal-card reveal">
+      <span class="eyebrow">Portal Pelanggan</span>
+      <h1 style="font-family:var(--display); font-size:1.9rem; color:var(--deep-teal); margin:0.4rem 0 0.3rem">Masuk Akun</h1>
+      <p style="color:var(--ink-soft); margin-bottom:1.5rem">
+        Lacak booking Anda, lakukan check-in GPS, dan berikan ulasan setelah trip.
+      </p>
+      <form action="/masuk" method="post" class="portal-form" novalidate>
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="next" value="<%= typeof nextUrl !== 'undefined' ? nextUrl : '/akun' %>">
+        <div class="portal-field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required placeholder="nama@email.com" autocomplete="email">
+        </div>
+        <div class="portal-field">
+          <label for="password">Kata Sandi</label>
+          <input type="password" id="password" name="password" required placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn--sunset" style="width:100%">Masuk →</button>
+      </form>
+      <p style="margin-top:1.2rem; font-size:0.92rem; color:var(--ink-soft)">
+        Belum punya akun? <a href="/daftar"><strong>Daftar gratis</strong></a>
+      </p>
+    </div>
+  </div>
+</section>

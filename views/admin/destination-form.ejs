@@ -1,0 +1,82 @@
+<div class="panel">
+  <div class="panel__head">
+    <h2><%= item ? 'Edit Destinasi' : 'Tambah Destinasi Baru' %></h2>
+    <a href="/admin/destinasi" class="btn-a btn-a--ghost btn-a--sm">← Kembali</a>
+  </div>
+  <form action="<%= action %>" method="post" enctype="multipart/form-data" class="a-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="a-form-grid">
+      <div class="a-field">
+        <label>Nama Destinasi <span class="req">*</span></label>
+        <input type="text" name="name" required value="<%= item ? item.name : '' %>" placeholder="Pulau Sabesi">
+      </div>
+      <div class="a-field">
+        <label>Region <span class="req">*</span></label>
+        <input type="text" name="region" required value="<%= item ? item.region : '' %>" placeholder="Raja Ampat, Papua Barat Daya">
+      </div>
+      <div class="a-field a-field--full">
+        <label>Tagline Singkat</label>
+        <input type="text" name="tagline" value="<%= item ? item.tagline : '' %>" placeholder="Gerbang timur Raja Ampat…">
+      </div>
+      <div class="a-field a-field--full">
+        <label>Deskripsi <span class="req">*</span></label>
+        <textarea name="description" rows="6" required placeholder="Jelajahi destinasi dengan teks panjang…"><%= item ? item.description : '' %></textarea>
+      </div>
+      <div class="a-field a-field--full">
+        <label>Daya Tarik (satu per baris)</label>
+        <textarea name="highlights" rows="4" placeholder="Snorkeling di Spot Yenbuba&#10;Sunset di dermaga"><%= item && item.highlights ? item.highlights.join('\n') : '' %></textarea>
+      </div>
+      <div class="a-field">
+        <label>Musim Terbaik</label>
+        <input type="text" name="bestSeason" value="<%= item ? item.bestSeason : '' %>" placeholder="Oktober – April">
+      </div>
+      <div class="a-field">
+        <label>Durasi Ideal</label>
+        <input type="text" name="duration" value="<%= item ? item.duration : '' %>" placeholder="3–5 hari">
+      </div>
+      <div class="a-field a-field--full">
+        <label>Cara ke Sana</label>
+        <input type="text" name="gettingThere" value="<%= item ? item.gettingThere : '' %>" placeholder="Pesawat ke Sorong, lalu speedboat…">
+      </div>
+      <div class="a-field a-field--full">
+        <label>Fasilitas (satu per baris)</label>
+        <textarea name="facilities" rows="3" placeholder="Homestay&#10;Warung makan"><%= item && item.facilities ? item.facilities.join('\n') : '' %></textarea>
+      </div>
+      <div class="a-field">
+        <label>Harga Mulai (Rp) <span class="req">*</span></label>
+        <input type="number" name="priceFrom" min="0" value="<%= item ? item.priceFrom : '' %>">
+      </div>
+      <div class="a-field">
+        <label>Status</label>
+        <select name="status">
+          <option value="published" <%= item && item.status === 'published' ? 'selected' : '' %>>Terbit</option>
+          <option value="draft" <%= item && item.status === 'draft' ? 'selected' : '' %>>Draf</option>
+        </select>
+      </div>
+      <div class="a-field">
+        <label>Koordinat GPS — Latitude</label>
+        <input type="text" name="lat" value="<%= item && item.lat != null ? item.lat : '' %>" placeholder="-0.4719">
+      </div>
+      <div class="a-field">
+        <label>Koordinat GPS — Longitude</label>
+        <input type="text" name="lng" value="<%= item && item.lng != null ? item.lng : '' %>" placeholder="130.7515">
+      </div>
+      <div class="a-field">
+        <label>Gambar Utama (JPG/PNG/WEBP, maks 5 MB)</label>
+        <input type="file" name="imageFile" accept="image/*">
+        <% if (item && item.image) { %>
+          <img src="<%= item.image %>" alt="" class="img-preview" style="margin-top:0.5rem">
+        <% } %>
+      </div>
+      <div class="a-field" style="justify-content:flex-end">
+        <label class="a-check" style="margin-bottom:0.8rem">
+          <input type="checkbox" name="featured" <%= item && item.featured ? 'checked' : '' %>> Jadikan destinasi unggulan
+        </label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn-a btn-a--sunset"><%= item ? 'Simpan Perubahan' : 'Tambah Destinasi' %></button>
+      <a href="/admin/destinasi" class="btn-a btn-a--ghost">Batal</a>
+    </div>
+  </form>
+</div>

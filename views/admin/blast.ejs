@@ -1,0 +1,80 @@
+<div class="admin-head">
+  <div>
+    <h1>Blast WhatsApp</h1>
+    <p>Kirim pesan promosi ke kontak yang sudah memberi izin. Maksimal <%= maxPerRun %> pesan/blast, jeda <%= minDelay %>ms antar pesan, berhenti otomatis setelah 5 gagal beruntun.</p>
+  </div>
+  <div class="admin-head__actions">
+    <a href="/admin/marketing/kontak" class="btn-a btn-a--ghost btn-a--sm">Kelola Kontak</a>
+  </div>
+</div>
+
+<% if (!waActive) { %>
+  <div class="flash flash--error" style="margin-bottom:1.2rem">
+    WhatsApp Cloud API belum dikonfigurasi. Isi <strong>Access Token</strong> &amp; <strong>Phone Number ID</strong> di <a href="/admin/pengaturan">Pengaturan</a>. Anda tetap bisa mencoba <em>mode uji</em> untuk memvalidasi template &amp; penerima.
+  </div>
+<% } %>
+<% if (quietHour) { %>
+  <div class="flash flash--info" style="margin-bottom:1.2rem">Sedang jam tenang (21.00–08.00). Blast sungguhan akan ditolak — kirim lagi pagi hari.</div>
+<% } %>
+
+<div class="panel" style="margin-bottom:1.4rem">
+  <div class="panel__head"><h2>Buat Blast</h2></div>
+  <form action="/admin/marketing/blast" method="post" class="a-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="a-field">
+      <label>Segmentasi Penerima</label>
+      <select name="segment">
+        <option value="all">Semua kontak opt-in (<%= marketable %>)</option>
+        <option value="booking">Pernah booking</option>
+        <option value="leads">Lead dari pesan kontak</option>
+      </select>
+    </div>
+    <div class="a-field">
+      <label>Template Pesan</label>
+      <textarea name="template" rows="6" required><%= defaultTemplate %></textarea>
+      <span class="help">Placeholder: {'{{nama}}'} (nama kontak). Hindari klaim berlebihan &amp; selalu sediakan cara berhenti menerima pesan.</span>
+    </div>
+    <div class="form-actions" style="display:flex; gap:0.6rem">
+      <button type="submit" name="action" value="test" class="btn-a btn-a--ghost">🧪 Mode Uji (tanpa kirim)</button>
+      <button type="submit" name="action" value="send" class="btn-a btn-a--sunset" <%= !waActive ? 'disabled' : '' %>>📣 Kirim Blast Sekarang</button>
+    </div>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="panel__head"><h2>Riwayat Blast Terakhir</h2></div>
+  <div class="a-table-wrap">
+    <table class="a-table">
+      <thead><tr><th>Waktu</th><th>Segmen</th><th>Status</th><th>Terkirim</th><th>Gagal</th><th>Aksi</th></tr></thead>
+      <tbody>
+        <% broadcasts.forEach((j) => { %>
+          <tr>
+            <td><small><%= formatDateShort(j.createdAt) %></small></td>
+            <td><%= j.segment %> <%= j.dryRun ? '🧪' : '' %></td>
+            <td><span class="badge badge--<%= j.status === 'done' ? 'completed' : j.status === 'aborted' || j.status === 'error' ? 'cancelled' : 'pending' %>"><%= j.status %></span></td>
+            <td><%= j.sent %> / <%= j.total %></td>
+            <td><%= j.failed %></td>
+            <td>
+              <% if (j.status === 'queued' || j.status === 'running') { %>
+                <form action="/admin/marketing/blast/<%= j.id %>/batal" method="post">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn-a btn-a--danger btn-a--sm">Batalkan</button>
+                </form>
+              <% } else { %>
+                <details>
+                  <summary style="cursor:pointer; font-size:0.78rem">Detail</summary>
+                  <ul style="font-size:0.72rem; margin-top:0.4rem; padding-left:1rem">
+                    <% (j.results || []).slice(0, 10).forEach((r) => { %>
+                      <li><%= r.phone %> — <%= r.status %><%= r.error ? ' (' + r.error + ')' : '' %></li>
+                    <% }) %>
+                  </ul>
+                </details>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+        <% if (!broadcasts.length) { %><tr><td colspan="6" style="text-align:center; padding:1.6rem">Belum ada blast.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Masuk Admin · jalanjalanenak.com</title>
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body class="admin-body">
+  <div class="login-page">
+    <aside class="login-aside">
+      <div class="admin-brand">
+        <img src="/img/logo.svg" alt="Logo" style="width:42px;height:42px">
+        <div>
+          <strong style="color:#fff; font-family:Fraunces,Georgia,serif">JalanJalanEnak</strong>
+          <small style="color:#f2a65a; letter-spacing:0.14em; text-transform:uppercase; font-size:0.68rem">Panel Admin</small>
+        </div>
+      </div>
+      <div>
+        <h2>Kelola perjalanan bahari Nusantara dari satu tempat.</h2>
+        <p>Kelola destinasi, paket wisata, artikel, booking, dan pesan masuk dalam satu dashboard yang ringkas.</p>
+      </div>
+      <ul class="tips">
+        <li>CRUD destinasi &amp; paket lengkap dengan unggah gambar</li>
+        <li>Booking masuk otomatis terekam dengan kode unik</li>
+        <li>Pengaturan situs dapat diubah tanpa menyentuh kode</li>
+      </ul>
+    </aside>
+    <main class="login-main">
+      <div class="login-card">
+        <h1>Selamat datang kembali</h1>
+        <p class="sub">Masuk untuk mengelola situs jalanjalanenak.com</p>
+        <% if (error) { %><div class="login-alert"><%= error %></div><% } %>
+        <form action="/admin/login" method="post" class="a-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="a-field">
+            <label for="username">Username</label>
+            <input id="username" type="text" name="username" required autofocus autocomplete="username">
+          </div>
+          <div class="a-field">
+            <label for="password">Password</label>
+            <input id="password" type="password" name="password" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn-a btn-a--sunset" style="justify-content:center; padding:0.8rem">Masuk ke Dashboard</button>
+        </form>
+        <div class="login-hint">Akun demo: <strong>admin</strong> / <strong>admin123</strong><br>Ubah password setelah masuk melalui menu Akun Saya.</div>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,266 @@
+<section class="hero">
+  <!-- Scene kedalaman 3D: setiap lapisan bergerak dengan kecepatan berbeda -->
+  <div class="hero__scene" aria-hidden="true">
+    <div class="hero__layer hero__layer--sun" data-depth="0.03"></div>
+    <div class="hero__layer hero__layer--clouds" data-depth="0.06">
+      <svg class="cloud cloud--1" viewBox="0 0 140 44" fill="currentColor"><ellipse cx="40" cy="30" rx="38" ry="14"/><ellipse cx="78" cy="24" rx="34" ry="17"/><ellipse cx="112" cy="31" rx="26" ry="12"/></svg>
+      <svg class="cloud cloud--2" viewBox="0 0 140 44" fill="currentColor"><ellipse cx="40" cy="30" rx="38" ry="14"/><ellipse cx="78" cy="24" rx="34" ry="17"/><ellipse cx="112" cy="31" rx="26" ry="12"/></svg>
+      <svg class="cloud cloud--3" viewBox="0 0 140 44" fill="currentColor"><ellipse cx="40" cy="30" rx="38" ry="14"/><ellipse cx="78" cy="24" rx="34" ry="17"/><ellipse cx="112" cy="31" rx="26" ry="12"/></svg>
+    </div>
+    <div class="hero__layer hero__layer--islands-far" data-depth="0.10">
+      <svg viewBox="0 0 1440 220" preserveAspectRatio="xMidYMax slice">
+        <path d="M0 220 L0 160 Q 90 96 190 130 Q 260 78 350 122 Q 430 88 520 138 L 560 220 Z" fill="rgba(8,44,54,.55)"/>
+        <path d="M880 220 L 940 128 Q 1020 74 1120 118 Q 1220 66 1320 116 Q 1400 140 1440 128 L 1440 220 Z" fill="rgba(6,36,45,.65)"/>
+      </svg>
+    </div>
+    <div class="hero__layer hero__layer--islands-near" data-depth="0.16">
+      <svg viewBox="0 0 1440 260" preserveAspectRatio="xMidYMax slice">
+        <path d="M0 260 L0 200 Q 120 120 260 168 Q 330 108 430 150 Q 500 116 590 166 L 640 260 Z" fill="rgba(5,28,36,.85)"/>
+        <g class="hero__boat" transform="translate(980 168)">
+          <path d="M0 18 L64 18 L54 30 L10 30 Z" fill="#f6f0e6"/>
+          <path d="M30 18 L30 -14 L54 14 L32 14 Z" fill="#f2a65a"/>
+          <path d="M28 18 L28 -8 L10 14 L26 14 Z" fill="#e8d9bf"/>
+        </g>
+        <path d="M1080 260 L1140 170 Q 1250 110 1360 160 Q 1420 140 1440 152 L 1440 260 Z" fill="rgba(4,24,32,.92)"/>
+      </svg>
+    </div>
+    <div class="hero__layer hero__waves" data-depth="0.22">
+      <svg class="wave wave--back" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0 40 Q 180 10 360 40 T 720 40 T 1080 40 T 1440 40 L 1440 80 L 0 80 Z" fill="rgba(111,196,205,.25)"/></svg>
+      <svg class="wave wave--front" viewBox="0 0 1440 80" preserveAspectRatio="none"><path d="M0 48 Q 180 20 360 48 T 720 48 T 1080 48 T 1440 48 L 1440 80 L 0 80 Z" fill="rgba(6,31,37,.55)"/></svg>
+    </div>
+  </div>
+  <div class="container hero__inner">
+    <div>
+      <span class="hero__badge">✦ Wisata bahari pilihan · Sejak 2019</span>
+      <h1><%= settings.heroTitle || 'Pulau-pulau Indonesia,\ndibuat enak dikunjungi.' %></h1>
+      <p class="hero__sub"><%= settings.heroSubtitle || 'Dari Sabesi hingga Ora — kami susun perjalanan bahari yang nyaman, aman, dan mendukung warga lokal.' %></p>
+      <div class="hero__actions">
+        <a href="/paket" class="btn btn--sunset">Lihat Paket Wisata →</a>
+        <a href="/destinasi" class="btn btn--ghost">Jelajahi Destinasi</a>
+      </div>
+      <div class="hero__stats">
+        <div class="hero__stat"><strong data-count="<%= allDestinations.length %>" data-suffix="+">0+</strong><span>Destinasi pulau</span></div>
+        <div class="hero__stat"><strong data-count="4900" data-suffix="+">0+</strong><span>Wisatawan terlayani</span></div>
+        <div class="hero__stat"><strong data-count="4.9" data-decimals="1" data-suffix="★">0★</strong><span>Rating kepuasan</span></div>
+      </div>
+    </div>
+    <div class="hero__art" data-depth="0.05">
+      <div class="hero__card">
+        <img src="<%= settings.heroImageUrl || '/img/dest-sabesi.svg' %>" alt="Pemandangan pulau pilihan JalanJalanEnak">
+      </div>
+      <div class="hero__stamp">Sabesi<br>Raja Ampat<br>✦</div>
+    </div>
+  </div>
+</section>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee__track">
+    <span>PULAU SABESI</span><span>PULAU WEH</span><span>MISOOL</span><span>DERAWAN</span><span>TOGEAN</span><span>PULAU ORA</span>
+    <span>PULAU SABESI</span><span>PULAU WEH</span><span>MISOOL</span><span>DERAWAN</span><span>TOGEAN</span><span>PULAU ORA</span>
+  </div>
+</div>
+
+<!-- Sorotan khusus Pulau Sabesi -->
+<section class="section" style="background:linear-gradient(160deg,#f7f2e7 0%,#eef6f3 100%)">
+  <div class="container" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:2.6rem; align-items:center">
+    <div class="reveal">
+      <span class="eyebrow">✦ Sorotan Utama · Signature Destination</span>
+      <h2 style="font-family:var(--display); font-size:clamp(1.9rem,3vw,2.6rem); color:var(--deep-teal); margin:0.6rem 0 0.8rem">Pulau Sabesi,<br>gerbang timur Raja Ampat</h2>
+      <p style="color:var(--ink-soft); margin-bottom:1rem">
+        Hanya 30 menit speedboat dari Waisai, Sabesi menyuguhkan taman bawah laut yang sama megahnya dengan Raja Ampat —
+        tanpa keramaian. Karang dangkal berwarna-warni, laguna tenang, dan kampung nelayan yang ramah menunggu Anda.
+      </p>
+      <ul style="list-style:none; padding:0; display:grid; gap:0.55rem; margin-bottom:1.5rem">
+        <li>🤿 <strong>Snorkeling</strong> langsung dari dermaga kampung</li>
+        <li>🏝️ <strong>Pasir Karang Pink</strong> — muncul saat air surut</li>
+        <li>🍤 <strong>Kuliner laut</strong> hasil tangkapan nelayan lokal</li>
+      </ul>
+      <div style="display:flex; gap:0.7rem; flex-wrap:wrap">
+        <a href="/destinasi/pulau-sabesi" class="btn btn--sunset">Jelajahi Sabesi →</a>
+        <a href="/paket/open-trip-sabesi-3h2m" class="btn btn--ghost">Paket 3H2M</a>
+      </div>
+    </div>
+    <div class="reveal" style="display:grid; gap:1rem">
+      <div style="border-radius:20px; overflow:hidden; box-shadow:0 24px 60px -24px rgba(15,64,60,.45)">
+        <img src="/img/dest-sabesi.svg" alt="Pemandangan Pulau Sabesi" style="width:100%; display:block">
+      </div>
+      <div style="display:flex; gap:0.7rem; flex-wrap:wrap">
+        <span class="badge badge--pending">⭐ 4,9 / 5 dari 312 ulasan</span>
+        <span class="badge badge--completed">Kapal speedboat pribadi</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Kenapa JJE -->
+<section class="section" style="padding-top:1rem">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Kenapa JalanJalanEnak</span>
+      <h2>Empat hal yang bikin perjalananmu beda</h2>
+      <p>Bukan sekadar tiket dan hotel — kami urus seluruh rantai perjalanan baharimu.</p>
+    </div>
+    <div class="grid grid--4">
+      <div class="why-card reveal">
+        <span class="why-card__icon">🧭</span>
+        <h3>Itinerary Kurasi</h3>
+        <p>Rute disusun berdasarkan musim, arus laut, dan pengalaman pemandu lokal puluhan tahun.</p>
+      </div>
+      <div class="why-card reveal">
+        <span class="why-card__icon">🤝</span>
+        <h3>Homestay Warga</h3>
+        <p>Pendapatan mengalir langsung ke keluarga lokal — Anda tidur, mereka terinspirasi menjaga laut.</p>
+      </div>
+      <div class="why-card reveal">
+        <span class="why-card__icon">🛟</span>
+        <h3>Tim Siaga 24/7</h3>
+        <p>Admin operasional standby selama trip. Ada masalah? Satu chat, kami tangani.</p>
+      </div>
+      <div class="why-card reveal">
+        <span class="why-card__icon">📍</span>
+        <h3>GPS Check-in</h3>
+        <p>Portal akun dengan check-in GPS — keluarga di rumah tahu posisimu aman di pulau.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Destinasi Unggulan</span>
+      <h2>Pulau yang bikin kamu lupa pulang</h2>
+      <p>Setiap destinasi kami kurasi sendiri — dari kualitas air laut hingga homestay yang dikelola warga lokal.</p>
+    </div>
+    <div class="grid grid--3">
+      <% featuredDestinations.forEach(function (d) { %>
+        <a href="/destinasi/<%= d.slug %>" class="dest-card reveal" data-tilt="6">
+          <div class="dest-card__media">
+            <img src="<%= d.image %>" alt="<%= d.name %>" loading="lazy">
+            <span class="dest-card__region"><%= d.region %></span>
+          </div>
+          <div class="dest-card__body">
+            <h3><%= d.name %></h3>
+            <p><%= d.tagline %></p>
+            <div class="dest-card__meta">
+              <span class="dest-card__price"><%= formatRupiah(d.priceFrom) %> <small>mulai / orang</small></span>
+              <span class="link-arrow">Lihat detail →</span>
+            </div>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+    <div style="text-align:center; margin-top:2.4rem">
+      <a href="/destinasi" class="btn btn--outline">Semua Destinasi</a>
+    </div>
+  </div>
+</section>
+
+<section class="section section--sand">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Paket Pilihan</span>
+      <h2>Perjalanan siap berangkat</h2>
+      <p>Harga transparan, itinerary jelas, tanpa biaya tersembunyi. Tinggal pilih tanggal.</p>
+    </div>
+    <div class="grid grid--3">
+      <% featuredPackages.forEach(function (p) { %>
+        <div class="pass-card reveal" data-tilt="5">
+          <div class="pass-card__top">
+            <span class="pass-card__code"><%= p.days %>H<%= p.nights %>M · <%= p.destinationName %></span>
+            <h3><%= p.title %></h3>
+            <p class="route"><%= p.summary.slice(0, 90) %><%= p.summary.length > 90 ? '…' : '' %></p>
+          </div>
+          <div class="pass-card__perf"></div>
+          <div class="pass-card__bottom">
+            <span class="pass-card__price"><%= formatRupiah(p.price) %> <small>per orang</small></span>
+            <a href="/paket/<%= p.slug %>" class="btn btn--deep btn--sm">Detail &amp; Pesan</a>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+    <div style="text-align:center; margin-top:2.4rem">
+      <a href="/paket" class="btn btn--outline">Semua Paket</a>
+    </div>
+  </div>
+</section>
+
+<!-- Galeri strip (otomatis dari galeri destinasi unggulan) -->
+<% if (galleryStrip && galleryStrip.length) { %>
+<section class="section" style="padding-bottom:1rem">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Galeri Perjalanan</span>
+      <h2>Potret dari lapangan</h2>
+    </div>
+  </div>
+  <div class="gal-strip reveal">
+    <% galleryStrip.forEach(function (img) { %>
+      <img src="<%= img %>" alt="Dokumentasi perjalanan JalanJalanEnak" loading="lazy">
+    <% }) %>
+  </div>
+</section>
+<% } %>
+
+<!-- Testimoni -->
+<% if (testimonials && testimonials.length) { %>
+<section class="section section--sand">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Kata Mereka</span>
+      <h2>Ulasan wisatawan yang sudah berangkat</h2>
+      <p>Testimoni asli dari portal pelanggan — dimoderasi sebelum tampil di sini.</p>
+    </div>
+    <div class="grid grid--3">
+      <% testimonials.forEach(function (t) { %>
+        <figure class="quote-card reveal" data-tilt="4">
+          <div class="quote-card__stars" aria-label="Rating <%= t.rating %> dari 5"><%= starRating(t.rating) %></div>
+          <blockquote>“<%= t.comment %>”</blockquote>
+          <figcaption>
+            <strong><%= t.customerName %></strong>
+            <span><%= t.packageName %> · <%= formatDateShort(t.createdAt) %></span>
+          </figcaption>
+        </figure>
+      <% }) %>
+    </div>
+  </div>
+</section>
+<% } %>
+
+<section class="section">
+  <div class="container">
+    <div class="section-head reveal">
+      <span class="eyebrow">Artikel Terbaru</span>
+      <h2>Baca dulu, berangkat lebih tenang</h2>
+    </div>
+    <div class="grid grid--3">
+      <% articles.forEach(function (a) { %>
+        <a href="/artikel/<%= a.slug %>" class="article-card reveal">
+          <div class="article-card__media"><img src="<%= a.coverImage %>" alt="<%= a.title %>" loading="lazy"></div>
+          <div class="article-card__body">
+            <span class="article-card__cat"><%= a.category %></span>
+            <h3><%= a.title %></h3>
+            <p><%= excerpt(a.excerpt || a.body, 90) %></p>
+            <div class="article-card__foot"><span><%= a.author %></span><span>·</span><span><%= formatDateShort(a.publishedAt || a.createdAt) %></span></div>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+  </div>
+</section>
+
+<section class="section" style="padding-top:0">
+  <div class="container">
+    <div class="cta-band reveal">
+      <div>
+        <span class="eyebrow" style="color:#f2a65a">Siap berangkat?</span>
+        <h2>Rencanakan liburan pulaumu bareng kami</h2>
+        <p>Ceritakan tanggal dan jumlah pesertanya — tim kami susun itinerary terbaik dalam 1×24 jam.</p>
+      </div>
+      <div style="display:flex; gap:0.8rem; flex-wrap:wrap">
+        <a href="/kontak" class="btn btn--sunset">Konsultasi Gratis</a>
+        <a href="https://wa.me/<%= settings.whatsapp || '6281234567890' %>" target="_blank" rel="noopener" class="btn btn--ghost">Chat WhatsApp</a>
+      </div>
+    </div>
+  </div>
+</section>

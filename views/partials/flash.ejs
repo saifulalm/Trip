@@ -1,0 +1,8 @@
+<% if (flash && flash.length) { %>
+<div class="flash-wrap">
+  <% flash.forEach(function (f) { %>
+    <div class="flash flash--<%= f.type %>" role="alert"><%= f.message %></div>
+  <% }) %>
+</div>
+<script>setTimeout(function () { document.querySelector('.flash-wrap')?.remove(); }, 6000);</script>
+<% } %>

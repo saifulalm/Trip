@@ -1,0 +1,29 @@
+<section class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / <a href="/artikel">Artikel</a> / <%= article.category %></div>
+    <h1><%= article.title %></h1>
+    <p><%= article.author %> · <%= formatDateLong(article.publishedAt || article.createdAt) %></p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container" style="max-width:780px">
+    <img src="<%= article.coverImage %>" alt="<%= article.title %>" style="border-radius:var(--radius-m); margin-bottom:2rem; width:100%; height:320px; object-fit:cover">
+    <div class="prose"><%- renderRichText(article.body) %></div>
+
+    <% if (others.length) { %>
+      <h3 style="margin-top:3rem; margin-bottom:1.2rem; font-size:1.4rem">Artikel lainnya</h3>
+      <div class="grid grid--3">
+        <% others.forEach(function (a) { %>
+          <a href="/artikel/<%= a.slug %>" class="article-card">
+            <div class="article-card__media"><img src="<%= a.coverImage %>" alt="<%= a.title %>" loading="lazy"></div>
+            <div class="article-card__body">
+              <span class="article-card__cat"><%= a.category %></span>
+              <h3 style="font-size:1rem"><%= a.title %></h3>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</section>

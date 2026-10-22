@@ -1,0 +1,57 @@
+<div class="panel">
+  <div class="panel__head"><h2>Pengaturan SEO</h2></div>
+  <form action="/admin/seo" method="post" enctype="multipart/form-data" class="a-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="a-form-grid">
+      <div class="a-field a-field--full">
+        <label>URL Situs (untuk sitemap &amp; URL absolut — contoh: https://jalanjalanenak.com)</label>
+        <input type="url" name="siteUrl" value="<%= item.siteUrl || '' %>" placeholder="https://domainanda.com">
+      </div>
+      <div class="a-field a-field--full">
+        <label>Deskripsi Meta Default (maks 300 karakter — tampil di hasil Google &amp; kartu share)</label>
+        <textarea name="seoDescription" rows="3" maxlength="300"><%= item.seoDescription || '' %></textarea>
+      </div>
+      <div class="a-field">
+        <label>Gambar Open Graph (opsional, 1200×630 ideal — tampil saat link dibagikan)</label>
+        <input type="file" name="ogFile" accept="image/*">
+        <% if (item.ogImageUrl) { %>
+          <img src="<%= item.ogImageUrl %>" alt="" class="img-preview" style="margin-top:0.5rem; max-height:140px">
+          <label class="a-check" style="margin-top:0.4rem">
+            <input type="checkbox" name="ogImageReset" value="1"> Hapus gambar OG
+          </label>
+        <% } %>
+      </div>
+      <div class="a-field">
+        <label>Izinkan Mesin Pencari</label>
+        <label class="a-check">
+          <input type="hidden" name="seoIndex" value="off">
+          <input type="checkbox" name="seoIndex" <%= item.seoIndex !== false ? 'checked' : '' %>> Ya, indekskan situs ini (matikan untuk staging)
+        </label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn-a btn-a--sunset">Simpan Pengaturan SEO</button>
+    </div>
+  </form>
+</div>
+
+<div class="panel-grid">
+  <div class="panel">
+    <div class="panel__head">
+      <h2>robots.txt</h2>
+      <a class="btn-a btn-a--ghost" href="/robots.txt" target="_blank" rel="noopener">Buka asli ↗</a>
+    </div>
+    <pre style="white-space:pre-wrap; font-size:0.82rem; background:#fdf9f0; padding:1rem; border-radius:10px; margin:0"><%= robotsPreview %></pre>
+  </div>
+  <div class="panel">
+    <div class="panel__head">
+      <h2>sitemap.xml — <%= urlCount %> URL</h2>
+      <a class="btn-a btn-a--ghost" href="/sitemap.xml" target="_blank" rel="noopener">Buka asli ↗</a>
+    </div>
+    <p style="font-size:0.88rem; color:#6b7f8d; margin:0 0 0.8rem">
+      Dibuat otomatis dari destinasi, paket, dan artikel berstatus <em>published</em>.
+      Daftarkan <code><%= (item.siteUrl || 'https://domainanda.com') %>/sitemap.xml</code> ke Google Search Console.
+    </p>
+    <pre style="white-space:pre-wrap; font-size:0.78rem; background:#fdf9f0; padding:1rem; border-radius:10px; margin:0; max-height:280px; overflow:auto"><%= sitemapPreview %></pre>
+  </div>
+</div>

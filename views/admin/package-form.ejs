@@ -1,0 +1,79 @@
+<div class="panel">
+  <div class="panel__head">
+    <h2><%= item ? 'Edit Paket' : 'Tambah Paket Baru' %></h2>
+    <a href="/admin/paket" class="btn-a btn-a--ghost btn-a--sm">← Kembali</a>
+  </div>
+  <form action="<%= action %>" method="post" enctype="multipart/form-data" class="a-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="a-form-grid">
+      <div class="a-field a-field--full">
+        <label>Judul Paket <span class="req">*</span></label>
+        <input type="text" name="title" required value="<%= item ? item.title : '' %>" placeholder="Sabesi Island Escape">
+      </div>
+      <div class="a-field">
+        <label>Destinasi <span class="req">*</span></label>
+        <select name="destinationSlug" required onchange="document.getElementById('destName').value = this.selectedOptions[0].textContent">
+          <option value="">— Pilih destinasi —</option>
+          <% destinations.forEach(function (d) { %>
+            <option value="<%= d.slug %>" <%= item && item.destinationSlug === d.slug ? 'selected' : '' %>><%= d.name %></option>
+          <% }) %>
+        </select>
+        <input type="hidden" name="destinationName" id="destName" value="<%= item ? item.destinationName : '' %>">
+      </div>
+      <div class="a-field">
+        <label>Ukuran Grup</label>
+        <input type="text" name="groupSize" value="<%= item ? item.groupSize : '' %>" placeholder="4–12 orang">
+      </div>
+      <div class="a-field">
+        <label>Jumlah Hari <span class="req">*</span></label>
+        <input type="number" name="days" min="1" value="<%= item ? item.days : 3 %>">
+      </div>
+      <div class="a-field">
+        <label>Jumlah Malam</label>
+        <input type="number" name="nights" min="0" value="<%= item ? item.nights : 2 %>">
+      </div>
+      <div class="a-field">
+        <label>Harga per Orang (Rp) <span class="req">*</span></label>
+        <input type="number" name="price" min="0" value="<%= item ? item.price : '' %>">
+      </div>
+      <div class="a-field">
+        <label>Status</label>
+        <select name="status">
+          <option value="published" <%= item && item.status === 'published' ? 'selected' : '' %>>Terbit</option>
+          <option value="draft" <%= item && item.status === 'draft' ? 'selected' : '' %>>Draf</option>
+        </select>
+      </div>
+      <div class="a-field a-field--full">
+        <label>Ringkasan</label>
+        <textarea name="summary" rows="3" placeholder="Deskripsi singkat paket…"><%= item ? item.summary : '' %></textarea>
+      </div>
+      <div class="a-field a-field--full">
+        <label>Itinerary — format: Judul Hari | Detail (satu hari per baris)</label>
+        <textarea name="itinerary" rows="5" class="tall" placeholder="Tiba & transfer | Penjemputan di pelabuhan, check-in homestay…"><% if (item && item.itinerary) { %><% item.itinerary.forEach(function (it) { %><%= it.title %> | <%= it.detail %>
+<% }) %><% } %></textarea>
+      </div>
+      <div class="a-field">
+        <label>Termasuk (satu per baris)</label>
+        <textarea name="includes" rows="4"><%= item && item.includes ? item.includes.join('\n') : '' %></textarea>
+      </div>
+      <div class="a-field">
+        <label>Belum Termasuk (satu per baris)</label>
+        <textarea name="excludes" rows="4"><%= item && item.excludes ? item.excludes.join('\n') : '' %></textarea>
+      </div>
+      <div class="a-field">
+        <label>Gambar Paket</label>
+        <input type="file" name="imageFile" accept="image/*">
+        <% if (item && item.image) { %><img src="<%= item.image %>" alt="" class="img-preview" style="margin-top:0.5rem"><% } %>
+      </div>
+      <div class="a-field" style="justify-content:flex-end">
+        <label class="a-check" style="margin-bottom:0.8rem">
+          <input type="checkbox" name="featured" <%= item && item.featured ? 'checked' : '' %>> Tampilkan sebagai paket unggulan
+        </label>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn-a btn-a--sunset"><%= item ? 'Simpan Perubahan' : 'Tambah Paket' %></button>
+      <a href="/admin/paket" class="btn-a btn-a--ghost">Batal</a>
+    </div>
+  </form>
+</div>

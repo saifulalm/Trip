@@ -1,0 +1,47 @@
+<section class="section">
+  <div class="container container--narrow">
+    <a href="/akun" class="link-arrow" style="font-size:0.92rem">← Kembali ke akun saya</a>
+    <div class="portal-card reveal" style="margin-top:0.6rem">
+      <span class="eyebrow">Profil</span>
+      <h1 style="font-family:var(--display); font-size:1.7rem; color:var(--deep-teal); margin:0.3rem 0 1rem">Data Diri</h1>
+      <form action="/akun/profil" method="post" class="portal-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="portal-field">
+          <label for="name">Nama Lengkap</label>
+          <input type="text" id="name" name="name" required minlength="3" value="<%= currentCustomer.name %>">
+        </div>
+        <div class="portal-field">
+          <label for="email">Email (tidak bisa diubah)</label>
+          <input type="email" id="email" value="<%= currentCustomer.email %>" disabled>
+        </div>
+        <div class="portal-field">
+          <label for="phone">Nomor HP / WhatsApp</label>
+          <input type="tel" id="phone" name="phone" required value="<%= currentCustomer.phone || '' %>">
+        </div>
+        <button type="submit" class="btn btn--deep btn--sm">Simpan Perubahan</button>
+      </form>
+    </div>
+
+    <div class="portal-card reveal" style="margin-top:1.4rem">
+      <h2 style="font-family:var(--display); font-size:1.3rem; color:var(--deep-teal); margin:0 0 0.4rem">Ganti Kata Sandi</h2>
+      <form action="/akun/sandi" method="post" class="portal-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="portal-field">
+          <label for="currentPassword">Kata Sandi Saat Ini</label>
+          <input type="password" id="currentPassword" name="currentPassword" required autocomplete="current-password">
+        </div>
+        <div class="portal-form-row">
+          <div class="portal-field">
+            <label for="newPassword">Kata Sandi Baru</label>
+            <input type="password" id="newPassword" name="newPassword" required minlength="8" autocomplete="new-password">
+          </div>
+          <div class="portal-field">
+            <label for="confirmPassword">Ulangi Kata Sandi Baru</label>
+            <input type="password" id="confirmPassword" name="confirmPassword" required minlength="8" autocomplete="new-password">
+          </div>
+        </div>
+        <button type="submit" class="btn btn--outline btn--sm">Ganti Kata Sandi</button>
+      </form>
+    </div>
+  </div>
+</section>

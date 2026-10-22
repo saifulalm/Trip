@@ -1,0 +1,76 @@
+<div class="panel">
+  <div class="panel__head">
+    <h2>Booking Masuk (<%= pg.total %>)</h2>
+  </div>
+  <form class="filter-bar" action="/admin/booking" method="get">
+    <input type="search" name="q" value="<%= q %>" placeholder="Cari kode, nama, atau paket…">
+    <select name="status">
+      <option value="">Semua status</option>
+      <option value="pending" <%= status === 'pending' ? 'selected' : '' %>>Menunggu</option>
+      <option value="confirmed" <%= status === 'confirmed' ? 'selected' : '' %>>Dikonfirmasi</option>
+      <option value="completed" <%= status === 'completed' ? 'selected' : '' %>>Selesai</option>
+      <option value="cancelled" <%= status === 'cancelled' ? 'selected' : '' %>>Dibatalkan</option>
+    </select>
+    <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Filter</button>
+  </form>
+  <% if (pg.rows.length === 0) { %>
+    <p style="color:var(--a-soft)">Belum ada booking.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="a-table">
+        <thead>
+          <tr><th>Kode</th><th>Tamu</th><th>Paket</th><th>Keberangkatan</th><th>Pax</th><th>Total</th><th>Bayar</th><th>Status</th><th>Kelola</th></tr>
+        </thead>
+        <tbody>
+          <% pg.rows.forEach(function (b) { %>
+            <tr>
+              <td><strong><%= b.code %></strong><br><small style="color:var(--a-soft)"><%= formatDateShort(b.createdAt) %></small></td>
+              <td><%= b.name %><br><small style="color:var(--a-soft)"><%= b.email %><br><%= b.phone %></small></td>
+              <td><%= b.packageName %></td>
+              <td><%= formatDateShort(b.departureDate) %></td>
+              <td><%= b.participants %></td>
+              <td><%= formatRupiah(b.totalAmount || 0) %></td>
+              <td>
+                <span class="badge badge--<%= b.paymentStatus === 'paid' ? 'completed' : b.paymentStatus === 'failed' ? 'cancelled' : 'pending' %>">
+                  <%= b.paymentStatus === 'paid' ? 'Lunas' : b.paymentStatus === 'awaiting_review' ? 'Cek bukti' : b.paymentStatus === 'failed' ? 'Gagal' : 'Belum' %>
+                </span>
+                <% if (b.paymentMethod) { %><br><small style="color:var(--a-soft)"><%= b.paymentMethod %></small><% } %>
+                <% if (b.proofImage) { %><br><a href="<%= b.proofImage %>" target="_blank" rel="noopener" style="font-size:0.72rem">Lihat bukti ↗</a><% } %>
+              </td>
+              <td><span class="badge badge--<%= bookingStatusTone(b.status) %>"><%= bookingStatusLabel(b.status) %></span></td>
+              <td>
+                <div class="actions">
+                  <a href="/admin/booking/<%= b.id %>" class="btn-a btn-a--ghost btn-a--sm">Detail</a>
+                  <% if (b.paymentStatus === 'awaiting_review' || b.paymentStatus !== 'paid') { %>
+                    <form action="/admin/booking/<%= b.id %>/bayar" method="post" onsubmit="return confirm('Tandai lunas booking <%= b.code %>?')">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button type="submit" class="btn-a btn-a--primary btn-a--sm" <%= b.paymentStatus === 'paid' ? 'disabled' : '' %>>Lunas</button>
+                    </form>
+                  <% } %>
+                  <form action="/admin/booking/<%= b.id %>/status" method="post" style="display:flex; gap:0.35rem">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <select name="status" style="padding:0.3rem 0.5rem; border-radius:8px; border:1px solid var(--a-line)">
+                      <option value="pending" <%= b.status === 'pending' ? 'selected' : '' %>>Menunggu</option>
+                      <option value="confirmed" <%= b.status === 'confirmed' ? 'selected' : '' %>>Dikonfirmasi</option>
+                      <option value="completed" <%= b.status === 'completed' ? 'selected' : '' %>>Selesai</option>
+                      <option value="cancelled" <%= b.status === 'cancelled' ? 'selected' : '' %>>Dibatalkan</option>
+                    </select>
+                    <button type="submit" class="btn-a btn-a--primary btn-a--sm">Simpan</button>
+                  </form>
+                  <form action="/admin/booking/<%= b.id %>/hapus" method="post" onsubmit="return confirm('Hapus booking <%= b.code %>?')">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+            <% if (b.notes) { %>
+              <tr><td colspan="9" style="background:#fdf9f0"><small><strong>Catatan:</strong> <%= b.notes %></small></td></tr>
+            <% } %>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('partials/pagination', { pg: pg, q: q, status: status }) %>
+  <% } %>
+</div>

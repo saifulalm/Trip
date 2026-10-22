@@ -1,0 +1,127 @@
+<section class="section">
+  <div class="container">
+    <a href="/akun" class="link-arrow" style="font-size:0.92rem">← Kembali ke akun saya</a>
+    <div class="portal-head reveal" style="margin-top:0.6rem">
+      <div>
+        <span class="eyebrow">Detail Booking</span>
+        <h1 style="font-family:var(--display); font-size:clamp(1.5rem,3vw,2rem); color:var(--deep-teal); margin:0.3rem 0">
+          <%= booking.code %> · <%= booking.packageName %>
+        </h1>
+        <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+          <span class="badge badge--<%= bookingStatusTone(booking.status) %>"><%= bookingStatusLabel(booking.status) %></span>
+          <span class="badge badge--<%= paymentStatusTone(booking.paymentStatus || 'unpaid') %>"><%= paymentStatusLabel(booking.paymentStatus || 'unpaid') %></span>
+          <% if (booking.checkIn) { %><span class="badge badge--completed">📍 Check-in tercatat</span><% } %>
+        </div>
+      </div>
+      <% if (booking.paymentStatus !== 'paid') { %>
+        <a href="/pembayaran/<%= booking.code %>" class="btn btn--sunset btn--sm">Bayar Sekarang</a>
+      <% } %>
+    </div>
+
+    <div class="panel-grid" style="margin-top:1.4rem">
+      <section class="panel">
+        <div class="panel__head"><h2>Informasi Perjalanan</h2></div>
+        <dl class="info-list">
+          <div><dt>Peserta</dt><dd><%= booking.participants %> orang</dd></div>
+          <div><dt>Keberangkatan</dt><dd><%= formatDateLong(booking.departureDate) %></dd></div>
+          <div><dt>Total Tagihan</dt><dd><%= formatRupiah(booking.totalAmount || 0) %></dd></div>
+          <% if (booking.notes) { %><div><dt>Catatan</dt><dd><%= booking.notes %></dd></div><% } %>
+        </dl>
+
+        <% if (canCheckIn) { %>
+          <div class="checkin-box">
+            <h3>📍 Check-in GPS Keberangkatan</h3>
+            <p>Pastikan Anda berada di titik kumpul, lalu tekan tombol di bawah. Koordinat Anda akan terekam sebagai bukti keberangkatan.</p>
+            <button type="button" class="btn btn--sunset" id="checkinBtn" data-booking="<%= booking.id %>">Check-in Sekarang (GPS)</button>
+            <p class="checkin-box__note" id="checkinNote" hidden></p>
+            <form action="/akun/booking/<%= booking.id %>/checkin" method="post" id="checkinForm" hidden>
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="hidden" name="lat" id="ciLat">
+              <input type="hidden" name="lng" id="ciLng">
+              <input type="hidden" name="accuracy" id="ciAcc">
+            </form>
+          </div>
+        <% } else if (booking.checkIn) { %>
+          <div class="checkin-box checkin-box--done">
+            <h3>✅ Check-in Tercatat</h3>
+            <p>
+              <strong><%= booking.checkIn.lat.toFixed(5) %>, <%= booking.checkIn.lng.toFixed(5) %></strong><br>
+              <%= formatDateLong(booking.checkIn.at) %>
+              <% if (booking.checkIn.accuracy) { %> · Akurasi ± <%= Math.round(booking.checkIn.accuracy) %> m<% } %>
+            </p>
+          </div>
+        <% } %>
+
+        <% if (canReview) { %>
+          <form action="/akun/booking/<%= booking.id %>/ulasan" method="post" class="portal-form" style="margin-top:1.4rem; border-top:1px dashed rgba(15,64,60,.25); padding-top:1.4rem">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <h3 style="font-family:var(--display); color:var(--deep-teal); margin:0 0 0.5rem">Beri Ulasan</h3>
+            <div class="portal-field">
+              <label for="rating">Rating</label>
+              <select id="rating" name="rating" class="rating-select">
+                <option value="5">★★★★★ (5) — Luar biasa</option>
+                <option value="4">★★★★ (4) — Bagus</option>
+                <option value="3">★★★ (3) — Cukup</option>
+                <option value="2">★★ (2) — Kurang</option>
+                <option value="1">★ (1) — Buruk</option>
+              </select>
+            </div>
+            <div class="portal-field">
+              <label for="comment">Ceritakan pengalamanmu</label>
+              <textarea id="comment" name="comment" rows="3" required minlength="10" placeholder="Minimal 10 karakter…"></textarea>
+            </div>
+            <button type="submit" class="btn btn--deep btn--sm">Kirim Ulasan</button>
+          </form>
+        <% } %>
+      </section>
+
+      <section class="panel">
+        <div class="panel__head"><h2>Peta Perjalanan</h2></div>
+        <p style="font-size:0.88rem; color:var(--ink-soft); margin-bottom:0.8rem">
+          <% if (destination && destination.lat) { %>
+            Lokasi destinasi <strong><%= destination.name %></strong> — jejak rute &amp; titik check-in tampil di peta.
+          <% } else { %>
+            Peta akan menampilkan titik check-in GPS Anda.
+          <% } %>
+        </p>
+        <div id="jje-map" class="jje-map" role="img" aria-label="Peta perjalanan"></div>
+        <script id="map-data" type="application/json"><%- mapData %></script>
+      </section>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  var btn = document.getElementById('checkinBtn');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var note = document.getElementById('checkinNote');
+    if (!navigator.geolocation) {
+      note.hidden = false;
+      note.textContent = 'Perangkat Anda tidak mendukung GPS. Gunakan ponsel untuk check-in.';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Mendapatkan lokasi…';
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        document.getElementById('ciLat').value = pos.coords.latitude;
+        document.getElementById('ciLng').value = pos.coords.longitude;
+        document.getElementById('ciAcc').value = pos.coords.accuracy || '';
+        document.getElementById('checkinForm').submit();
+      },
+      function (err) {
+        btn.disabled = false;
+        btn.textContent = 'Coba Lagi (GPS)';
+        note.hidden = false;
+        note.textContent =
+          err.code === 1
+            ? 'Izin lokasi ditolak. Aktifkan izin GPS lalu coba lagi.'
+            : 'Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.';
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+    );
+  });
+})();
+</script>

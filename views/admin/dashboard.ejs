@@ -1,0 +1,74 @@
+<div class="stat-grid">
+  <div class="stat-card">
+    <div class="label">Booking Menunggu</div>
+    <div class="value"><%= stats.pendingBookings %></div>
+    <div class="hint">dari <%= stats.bookings %> total booking</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Pesan Belum Dibaca</div>
+    <div class="value"><%= stats.unread %></div>
+    <div class="hint">kotak pesan masuk</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Destinasi</div>
+    <div class="value"><%= stats.destinations %></div>
+    <div class="hint">pulau terdaftar</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Paket Aktif</div>
+    <div class="value"><%= stats.packages %></div>
+    <div class="hint">paket wisata</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Artikel</div>
+    <div class="value"><%= stats.articles %></div>
+    <div class="hint">tulisan dipublikasikan</div>
+  </div>
+</div>
+
+<div class="panel-grid">
+  <section class="panel">
+    <div class="panel__head">
+      <h2>Booking Terbaru</h2>
+      <a href="/admin/booking" class="btn-a btn-a--ghost btn-a--sm">Lihat semua</a>
+    </div>
+    <% if (recentBookings.length === 0) { %>
+      <p style="color:var(--a-soft); font-size:0.9rem">Belum ada booking.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="a-table">
+          <thead><tr><th>Kode</th><th>Nama</th><th>Paket</th><th>Tgl</th><th>Status</th></tr></thead>
+          <tbody>
+            <% recentBookings.forEach(function (b) { %>
+              <tr>
+                <td><strong><%= b.code %></strong></td>
+                <td><%= b.name %></td>
+                <td><%= b.packageName %></td>
+                <td><%= formatDateShort(b.departureDate) %></td>
+                <td><span class="badge badge--<%= bookingStatusTone(b.status) %>"><%= bookingStatusLabel(b.status) %></span></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+
+  <section class="panel">
+    <div class="panel__head">
+      <h2>Pesan Terbaru</h2>
+      <a href="/admin/pesan" class="btn-a btn-a--ghost btn-a--sm">Kotak pesan</a>
+    </div>
+    <% if (recentMessages.length === 0) { %>
+      <p style="color:var(--a-soft); font-size:0.9rem">Belum ada pesan.</p>
+    <% } else { %>
+      <% recentMessages.forEach(function (m) { %>
+        <div class="msg-item <%= m.read ? '' : 'unread' %>">
+          <div class="who"><%= m.name %></div>
+          <div class="when"><%= formatDateShort(m.createdAt) %> · <%= m.subject %></div>
+          <div class="text"><%= excerpt(m.message, 80) %></div>
+        </div>
+      <% }) %>
+    <% } %>
+  </section>
+</div>

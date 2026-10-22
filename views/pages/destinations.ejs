@@ -1,0 +1,38 @@
+<section class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / Destinasi</div>
+    <h1>Destinasi Pulau</h1>
+    <p>Enam gugusan kepulauan terbaik pilihan tim JalanJalanEnak — dari barat sampai timur Indonesia.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <form class="search-bar" action="/destinasi" method="get">
+      <input type="search" name="q" value="<%= q %>" placeholder="Cari destinasi, misal: Sabesi, Raja Ampat…">
+      <button class="btn btn--deep btn--sm" type="submit">Cari</button>
+    </form>
+    <% if (destinations.length === 0) { %>
+      <div class="empty-state">Destinasi tidak ditemukan. Coba kata kunci lain.</div>
+    <% } else { %>
+      <div class="grid grid--3">
+        <% destinations.forEach(function (d) { %>
+          <a href="/destinasi/<%= d.slug %>" class="dest-card reveal">
+            <div class="dest-card__media">
+              <img src="<%= d.image %>" alt="<%= d.name %>" loading="lazy">
+              <span class="dest-card__region"><%= d.region %></span>
+            </div>
+            <div class="dest-card__body">
+              <h3><%= d.name %></h3>
+              <p><%= d.tagline %></p>
+              <div class="dest-card__meta">
+                <span class="dest-card__price"><%= formatRupiah(d.priceFrom) %> <small>mulai / orang</small></span>
+                <span class="link-arrow">Lihat detail →</span>
+              </div>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</section>

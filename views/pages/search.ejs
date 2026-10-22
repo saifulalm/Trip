@@ -1,0 +1,55 @@
+<section class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / Cari</div>
+    <h1>Hasil pencarian: “<%= q %>”</h1>
+    <p><%= destinations.length + packages.length + articles.length %> hasil ditemukan.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <form class="search-bar" action="/cari" method="get">
+      <input type="search" name="q" value="<%= q %>" placeholder="Cari destinasi, paket, artikel…">
+      <button class="btn btn--deep btn--sm" type="submit">Cari</button>
+    </form>
+
+    <% if (destinations.length + packages.length + articles.length === 0) { %>
+      <div class="empty-state">Tidak ada hasil untuk pencarian ini.</div>
+    <% } %>
+
+    <% if (destinations.length) { %>
+      <h2 style="font-size:1.4rem; margin:1.6rem 0 1rem">Destinasi</h2>
+      <div class="grid grid--3">
+        <% destinations.forEach(function (d) { %>
+          <a href="/destinasi/<%= d.slug %>" class="dest-card">
+            <div class="dest-card__media"><img src="<%= d.image %>" alt="<%= d.name %>"></div>
+            <div class="dest-card__body"><h3><%= d.name %></h3><p><%= d.region %></p></div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <% if (packages.length) { %>
+      <h2 style="font-size:1.4rem; margin:2rem 0 1rem">Paket Wisata</h2>
+      <div class="grid grid--3">
+        <% packages.forEach(function (p) { %>
+          <a href="/paket/<%= p.slug %>" class="dest-card">
+            <div class="dest-card__media"><img src="<%= p.image %>" alt="<%= p.title %>"></div>
+            <div class="dest-card__body"><h3><%= p.title %></h3><p><%= p.destinationName %></p></div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <% if (articles.length) { %>
+      <h2 style="font-size:1.4rem; margin:2rem 0 1rem">Artikel</h2>
+      <div class="grid grid--3">
+        <% articles.forEach(function (a) { %>
+          <a href="/artikel/<%= a.slug %>" class="article-card">
+            <div class="article-card__body"><span class="article-card__cat"><%= a.category %></span><h3><%= a.title %></h3></div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</section>

@@ -1,0 +1,47 @@
+<section class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / <a href="/destinasi">Destinasi</a> / <%= dest.name %></div>
+    <h1><%= dest.name %></h1>
+    <p><%= dest.region %> — <%= dest.tagline %></p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container detail-grid">
+    <div>
+      <img src="<%= dest.image %>" alt="<%= dest.name %>" style="border-radius:var(--radius-m); margin-bottom:1.8rem; width:100%; height:320px; object-fit:cover">
+      <div class="prose"><%- renderRichText(dest.description) %></div>
+
+      <h3 style="margin-top:2rem; font-size:1.3rem">Hal menarik di <%= dest.name %></h3>
+      <ul class="fact-list">
+        <% (dest.highlights || []).forEach(function (h) { %><li><%= h %></li><% }) %>
+      </ul>
+
+      <% if (dest.facilities && dest.facilities.length) { %>
+        <h3 style="font-size:1.2rem">Fasilitas</h3>
+        <div class="chip-row">
+          <% dest.facilities.forEach(function (f) { %><span class="chip"><%= f %></span><% }) %>
+        </div>
+      <% } %>
+    </div>
+
+    <aside class="sidebar-card">
+      <h3>Info Perjalanan</h3>
+      <span class="price-big"><%= formatRupiah(dest.priceFrom) %> <small>mulai dari / orang</small></span>
+      <dl class="info-rows">
+        <div><dt>Musim terbaik</dt><dd><%= dest.bestSeason || '-' %></dd></div>
+        <div><dt>Durasi ideal</dt><dd><%= dest.duration || '-' %></dd></div>
+        <div><dt>Cara ke sana</dt><dd style="text-align:right"><%= dest.gettingThere || '-' %></dd></div>
+      </dl>
+      <% if (relatedPackages.length) { %>
+        <h3 style="font-size:1rem; margin-top:0.4rem">Paket tersedia</h3>
+        <ul style="display:grid; gap:0.55rem; margin-bottom:1.2rem">
+          <% relatedPackages.forEach(function (p) { %>
+            <li><a href="/paket/<%= p.slug %>" class="link-arrow"><%= p.title %> — <%= formatRupiah(p.price) %></a></li>
+          <% }) %>
+        </ul>
+      <% } %>
+      <a href="/kontak" class="btn btn--sunset" style="width:100%">Tanya Ketersediaan</a>
+    </aside>
+  </div>
+</section>

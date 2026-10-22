@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> · Admin JJE</title>
+  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/admin.css">
+  <% if (typeof mapData !== 'undefined' && mapData) { %>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <% } %>
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="admin-sidebar" id="adminSidebar">
+      <div class="admin-brand">
+        <img src="/img/logo.svg" alt="Logo">
+        <div>
+          <strong>JalanJalanEnak</strong>
+          <small>Panel Admin</small>
+        </div>
+      </div>
+      <nav class="admin-nav">
+        <span class="admin-nav__label">Ringkasan</span>
+        <a href="/admin" class="<%= currentPath === '/admin' ? 'active' : '' %>"><span class="ico">◈</span> Dashboard</a>
+        <span class="admin-nav__label">Konten</span>
+        <a href="/admin/destinasi" class="<%= currentPath.startsWith('/destinasi') ? 'active' : '' %>"><span class="ico">🏝</span> Destinasi</a>
+        <a href="/admin/paket" class="<%= currentPath.startsWith('/paket') ? 'active' : '' %>"><span class="ico">🎫</span> Paket Wisata</a>
+        <a href="/admin/artikel" class="<%= currentPath.startsWith('/artikel') ? 'active' : '' %>"><span class="ico">✍</span> Artikel</a>
+        <span class="admin-nav__label">Operasional</span>
+        <a href="/admin/booking" class="<%= currentPath.startsWith('/booking') ? 'active' : '' %>"><span class="ico">📌</span> Booking</a>
+        <a href="/admin/pelanggan" class="<%= currentPath.startsWith('/pelanggan') ? 'active' : '' %>"><span class="ico">👥</span> Pelanggan</a>
+        <a href="/admin/pesan" class="<%= currentPath.startsWith('/pesan') ? 'active' : '' %>"><span class="ico">✉</span> Pesan Masuk</a>
+        <a href="/admin/testimoni" class="<%= currentPath.startsWith('/testimoni') ? 'active' : '' %>"><span class="ico">⭐</span> Testimoni</a>
+        <span class="admin-nav__label">Marketing</span>
+        <a href="/admin/marketing/kontak" class="<%= currentPath.startsWith('/marketing/kontak') ? 'active' : '' %>"><span class="ico">📇</span> Kontak</a>
+        <a href="/admin/marketing/blast" class="<%= currentPath.startsWith('/marketing/blast') ? 'active' : '' %>"><span class="ico">📣</span> Blast WhatsApp</a>
+        <span class="admin-nav__label">Sistem</span>
+        <a href="/admin/seo" class="<%= currentPath.startsWith('/seo') ? 'active' : '' %>"><span class="ico">🔎</span> SEO &amp; Peta Situs</a>
+        <a href="/admin/pengaturan" class="<%= currentPath.startsWith('/pengaturan') ? 'active' : '' %>"><span class="ico">⚙</span> Pengaturan</a>
+        <a href="/admin/akun" class="<%= currentPath.startsWith('/akun') ? 'active' : '' %>"><span class="ico">👤</span> Akun Saya</a>
+      </nav>
+      <form action="/admin/logout" method="post">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn-a btn-a--ghost" style="width:100%; justify-content:center; color:rgba(246,240,230,0.8); border-color:rgba(246,240,230,0.25)">Keluar</button>
+      </form>
+      <div class="admin-sidebar__foot">v1.0 · jalanjalanenak.com</div>
+    </aside>
+
+    <div class="admin-main">
+      <header class="admin-topbar">
+        <div style="display:flex; align-items:center; gap:0.8rem">
+          <button class="btn-a btn-a--ghost menu-btn" onclick="document.getElementById('adminSidebar').classList.toggle('open')">☰</button>
+          <h1><%= title %></h1>
+        </div>
+        <div class="admin-topbar__actions">
+          <a href="/" target="_blank" rel="noopener" class="btn-a btn-a--ghost btn-a--sm">Lihat Situs ↗</a>
+          <div class="admin-user">
+            <span class="avatar"><%= initials(currentUser ? currentUser.name : 'A') %></span>
+            <span><%= currentUser ? currentUser.name : 'Admin' %></span>
+          </div>
+        </div>
+      </header>
+      <div class="admin-content">
+        <% if (flash && flash.length) { %>
+          <div class="a-flash">
+            <% flash.forEach(function (f) { %><div class="flash flash--<%= f.type %>"><%= f.message %></div><% }) %>
+          </div>
+        <% } %>
+        <%- body %>
+      </div>
+    </div>
+  </div>
+  <% if (typeof mapData !== 'undefined' && mapData) { %>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="/js/map.js"></script>
+  <% } %>
+</body>
+</html>

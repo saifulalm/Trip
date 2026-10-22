@@ -1,0 +1,33 @@
+<section class="page-hero">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / Artikel</div>
+    <h1>Artikel &amp; Panduan</h1>
+    <p>Tips, panduan musim, dan cerita perjalanan bahari dari tim kami.</p>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container">
+    <form class="search-bar" action="/artikel" method="get">
+      <input type="search" name="q" value="<%= q %>" placeholder="Cari artikel…">
+      <button class="btn btn--deep btn--sm" type="submit">Cari</button>
+    </form>
+    <% if (articles.length === 0) { %>
+      <div class="empty-state">Artikel tidak ditemukan.</div>
+    <% } else { %>
+      <div class="grid grid--3">
+        <% articles.forEach(function (a) { %>
+          <a href="/artikel/<%= a.slug %>" class="article-card reveal">
+            <div class="article-card__media"><img src="<%= a.coverImage %>" alt="<%= a.title %>" loading="lazy"></div>
+            <div class="article-card__body">
+              <span class="article-card__cat"><%= a.category %></span>
+              <h3><%= a.title %></h3>
+              <p><%= excerpt(a.excerpt || a.body, 100) %></p>
+              <div class="article-card__foot"><span><%= a.author %></span><span>·</span><span><%= formatDateShort(a.publishedAt || a.createdAt) %></span></div>
+            </div>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</section>

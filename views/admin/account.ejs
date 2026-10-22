@@ -1,0 +1,33 @@
+<div class="panel-grid">
+  <div class="panel">
+    <div class="panel__head"><h2>Ubah Password</h2></div>
+    <form action="/admin/akun/password" method="post" class="a-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="a-field">
+        <label>Password Saat Ini <span class="req">*</span></label>
+        <input type="password" name="currentPassword" required autocomplete="current-password">
+      </div>
+      <div class="a-field">
+        <label>Password Baru <span class="req">*</span></label>
+        <input type="password" name="newPassword" required minlength="8" autocomplete="new-password">
+        <span class="help">Minimal 8 karakter.</span>
+      </div>
+      <div class="a-field">
+        <label>Konfirmasi Password Baru <span class="req">*</span></label>
+        <input type="password" name="confirmPassword" required minlength="8" autocomplete="new-password">
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn-a btn-a--sunset">Perbarui Password</button>
+      </div>
+    </form>
+  </div>
+  <div class="panel">
+    <div class="panel__head"><h2>Info Akun</h2></div>
+    <dl class="detail-list">
+      <div><dt>Username</dt><dd><%= user.username %></dd></div>
+      <div><dt>Nama</dt><dd><%= user.name %></dd></div>
+      <div><dt>Peran</dt><dd><%= user.role %></dd></div>
+      <div><dt>Terdaftar</dt><dd><%= formatDateLong(user.createdAt) %></dd></div>
+    </dl>
+  </div>
+</div>

@@ -1,0 +1,48 @@
+<div class="panel">
+  <div class="panel__head">
+    <h2><%= item ? 'Edit Artikel' : 'Tulis Artikel Baru' %></h2>
+    <a href="/admin/artikel" class="btn-a btn-a--ghost btn-a--sm">← Kembali</a>
+  </div>
+  <form action="<%= action %>" method="post" enctype="multipart/form-data" class="a-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="a-form-grid">
+      <div class="a-field a-field--full">
+        <label>Judul <span class="req">*</span></label>
+        <input type="text" name="title" required value="<%= item ? item.title : '' %>" placeholder="7 Tips Snorkeling Pertama Kali">
+      </div>
+      <div class="a-field">
+        <label>Kategori</label>
+        <input type="text" name="category" value="<%= item ? item.category : '' %>" placeholder="Tips Wisata">
+      </div>
+      <div class="a-field">
+        <label>Penulis</label>
+        <input type="text" name="author" value="<%= item ? item.author : '' %>" placeholder="Tim JJE">
+      </div>
+      <div class="a-field a-field--full">
+        <label>Ringkasan</label>
+        <textarea name="excerpt" rows="2" placeholder="Ringkasan singkat untuk kartu artikel…"><%= item ? item.excerpt : '' %></textarea>
+      </div>
+      <div class="a-field a-field--full">
+        <label>Isi Artikel <span class="req">*</span></label>
+        <textarea name="body" rows="14" class="tall" required placeholder="Pisahkan paragraf dengan baris kosong. Gunakan ## Judul Bagian untuk subheading, **tebal** untuk teks tebal."><%= item ? item.body : '' %></textarea>
+        <span class="help">Format sederhana: baris kosong = paragraf baru · "## Judul" = heading · **teks** = tebal</span>
+      </div>
+      <div class="a-field">
+        <label>Gambar Sampul</label>
+        <input type="file" name="imageFile" accept="image/*">
+        <% if (item && item.coverImage) { %><img src="<%= item.coverImage %>" alt="" class="img-preview" style="margin-top:0.5rem"><% } %>
+      </div>
+      <div class="a-field">
+        <label>Status</label>
+        <select name="status">
+          <option value="published" <%= item && item.status === 'published' ? 'selected' : '' %>>Terbit</option>
+          <option value="draft" <%= item && item.status === 'draft' ? 'selected' : '' %>>Draf</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn-a btn-a--sunset"><%= item ? 'Simpan Perubahan' : 'Terbitkan Artikel' %></button>
+      <a href="/admin/artikel" class="btn-a btn-a--ghost">Batal</a>
+    </div>
+  </form>
+</div>
