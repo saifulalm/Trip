@@ -8,7 +8,7 @@
   <% const ogImage = (seo && seo.image) ? seo.image : (settings.ogImageUrl || settings.heroImageUrl || '/img/dest-sabesi.svg'); %>
   <% const ogType = (seo && seo.type) ? seo.type : 'website'; %>
   <% const canonical = absoluteUrl(currentPath); %>
-  <title><%= ogTitle %> · <%= settings.siteName || 'jalanjalanenak.com' %></title>
+  <title><%= ogTitle %> · <%= settings.siteName || brand.domain %></title>
   <meta name="description" content="<%= ogDesc %>">
   <% if (canonical) { %><link rel="canonical" href="<%= canonical %>"><% } %>
   <% if (settings.seoIndex === false) { %><meta name="robots" content="noindex, nofollow"><% } %>
@@ -34,13 +34,39 @@
   <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Karla:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Poppins:wght@300;400;500;600;700&family=Great+Vibes&family=Dancing+Script:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/splash.css">
+  <link rel="stylesheet" href="/css/ux.css">
   <% if (typeof mapData !== 'undefined' && mapData) { %>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <% } %>
+  <%# Script inline di <head> (sebelum body diparse): pasang layer splash
+      secepat mungkin supaya situs tidak pernah "terlihat" sebelum splash.
+      - Kalau user sudah pernah melihat splash di sesi ini, jangan sentuh apa pun
+        → halaman langsung tampil tanpa kedipan.
+      - Jaring pengaman 6 detik: bila /js/splash.js gagal dimuat, kelas dilepas
+        dan situs tetap bisa dibuka. %>
+  <script>
+    (function () {
+      var KEY = 'syt_splash_seen';
+      var seen = false;
+      try { seen = sessionStorage.getItem(KEY) === '1'; } catch (e) { seen = false; }
+      if (seen) return;
+      var root = document.documentElement;
+      root.classList.add('syt-splash-pending', 'splash-active');
+      window.setTimeout(function () {
+        root.classList.remove('syt-splash-pending', 'splash-active');
+        var s = document.getElementById('splash');
+        if (s && s.parentNode) s.parentNode.removeChild(s);
+        var b = document.getElementById('splashSkip');
+        if (b && b.parentNode) b.parentNode.removeChild(b);
+      }, 6000);
+    })();
+  </script>
 </head>
 <body>
+  <%- include('../partials/splash') %>
   <%- include('../partials/flash') %>
   <%- include('../partials/header') %>
   <main>
@@ -60,6 +86,7 @@
     document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
   </script>
   <script src="/js/depth.js" defer></script>
+  <script src="/js/splash.js" defer></script>
   <% if (typeof mapData !== 'undefined' && mapData) { %>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="/js/map.js"></script>

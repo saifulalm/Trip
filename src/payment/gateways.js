@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Lapisan payment gateway jalanjalanenak.com.
+ * Lapisan payment gateway seayoulatertrip.com.
  * Metode: manual transfer (selalu aktif), Midtrans Snap (REST resmi),
  * dan Tripay (REST + HMAC-SHA256). Tanpa dependensi native.
  */

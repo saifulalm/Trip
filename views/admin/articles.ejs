@@ -3,41 +3,14 @@
     <h2>Daftar Artikel (<%= pg.total %>)</h2>
     <a href="/admin/artikel/baru" class="btn-a btn-a--sunset">+ Tulis Artikel</a>
   </div>
-  <form class="filter-bar" action="/admin/artikel" method="get">
-    <input type="search" name="q" value="<%= q %>" placeholder="Cari judul atau kategori…">
-    <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Cari</button>
-  </form>
-  <% if (pg.rows.length === 0) { %>
-    <p style="color:var(--a-soft)">Belum ada artikel.</p>
-  <% } else { %>
-    <div class="table-wrap">
-      <table class="a-table">
-        <thead><tr><th>Judul</th><th>Kategori</th><th>Penulis</th><th>Terbit</th><th>Status</th><th>Aksi</th></tr></thead>
-        <tbody>
-          <% pg.rows.forEach(function (a) { %>
-            <tr>
-              <td><strong><%= a.title %></strong></td>
-              <td><%= a.category %></td>
-              <td><%= a.author %></td>
-              <td><%= a.publishedAt ? formatDateShort(a.publishedAt) : '—' %></td>
-              <td><span class="badge badge--<%= publicationStatusTone(a.status) %>"><%= publicationStatusLabel(a.status) %></span></td>
-              <td>
-                <div class="actions">
-                  <% if (a.status === 'published') { %>
-                    <a href="/artikel/<%= a.slug %>" target="_blank" rel="noopener" class="btn-a btn-a--ghost btn-a--sm">Lihat</a>
-                  <% } %>
-                  <a href="/admin/artikel/<%= a.id %>/edit" class="btn-a btn-a--primary btn-a--sm">Edit</a>
-                  <form action="/admin/artikel/<%= a.id %>/hapus" method="post" onsubmit="return confirm('Hapus artikel <%= a.title %>?')">
-                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
+  <form class="table-toolbar" data-live-search action="/admin/artikel" method="get">
+    <div class="search-box">
+      <input type="search" name="q" value="<%= q %>" placeholder="Cari judul, kategori, penulis, atau status…" autocomplete="off">
     </div>
-    <%- include('partials/pagination', { pg: pg, q: q }) %>
-  <% } %>
+    <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Cari</button>
+    <span class="search-meta" data-search-meta><%= pg.total %> artikel</span>
+  </form>
+  <div class="table-region" data-partial-url="/admin/artikel">
+    <%- include('partials/list-articles', { rows: pg.rows, pg, q, status, sort, dir }) %>
+  </div>
 </div>

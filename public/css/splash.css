@@ -1,0 +1,314 @@
+/* ==========================================================================
+   splash.css — Splash screen handwriting "Seayoulatertrip"
+   Progressive enhancement: tanpa JS, .splash tidak pernah tampil.
+
+   Kontrak dengan <head> (views/layouts/public.ejs):
+     - script inline menambahkan kelas "syt-splash-pending" ke <html> sebelum
+       body diparse → .splash sudah opaque sejak frame pertama (anti flash).
+     - kelas "splash-active" mengunci scroll selama splash tampil.
+   ========================================================================== */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(120% 90% at 50% 15%, #0b3a44 0%, #061f25 55%, #041419 100%);
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.55s cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* Tampil dari frame pertama (hanya ketika JS aktif). transition:none supaya
+   tidak ada kedipan awal; transisi keluar tetap pakai .splash di bawah. */
+html.syt-splash-pending .splash {
+  opacity: 1;
+  pointer-events: auto;
+  transition: none;
+}
+
+.splash.is-active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.splash.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- Lapisan latar: orb melayang + grain ---------- */
+.splash__bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.splash__orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+  will-change: transform;
+}
+
+.splash__orb--1 {
+  width: 46vmax; height: 46vmax;
+  top: -14vmax; left: -10vmax;
+  background: radial-gradient(circle at 30% 30%, #2f9fb0, transparent 68%);
+  animation: splashDrift1 13s ease-in-out infinite alternate;
+}
+.splash__orb--2 {
+  width: 38vmax; height: 38vmax;
+  bottom: -12vmax; right: -8vmax;
+  background: radial-gradient(circle at 60% 40%, #f2a65a, transparent 66%);
+  animation: splashDrift2 16s ease-in-out infinite alternate;
+}
+.splash__orb--3 {
+  width: 26vmax; height: 26vmax;
+  top: 44%; left: 52%;
+  background: radial-gradient(circle at 50% 50%, #e86a4f, transparent 70%);
+  opacity: 0.3;
+  animation: splashDrift3 11s ease-in-out infinite alternate;
+}
+
+@keyframes splashDrift1 {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(12vw, 8vh, 0) scale(1.18); }
+}
+@keyframes splashDrift2 {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to   { transform: translate3d(-14vw, -10vh, 0) scale(0.92); }
+}
+@keyframes splashDrift3 {
+  from { transform: translate3d(-50%, -50%, 0) scale(0.9); }
+  to   { transform: translate3d(-38%, -62%, 0) scale(1.25); }
+}
+
+.splash__grain {
+  position: absolute;
+  inset: -50%;
+  opacity: 0.05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: splashGrain 0.7s steps(3) infinite;
+}
+
+@keyframes splashGrain {
+  0%   { transform: translate(0, 0); }
+  33%  { transform: translate(-2%, 1.5%); }
+  66%  { transform: translate(1.5%, -1%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* ---------- Wordmark handwriting ---------- */
+.splash__inner {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  gap: 1.1rem;
+  width: min(880px, 88vw);
+  text-align: center;
+}
+
+.splash__wordmark {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.splash__stroke,
+.splash__fill {
+  font-family: "Great Vibes", "Dancing Script", "Segoe Script", cursive;
+  /* Ukuran font SERAGAM di semua breakpoint: viewBox yang_diskalakan SVG
+     yang mengecilkan sendiri di layar sempit, jadi proporsi huruf tetap
+     sama dan tidak ada yang terpotong. */
+  font-size: 104px;
+  letter-spacing: 0.01em;
+}
+
+.splash__stroke {
+  fill: none;
+  stroke: url(#splashStroke);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 1;
+}
+
+.splash__fill {
+  fill: url(#splashStroke);
+  opacity: 0;
+}
+
+/* Rect di dalam clipPath yang "menulis" wordmark dari kiri ke kanan.
+   scaleX pada elemen SVG didukung semua browser modern; tidak bergantung
+   pada pathLength (tidak berlaku untuk <text>). */
+.splash__write-rect {
+  transform-box: fill-box;
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+
+/* ---------- Tahapan animasi ----------
+   .is-active  → latar, tagline, progress, tombol langsung tampil.
+   .is-writing → wordmark mulai ditulis, lalu diisi gradien. */
+.splash.is-writing .splash__write-rect {
+  animation: splashWrite 2.4s cubic-bezier(0.55, 0, 0.35, 1) forwards;
+}
+
+.splash.is-writing .splash__fill {
+  animation: splashFillIn 0.9s ease-out 1.95s forwards;
+}
+
+@keyframes splashWrite {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes splashFillIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Meta: garis + tagline + progress */
+.splash__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  opacity: 0;
+  transform: translateY(10px);
+}
+.splash.is-active .splash__meta {
+  animation: splashRise 0.8s ease-out 0.35s forwards;
+}
+
+.splash__line {
+  display: block;
+  width: clamp(38px, 8vw, 96px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(111, 196, 205, 0.85));
+}
+.splash__line:last-child {
+  background: linear-gradient(90deg, rgba(242, 166, 90, 0.85), transparent);
+}
+
+.splash__tagline {
+  font-family: var(--font-body, "Karla", sans-serif);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: rgba(246, 240, 230, 0.72);
+  white-space: nowrap;
+}
+
+@keyframes splashRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.splash__progress {
+  width: min(240px, 46vw);
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(246, 240, 230, 0.12);
+  overflow: hidden;
+  opacity: 0;
+}
+.splash.is-active .splash__progress {
+  animation: splashRise 0.6s ease-out 0.5s forwards;
+}
+
+.splash__progress-bar {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #6fc4cd, #f2a65a, #e86a4f);
+}
+/* Bar progressed mengikuti tahap menulis, jadi 100% tepat saat splash selesai. */
+.splash.is-writing .splash__progress-bar {
+  animation: splashProgress 2.9s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes splashProgress {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+/* Tombol lewati — berada DI LUAR #splash (lihat views/partials/splash.ejs).
+   Default display:none: tanpa JS tidak pernah muncul dan tidak bisa
+   difokus keyboard. */
+.splash__skip {
+  display: none;
+  position: fixed;
+  right: clamp(1rem, 4vw, 2.6rem);
+  bottom: clamp(1rem, 4vw, 2.4rem);
+  z-index: 10000;
+  padding: 0.5rem 1.05rem;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 240, 230, 0.22);
+  background: rgba(246, 240, 230, 0.06);
+  color: rgba(246, 240, 230, 0.78);
+  font-family: var(--font-body, "Karla", sans-serif);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0;
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
+}
+.splash__skip.is-on {
+  display: inline-flex;
+  min-height: 44px;
+  min-width: 44px;
+  align-items: center;
+  justify-content: center;
+  animation: splashRise 0.6s ease-out 0.6s forwards;
+}
+.splash__skip:hover {
+  background: rgba(242, 166, 90, 0.16);
+  border-color: rgba(242, 166, 90, 0.5);
+  color: #fff;
+}
+.splash__skip:focus-visible {
+  outline: 2px solid var(--apricot, #f2a65a);
+  outline-offset: 3px;
+}
+
+/* Kurangi gerakan */
+@media (prefers-reduced-motion: reduce) {
+  .splash__write-rect {
+    transform: scaleX(1);
+  }
+  .splash__write-rect,
+  .splash__stroke,
+  .splash__fill,
+  .splash__meta,
+  .splash__progress,
+  .splash__skip {
+    animation: none !important;
+  }
+  .splash__stroke { opacity: 1; }
+  .splash__fill { opacity: 1; }
+  .splash__meta, .splash__progress, .splash__skip { opacity: 1; transform: none; }
+  .splash__progress-bar { width: 100%; animation: none; }
+  .splash__orb, .splash__grain { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .splash__tagline { font-size: 0.6rem; letter-spacing: 0.24em; }
+  .splash__inner { width: min(880px, 92vw); }
+}
+
+/* ---------- Kunci scroll selama splash aktif ---------- */
+html.splash-active,
+html.splash-active body {
+  overflow: hidden;
+  height: 100%;
+}

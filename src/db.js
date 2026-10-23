@@ -15,18 +15,35 @@ const DB_FILE = path.join(DATA_DIR, 'db.json');
 const TMP_FILE = path.join(DATA_DIR, '.db.tmp');
 
 let cache = null;
+/** Sidik jari file di disk (mtime + ukuran) — dipakai untuk mendeteksi
+ *  perubahan yang terjadi DI LUAR proses (mis. `npm run migrate:brand`
+ *  selagi server masih jalan). */
+let cacheStamp = null;
 
 function ensureDir() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-function read() {
-  if (cache) return cache;
-  ensureDir();
+function fileStamp() {
   try {
-    cache = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    const st = fs.statSync(DB_FILE);
+    return `${st.mtimeMs}:${st.size}`;
   } catch (err) {
-    cache = null;
+    return null;
+  }
+}
+
+function read() {
+  ensureDir();
+  const stamp = fileStamp();
+  // Muat ulang kalau file berubah di luar proses.
+  if (cache && stamp && stamp === cacheStamp) return cache;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    cache = parsed;
+    cacheStamp = stamp;
+  } catch (err) {
+    if (!cache) cache = null;
   }
   return cache;
 }
@@ -35,6 +52,7 @@ function write() {
   ensureDir();
   fs.writeFileSync(TMP_FILE, JSON.stringify(cache, null, 2), 'utf8');
   fs.renameSync(TMP_FILE, DB_FILE); // atomik di Windows & POSIX
+  cacheStamp = fileStamp();
 }
 
 function initIfEmpty(seedFn) {

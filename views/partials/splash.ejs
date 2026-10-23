@@ -1,0 +1,73 @@
+<%# Splash screen — wordmark "Seayoulatertrip" yang ditulis tangan.
+    Disisipkan sebagai anak pertama <body> di views/layouts/public.ejs.
+
+    Kontrak dengan <head>:
+      - Script inline di <head> menambahkan kelas "syt-splash-pending" SEBELUM
+        body diparse, sehingga layer splash sudah menutupi situs dari frame
+        pertama — tidak ada flash konten sebelum splash.
+      - Tanpa JS, kelas itu tidak pernah aktif → .splash tetap opacity 0 dan
+        situs langsung tampil (progressive enhancement). %>
+<div id="splash" class="splash" aria-hidden="true">
+  <div class="splash__bg" aria-hidden="true">
+    <span class="splash__orb splash__orb--1"></span>
+    <span class="splash__orb splash__orb--2"></span>
+    <span class="splash__orb splash__orb--3"></span>
+    <span class="splash__grain"></span>
+  </div>
+
+  <div class="splash__inner">
+    <svg class="splash__wordmark" viewBox="0 0 800 220" role="img" aria-label="<%= brand.display %>">
+      <defs>
+        <linearGradient id="splashStroke" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#6fc4cd"/>
+          <stop offset="45%" stop-color="#f2a65a"/>
+          <stop offset="100%" stop-color="#e86a4f"/>
+        </linearGradient>
+        <filter id="splashGlow" x="-30%" y="-30%" width="160%" height="160%">
+          <feGaussianBlur stdDeviation="5" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+
+        <%# Reveal handwriting memakai clipPath + rect yang di-scaleX 0 → 1.
+            Sengaja TIDAK memakai pathLength/stroke-dash: atribut pathLength
+            hanya berlaku pada circle|ellipse|line|path|polygon|polyline|rect
+            dan DIABAIKAN pada <text> oleh semua browser. Kalau dipakai,
+            stroke-dasharray:"1" jadi titik-titik 1px dan animasi "tulis
+            tangan"-nya tidak pernah terjadi. Clip ini konsisten di semua
+            browser dan tidak bergantung pada metrik font. %>
+        <clipPath id="splashWrite" clipPathUnits="userSpaceOnUse">
+          <rect class="splash__write-rect" x="0" y="-60" width="800" height="340"/>
+        </clipPath>
+      </defs>
+
+      <%# textLength="700" + lengthAdjust="spacingAndGlyphs" membuat lebar
+          wordmark SELALU 700 unit berapa pun font yang benar-benar termuat.
+          Tanpa itu, font fallback yang lebih lebar bisa terpotong oleh
+          clipPath, dan animasi tulis-tangannya jadi tidak simetris. %>
+      <g clip-path="url(#splashWrite)">
+        <text class="splash__stroke" x="400" y="150" text-anchor="middle"
+              textLength="700" lengthAdjust="spacingAndGlyphs"
+              filter="url(#splashGlow)"><%= brand.display %></text>
+        <text class="splash__fill" x="400" y="150" text-anchor="middle"
+              textLength="700" lengthAdjust="spacingAndGlyphs"><%= brand.display %></text>
+      </g>
+    </svg>
+
+    <div class="splash__meta">
+      <span class="splash__line"></span>
+      <span class="splash__tagline"><%= brand.descriptor %></span>
+      <span class="splash__line"></span>
+    </div>
+
+    <div class="splash__progress" aria-hidden="true"><span class="splash__progress-bar"></span></div>
+  </div>
+</div>
+
+<%# Tombol "Lewati intro" DI LUAR #splash, supaya tidak berada di dalam
+    subtree aria-hidden (tombol di dalam aria-hidden tetap bisa difokus →
+    bug a11y: keyboard bisa masuk ke tombol yang tidak terbaca screen reader).
+    Default display:none → tanpa JS tidak pernah muncul & tidak bisa difokus. %>
+<button type="button" class="splash__skip" id="splashSkip">Lewati intro</button>

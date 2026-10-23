@@ -1,0 +1,41 @@
+<%# Daftar Testimoni & Ulasan %>
+<% if (!rows || rows.length === 0) { %>
+  <p class="no-results">Tidak ada ulasan yang cocok dengan pencarian ini.</p>
+<% } else { %>
+  <% rows.forEach(function (r) { %>
+    <div class="review-item">
+      <div class="review-item__head">
+        <div>
+          <strong><%= r.customerName %></strong>
+          <span class="badge badge--<%= r.status === 'approved' ? 'completed' : r.status === 'rejected' ? 'cancelled' : 'pending' %>">
+            <%= r.status === 'approved' ? 'Disetujui' : r.status === 'rejected' ? 'Ditolak' : 'Menunggu' %>
+          </span>
+        </div>
+        <small style="color:var(--a-soft)"><%= r.packageName %> · <%= r.bookingCode %> · <%= formatDateShort(r.createdAt) %></small>
+      </div>
+      <div class="review-item__stars"><%= starRating(r.rating) %> <small>(<%= r.rating %>/5)</small></div>
+      <p class="review-item__comment"><%= r.comment %></p>
+      <div class="actions">
+        <% if (r.status !== 'approved') { %>
+          <form action="/admin/testimoni/<%= r.id %>/status" method="post">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="status" value="approved">
+            <button type="submit" class="btn-a btn-a--primary btn-a--sm">✓ Setujui &amp; Tampilkan</button>
+          </form>
+        <% } %>
+        <% if (r.status !== 'rejected') { %>
+          <form action="/admin/testimoni/<%= r.id %>/status" method="post">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="status" value="rejected">
+            <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Tolak</button>
+          </form>
+        <% } %>
+        <form action="/admin/testimoni/<%= r.id %>/hapus" method="post" onsubmit="return confirm('Hapus ulasan ini?')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+        </form>
+      </div>
+    </div>
+  <% }) %>
+<% } %>
+<%- include('pagination', { pg, q, status, sort, dir }) %>

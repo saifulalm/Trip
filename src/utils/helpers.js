@@ -2,6 +2,8 @@
 
 /** Kumpulan helper kecil yang dipakai di route dan template. */
 
+const crypto = require('crypto');
+
 function formatRupiah(value) {
   const n = Number(value || 0);
   return `Rp ${n.toLocaleString('id-ID')}`;
@@ -153,6 +155,193 @@ function tomorrowISO() {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * Alfabet untuk kode booking. Huruf I/O dan angka 0/1 sengaja dibuang agar
+ * kode mudah dibaca dan tidak salah ketik saat dictate lewat telepon.
+ */
+const CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+
+/**
+ * Kode booking yang dijamin unik DAN tidak bisa ditebak.
+ *
+ * Kode booking adalah kunci pencarian di mana-mana: halaman /pembayaran/:code,
+ * callback payment gateway (order_id), panel admin, dan portal pelanggan.
+ * Dua hal wajib dijamin:
+ *  1. UNIK — dua booking dibuat pada detik yang sama tidak boleh mendapat
+ *     kode yang sama, kalau tidak pembayaran bisa masuk ke booking orang lain.
+ *  2. TIDAK TERTEBAK — kode lama berbasis stempel waktu bisa dienumerasi.
+ *     Format sekarang: PREFIX-YYMMDD-XXXXXX (6 karakter acak, ~30^6 kombinasi).
+ *
+ * @param {string[]} existingCodes Kode yang sudah dipakai.
+ * @param {string} prefix Prefix brand, mis. "SYLT".
+ */
+function uniqueBookingCode(existingCodes, prefix) {
+  const taken = new Set(existingCodes || []);
+  const stamp = new Date().toISOString().slice(2, 10).replace(/-/g, '');
+  let code = '';
+  do {
+    let rand = '';
+    for (let i = 0; i < 6; i += 1) {
+      rand += CODE_ALPHABET[crypto.randomBytes(1)[0] % CODE_ALPHABET.length];
+    }
+    code = `${prefix}-${stamp}-${rand}`;
+  } while (taken.has(code));
+  return code;
+}
+
+/* ------------------------------------------------------------------ */
+/* Koordinat geolokasi (Latitude / Longitude)                           */
+/* ------------------------------------------------------------------ */
+
+/** Digit desimal yang disimpan ke database. 7 desimal ≈ 1,1 cm. */
+const COORD_PRECISION = 7;
+
+const LAT_MIN = -90;
+const LAT_MAX = 90;
+const LNG_MIN = -180;
+const LNG_MAX = 180;
+
+/**
+ * Ubah input mentah (string) menjadi koordinat angka.
+ * - String kosong  → null (koordinat tidak diisi).
+ * - Format tidak valid → NaN (deteksi oleh pemanggil).
+ * - Koma desimal ala Indonesia ("-0,4719") diterima.
+ * - Nilai dibulatkan ke COORD_PRECISION digit agar presisi stabil di DB.
+ */
+function parseCoordinate(raw) {
+  if (raw === null || raw === undefined) return null;
+  const s = String(raw).trim().replace(/\s+/g, '');
+  if (s === '') return null;
+  const normalized = s.replace(',', '.');
+  if (!/^[+-]?\d*\.?\d+$/.test(normalized)) return NaN;
+  const n = parseFloat(normalized);
+  if (!Number.isFinite(n)) return NaN;
+  return Number(n.toFixed(COORD_PRECISION));
+}
+
+function isValidLatitude(value) {
+  return Number.isFinite(value) && value >= LAT_MIN && value <= LAT_MAX;
+}
+
+function isValidLongitude(value) {
+  return Number.isFinite(value) && value >= LNG_MIN && value <= LNG_MAX;
+}
+
+/**
+ * Validasi pasangan Latitude/Longitude sekaligus.
+ * Mengembalikan { lat, lng, errors[] }.
+ * Koordinat boleh kosong (opsional) TAPI tidak boleh setengah terisi.
+ */
+function validateCoordinates(latRaw, lngRaw) {
+  const errors = [];
+  const lat = parseCoordinate(latRaw);
+  const lng = parseCoordinate(lngRaw);
+
+  const latEmpty = lat === null;
+  const lngEmpty = lng === null;
+
+  if (latEmpty && !lngEmpty) {
+    errors.push('Latitude wajib diisi bila Longitude diisi.');
+  }
+  if (lngEmpty && !latEmpty) {
+    errors.push('Longitude wajib diisi bila Latitude diisi.');
+  }
+  if (!latEmpty && Number.isNaN(lat)) {
+    errors.push('Latitude harus berupa angka desimal (contoh: -0.4719).');
+  }
+  if (!lngEmpty && Number.isNaN(lng)) {
+    errors.push('Longitude harus berupa angka desimal (contoh: 130.7515).');
+  }
+  if (!latEmpty && !Number.isNaN(lat) && !isValidLatitude(lat)) {
+    errors.push(`Latitude harus antara ${LAT_MIN} sampai ${LAT_MAX} (nilai saat ini: ${lat}).`);
+  }
+  if (!lngEmpty && !Number.isNaN(lng) && !isValidLongitude(lng)) {
+    errors.push(`Longitude harus antara ${LNG_MIN} sampai ${LNG_MAX} (nilai saat ini: ${lng}).`);
+  }
+
+  return {
+    lat: latEmpty || Number.isNaN(lat) ? null : lat,
+    lng: lngEmpty || Number.isNaN(lng) ? null : lng,
+    errors
+  };
+}
+
+/** Format koordinat untuk ditampilkan di tabel admin. */
+function formatCoord(value, decimals = 5) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return '-';
+  return Number(value).toFixed(decimals);
+}
+
+/* ------------------------------------------------------------------ */
+/* Pencarian, filter & sorting untuk tabel admin                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Uji apakah satu baris cocok dengan query pencarian.
+ * `fields` = array fungsi aksesor (mis. r => r.name) — mendukung
+ * multi-field search (ID, nama, email, status, dsb.).
+ */
+function matchesAny(row, query, fields) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return true;
+  if (!Array.isArray(fields) || !fields.length) return true;
+  return fields.some((get) => {
+    let value;
+    try {
+      value = get(row);
+    } catch (err) {
+      return false;
+    }
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'object') {
+      try {
+        value = JSON.stringify(value);
+      } catch (err) {
+        value = String(value);
+      }
+    }
+    return String(value).toLowerCase().includes(q);
+  });
+}
+
+/**
+ * Urutkan baris berdasarkan satu kolom.
+ * `accessors` = object { namaKolom: fnAksesor }.
+ * Nilai null selalu berada di akhir. Huruf & angka dibandingkan dengan
+ * locale id-ID agar "Sabesi" mendahului "sabesi".
+ */
+function sortRows(rows, sort, dir, accessors) {
+  if (!sort || !accessors || !Object.prototype.hasOwnProperty.call(accessors, sort)) return rows;
+  const get = accessors[sort];
+  const sign = String(dir).toLowerCase() === 'desc' ? -1 : 1;
+  return rows.slice().sort((a, b) => {
+    let va;
+    let vb;
+    try {
+      va = get(a);
+      vb = get(b);
+    } catch (err) {
+      return 0;
+    }
+    if (va === null || va === undefined || va === '') {
+      return vb === null || vb === undefined || vb === '' ? 0 : 1;
+    }
+    if (vb === null || vb === undefined || vb === '') return -1;
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sign;
+    return String(va).localeCompare(String(vb), 'id-ID', { numeric: true, sensitivity: 'base' }) * sign;
+  });
+}
+
+/** Normalisasi parameter sorting dari query string. */
+function readSort(query, allowed, fallbackSort) {
+  const sort = String((query && query.sort) || fallbackSort || '');
+  const dir = String((query && query.dir) || '').toLowerCase() === 'desc' ? 'desc' : 'asc';
+  if (!allowed.includes(sort)) {
+    return { sort: fallbackSort || '', dir: allowed.includes(sort) ? dir : 'asc' };
+  }
+  return { sort, dir };
+}
+
 module.exports = {
   formatRupiah,
   formatDateLong,
@@ -173,5 +362,19 @@ module.exports = {
   paymentStatusLabel,
   paymentStatusTone,
   starRating,
-  tomorrowISO
+  tomorrowISO,
+  uniqueBookingCode,
+  COORD_PRECISION,
+  LAT_MIN,
+  LAT_MAX,
+  LNG_MIN,
+  LNG_MAX,
+  parseCoordinate,
+  isValidLatitude,
+  isValidLongitude,
+  validateCoordinates,
+  formatCoord,
+  matchesAny,
+  sortRows,
+  readSort
 };

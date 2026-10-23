@@ -1,0 +1,42 @@
+<%# Tabel Pelanggan %>
+<% if (!rows || rows.length === 0) { %>
+  <p class="no-results">Tidak ada pelanggan yang cocok dengan pencarian ini.</p>
+<% } else { %>
+  <div class="table-wrap">
+    <table class="a-table">
+      <thead>
+        <tr>
+          <%- include('th', { label: 'Nama', field: 'name', sort, dir }) %>
+          <%- include('th', { label: 'Email', field: 'email', sort, dir }) %>
+          <%- include('th', { label: 'HP', field: 'phone', sort, dir }) %>
+          <%- include('th', { label: 'Booking', field: 'bookingCount', sort, dir }) %>
+          <th>Booking Terakhir</th>
+          <%- include('th', { label: 'Daftar', field: 'createdAt', sort, dir }) %>
+          <th>Kelola</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(function (c) { %>
+          <tr>
+            <td><strong><%= c.name %></strong></td>
+            <td><%= c.email %></td>
+            <td><%= c.phone || '-' %></td>
+            <td><span class="badge badge--<%= c.bookingCount > 0 ? 'confirmed' : 'pending' %>"><%= c.bookingCount %></span></td>
+            <td><%= c.lastBooking ? c.lastBooking.code + ' · ' + formatDateShort(c.lastBooking.departureDate) : '-' %></td>
+            <td><%= formatDateShort(c.createdAt) %></td>
+            <td>
+              <div class="actions">
+                <% if (c.lastBooking) { %><a href="/admin/booking/<%= c.lastBooking.id %>" class="btn-a btn-a--ghost btn-a--sm">Lihat Booking</a><% } %>
+                <form action="/admin/pelanggan/<%= c.id %>/hapus" method="post" onsubmit="return confirm('Hapus akun <%= c.name %>? Booking-nya tetap tersimpan.')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+<%- include('pagination', { pg, q, status, sort, dir }) %>

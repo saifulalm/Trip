@@ -1,0 +1,172 @@
+<%
+  const st = status || {};
+  const isWeb = currentProvider === 'web';
+  const stateTone = st.state === 'connected' ? 'confirmed' : st.state === 'error' ? 'cancelled' : 'pending';
+%>
+
+<div class="admin-head">
+  <div>
+    <h1>WhatsApp</h1>
+    <p>Status koneksi, pemindaian QR, dan pengiriman pesan otomatis.</p>
+  </div>
+  <div class="admin-head__actions">
+    <span class="badge badge--<%= stateTone %>" id="waStateBadge" data-state="<%= st.state %>">
+      <span class="wa-dot"></span> <span id="waStateLabel"><%= st.stateLabel || 'Belum Dikonfigurasi' %></span>
+    </span>
+    <% if (isQuietHour) { %><span class="badge badge--pending">Jam tenang (21.00–08.00)</span><% } %>
+  </div>
+</div>
+
+<!-- ============ Pilihan Provider ============ -->
+<div class="panel" style="margin-bottom:1.4rem">
+  <div class="panel__head"><h2>Provider WhatsApp</h2></div>
+  <form action="/admin/whatsapp/provider" method="post" class="a-form" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:0.8rem; align-items:end">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <% Object.keys(providers).forEach(function (key) { %>
+      <label class="wa-provider <%= currentProvider === key ? 'is-active' : '' %>">
+        <input type="radio" name="provider" value="<%= key %>" <%= currentProvider === key ? 'checked' : '' %>>
+        <strong><%= providers[key].label %></strong>
+        <span><%= providers[key].description %></span>
+      </label>
+    <% }) %>
+    <button type="submit" class="btn-a btn-a--primary">Simpan Provider</button>
+  </form>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:1.4rem; align-items:start">
+
+  <!-- ============ Panel status / QR ============ -->
+  <div class="panel">
+    <div class="panel__head">
+      <h2>Status Koneksi</h2>
+      <span class="search-meta" id="waUpdatedAt">Diperbarui <%= new Date(st.updatedAt || Date.now()).toLocaleTimeString('id-ID') %></span>
+    </div>
+
+    <div class="wa-status-card">
+      <div class="wa-status-row">
+        <span>Provider</span><strong><%= st.label || '-' %></strong>
+      </div>
+      <div class="wa-status-row">
+        <span>Status</span><strong id="waStateText" data-state="<%= st.state %>"><%= st.stateLabel || '-' %></strong>
+      </div>
+      <% if (isWeb) { %>
+        <div class="wa-status-row">
+          <span>Nomor tersambung</span><strong id="waMe"><%= st.me ? (st.me.name || st.me.id) : '—' %></strong>
+        </div>
+        <div class="wa-status-row">
+          <span>Tersambung sejak</span><strong id="waConnectedAt"><%= st.connectedAt ? new Date(st.connectedAt).toLocaleString('id-ID') : '—' %></strong>
+        </div>
+      <% } %>
+      <div class="wa-status-row">
+        <span>Kontak siap blast</span><strong><%= marketable %> kontak</strong>
+      </div>
+    </div>
+
+    <% if (st.installHint) { %>
+      <div class="wa-callout wa-callout--warn">
+        <strong>Modul WhatsApp Web belum terpasang.</strong>
+        <p><%= st.installHint %></p>
+        <p class="wa-callout__hint">Setelah terpasang, restart server lalu tekan "Sambung / Refresh QR".</p>
+      </div>
+    <% } %>
+
+    <% if (st.lastError) { %>
+      <div class="wa-callout wa-callout--error">
+        <strong>Pesan sistem</strong>
+        <p><%= st.lastError %></p>
+      </div>
+    <% } %>
+
+    <% if (isWeb) { %>
+      <!-- QR -->
+      <div class="wa-qr" id="waQrBox">
+        <div class="wa-qr__canvas">
+          <img id="waQrImage" alt="Kode QR untuk menautkan WhatsApp Web" src="/admin/whatsapp/qr.png?t=<%= Date.now() %>" hidden>
+          <div class="wa-qr__placeholder" id="waQrPlaceholder">
+            <span class="wa-spinner"></span>
+            <p>Menyiapkan QR…</p>
+          </div>
+        </div>
+        <div class="wa-qr__meta">
+          <p id="waQrHint">Pindai dengan WhatsApp → Perangkat tertaut → Tautkan perangkat.</p>
+          <ol class="wa-steps">
+            <li>Buka WhatsApp di ponsel.</li>
+            <li>Menu <strong>Perangkat tertaut</strong>.</li>
+            <li>Tekan <strong>Tautkan perangkat</strong>.</li>
+            <li>Pindai kode di atas.</li>
+          </ol>
+          <details class="wa-raw">
+            <summary>Tampilkan string QR mentah</summary>
+            <code id="waQrRaw"><%= st.qr || 'Belum ada QR aktif.' %></code>
+          </details>
+        </div>
+      </div>
+
+      <div class="wa-actions">
+        <form action="/admin/whatsapp/connect" method="post" style="display:inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-a btn-a--sunset" id="waConnectBtn">Sambung / Refresh QR</button>
+        </form>
+        <form action="/admin/whatsapp/refresh-qr" method="post" style="display:inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-a btn-a--primary">Refresh QR</button>
+        </form>
+        <form action="/admin/whatsapp/disconnect" method="post" style="display:inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-a btn-a--ghost">Putuskan Sesi</button>
+        </form>
+        <form action="/admin/whatsapp/logout" method="post" style="display:inline" onsubmit="return confirm('Hapus sesi & kredensial WhatsApp Web?')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-a btn-a--danger">Hapus Sesi</button>
+        </form>
+      </div>
+    <% } else { %>
+      <div class="wa-actions">
+        <form action="/admin/whatsapp/check" method="post" style="display:inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-a btn-a--primary">Periksa Koneksi</button>
+        </form>
+        <a href="/admin/pengaturan" class="btn-a btn-a--ghost">Atur Token &amp; Phone ID</a>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- ============ Kirim pesan uji + log ============ -->
+  <div style="display:grid; gap:1.4rem">
+    <div class="panel">
+      <div class="panel__head"><h2>Kirim Pesan Uji</h2></div>
+      <form action="/admin/whatsapp/test" method="post" class="a-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="a-field">
+          <label>Nomor WhatsApp Tujuan <span class="req">*</span></label>
+          <input type="text" name="phone" required placeholder="6281234567890" inputmode="tel">
+        </div>
+        <div class="a-field">
+          <label>Isi Pesan</label>
+          <textarea name="message" rows="3" placeholder="Tes pesan otomatis dari <%= brand.display %>.">Tes pesan otomatis dari <%= brand.display %>. 🙏</textarea>
+        </div>
+        <button type="submit" class="btn-a btn-a--sunset">Kirim Sekarang</button>
+      </form>
+    </div>
+
+    <% if (isWeb) { %>
+      <div class="panel">
+        <div class="panel__head">
+          <h2>Log Koneksi</h2>
+          <span class="search-meta">10 terbaru</span>
+        </div>
+        <ul class="wa-log" id="waLog">
+          <% (st.log || []).slice(0, 10).forEach(function (l) { %>
+            <li class="wa-log__item wa-log__item--<%= l.level %>">
+              <span class="wa-log__time"><%= new Date(l.at).toLocaleTimeString('id-ID') %></span>
+              <span class="wa-log__msg"><%= l.message %></span>
+            </li>
+          <% }) %>
+          <% if (!(st.log || []).length) { %><li class="wa-log__empty">Belum ada aktivitas koneksi.</li><% } %>
+        </ul>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<script src="/js/wa-panel.js"></script>

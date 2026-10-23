@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 
 const db = require('../db');
 const helpers = require('../utils/helpers');
+const BRAND = require('../brand');
 const { flash } = require('../middleware/context');
 const seo = require('../seo');
 
@@ -168,7 +169,10 @@ router.post('/paket/:slug/booking', (req, res, next) => {
     return res.redirect(`/paket/${pkg.slug}#booking`);
   }
 
-  const code = `JJE-${String(Date.now()).slice(-6)}`;
+  const code = helpers.uniqueBookingCode(
+    (data.bookings || []).map((b) => b.code),
+    BRAND.codePrefix
+  );
   const booking = {
     id: db.uid('bkg'),
     code,

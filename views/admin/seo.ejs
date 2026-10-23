@@ -4,7 +4,7 @@
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="a-form-grid">
       <div class="a-field a-field--full">
-        <label>URL Situs (untuk sitemap &amp; URL absolut — contoh: https://jalanjalanenak.com)</label>
+        <label>URL Situs (untuk sitemap &amp; URL absolut — contoh: https://<%= brand.domain %>)</label>
         <input type="url" name="siteUrl" value="<%= item.siteUrl || '' %>" placeholder="https://domainanda.com">
       </div>
       <div class="a-field a-field--full">

@@ -1,7 +1,7 @@
 <section class="page-hero">
   <div class="container">
     <div class="breadcrumb"><a href="/">Beranda</a> / Tentang</div>
-    <h1>Tentang JalanJalanEnak</h1>
+    <h1>Tentang <%= brand.display %></h1>
     <p><%= settings.tagline %></p>
   </div>
 </section>
@@ -18,7 +18,7 @@
       <p><strong>Respons cepat.</strong> Setiap pertanyaan dijawab maksimal 1×24 jam oleh tim kami di Banda Aceh.</p>
     </div>
     <aside class="sidebar-card">
-      <h3>JalanJalanEnak dalam angka</h3>
+      <h3><%= brand.display %> dalam angka</h3>
       <dl class="info-rows">
         <div><dt>Destinasi aktif</dt><dd><%= destinationsCount %></dd></div>
         <div><dt>Paket tersedia</dt><dd><%= packagesCount %></dd></div>

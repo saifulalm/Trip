@@ -1,0 +1,48 @@
+<%# Tabel Kontak Marketing %>
+<% if (!rows || rows.length === 0) { %>
+  <p class="no-results">Tidak ada kontak yang cocok dengan pencarian ini.</p>
+<% } else { %>
+  <div class="table-wrap">
+    <table class="a-table">
+      <thead>
+        <tr>
+          <%- include('th', { label: 'Nama', field: 'name', sort, dir }) %>
+          <%- include('th', { label: 'WhatsApp', field: 'phone', sort, dir }) %>
+          <%- include('th', { label: 'Email', field: 'email', sort, dir }) %>
+          <%- include('th', { label: 'Sumber', field: 'source', sort, dir }) %>
+          <th>Izin Promo</th>
+          <th>Kelola</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(function (c) { %>
+          <tr>
+            <td><strong><%= c.name %></strong></td>
+            <td><%= c.phone %></td>
+            <td><%= c.email || '—' %></td>
+            <td><span class="badge badge--<%= c.source === 'booking' ? 'completed' : c.source === 'manual' ? 'pending' : 'pending' %>"><%= c.source %></span></td>
+            <td>
+              <form action="/admin/marketing/kontak/<%= c.id %>/toggle" method="post" style="display:flex; gap:0.3rem; flex-wrap:wrap">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="field" value="optIn">
+                <button type="submit" class="badge badge--<%= c.optIn ? 'completed' : 'cancelled' %>" style="border:0; cursor:pointer"><%= c.optIn ? '✓ Opt-in' : '✕ Belum izin' %></button>
+              </form>
+              <form action="/admin/marketing/kontak/<%= c.id %>/toggle" method="post" style="display:inline">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="field" value="optOut">
+                <button type="submit" class="badge badge--<%= c.optOut ? 'cancelled' : 'pending' %>" style="border:0; cursor:pointer"><%= c.optOut ? 'Minta berhenti' : '—' %></button>
+              </form>
+            </td>
+            <td>
+              <form action="/admin/marketing/kontak/<%= c.id %>/hapus" method="post" onsubmit="return confirm('Hapus kontak <%= c.name %>?')">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+<%- include('pagination', { pg, q, status, sort, dir }) %>

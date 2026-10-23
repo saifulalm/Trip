@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Generator ilustrasi SVG pulau untuk jalanjalanenak.com.
+ * Generator ilustrasi SVG pulau untuk seayoulatertrip.com.
  * Setiap destinasi mendapat palet langit/laut yang berbeda.
  * Jalankan: npm run images
  */

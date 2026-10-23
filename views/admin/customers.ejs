@@ -2,41 +2,14 @@
   <div class="panel__head">
     <h2>Pelanggan Terdaftar (<%= pg.total %>)</h2>
   </div>
-  <form class="filter-bar" action="/admin/pelanggan" method="get">
-    <input type="search" name="q" value="<%= q %>" placeholder="Cari nama, email, atau nomor HP…">
-    <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Cari</button>
-  </form>
-  <% if (pg.rows.length === 0) { %>
-    <p style="color:var(--a-soft)">Belum ada pelanggan terdaftar.</p>
-  <% } else { %>
-    <div class="table-wrap">
-      <table class="a-table">
-        <thead>
-          <tr><th>Nama</th><th>Email</th><th>HP</th><th>Booking</th><th>Booking Terakhir</th><th>Daftar</th><th>Kelola</th></tr>
-        </thead>
-        <tbody>
-          <% pg.rows.forEach(function (c) { %>
-            <tr>
-              <td><strong><%= c.name %></strong></td>
-              <td><%= c.email %></td>
-              <td><%= c.phone || '-' %></td>
-              <td><span class="badge badge--<%= c.bookingCount > 0 ? 'confirmed' : 'pending' %>"><%= c.bookingCount %></span></td>
-              <td><%= c.lastBooking ? c.lastBooking.code + ' · ' + formatDateShort(c.lastBooking.departureDate) : '-' %></td>
-              <td><%= formatDateShort(c.createdAt) %></td>
-              <td>
-                <div class="actions">
-                  <% if (c.lastBooking) { %><a href="/admin/booking/<%= c.lastBooking.id %>" class="btn-a btn-a--ghost btn-a--sm">Lihat Booking</a><% } %>
-                  <form action="/admin/pelanggan/<%= c.id %>/hapus" method="post" onsubmit="return confirm('Hapus akun <%= c.name %>? Booking-nya tetap tersimpan.')">
-                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
+  <form class="table-toolbar" data-live-search action="/admin/pelanggan" method="get">
+    <div class="search-box">
+      <input type="search" name="q" value="<%= q %>" placeholder="Cari nama, email, nomor HP, atau kode booking…" autocomplete="off">
     </div>
-    <%- include('partials/pagination', { pg: pg, q: q }) %>
-  <% } %>
+    <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Cari</button>
+    <span class="search-meta" data-search-meta><%= pg.total %> pelanggan</span>
+  </form>
+  <div class="table-region" data-partial-url="/admin/pelanggan">
+    <%- include('partials/list-customers', { rows: pg.rows, pg, q, status, sort, dir }) %>
+  </div>
 </div>

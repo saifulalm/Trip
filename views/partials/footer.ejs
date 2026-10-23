@@ -4,7 +4,7 @@
       <div class="footer-brand">
         <div class="brand">
           <img src="/img/logo.svg" alt="Logo" style="width:40px;height:40px">
-          <span class="brand__name" style="color:#f6f0e6">jalanjalan<span style="color:#f2a65a">enak</span>.com</span>
+          <span class="brand__name" style="color:#f6f0e6"><%= brandParts.lead %><span style="color:#f2a65a"><%= brandParts.accent %></span></span>
         </div>
         <p><%= settings.about ? settings.about.slice(0, 140) + '…' : '' %></p>
       </div>
@@ -35,7 +35,7 @@
       </div>
     </div>
     <div class="footer-bottom">
-      <span>© <%= year %> <%= settings.siteName || 'jalanjalanenak.com' %>. Seluruh hak cipta dilindungi.</span>
+      <span>© <%= year %> <%= settings.siteName || brand.domain %>. Seluruh hak cipta dilindungi.</span>
       <span class="dotline">✦ ✦ ✦</span>
       <span>Dibuat dengan ♥ untuk lautan Indonesia</span>
     </div>

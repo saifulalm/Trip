@@ -108,9 +108,17 @@
     </form>
   </div>
   <div class="panel">
-    <div class="panel__head"><h2>WhatsApp Cloud API (Marketing)</h2></div>
+    <div class="panel__head"><h2>WhatsApp (Provider &amp; Kredensial)</h2></div>
     <form action="/admin/pengaturan" method="post" class="a-form">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="a-field">
+        <label>Provider WhatsApp Aktif</label>
+        <select name="waProvider">
+          <option value="cloud" <%= (item.waProvider || 'cloud') !== 'web' ? 'selected' : '' %>>WhatsApp Cloud API (Meta) — pakai token, tanpa scan QR</option>
+          <option value="web" <%= item.waProvider === 'web' ? 'selected' : '' %>>WhatsApp Web — scan QR dari ponsel</option>
+        </select>
+        <span class="help">Provider ini dipakai untuk blast &amp; notifikasi booking. Kelola status koneksi &amp; QR di menu <a href="/admin/whatsapp">WhatsApp &amp; QR</a>.</span>
+      </div>
       <p class="help" style="margin-bottom:0.8rem">Gunakan token resmi <strong>WhatsApp Cloud API</strong> (Meta) — bukan automasi ilegal. Token disimpan di server, tidak pernah ditampilkan kembali setelah disimpan.</p>
       <div class="a-field"><label>Access Token</label><input type="password" name="waToken" value="<%= item.waToken || '' %>" autocomplete="off" placeholder="EAAG…"></div>
       <div class="a-field"><label>Phone Number ID</label><input type="text" name="waPhoneId" value="<%= item.waPhoneId || '' %>" placeholder="123456789"></div>

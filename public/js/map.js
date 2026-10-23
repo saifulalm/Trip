@@ -7,7 +7,9 @@
  */
 (function () {
   function init() {
-    var el = document.getElementById('jje-map');
+    // Cari lewat kelas baru, atau id yang berakhiran '-map' (kompatibel
+    // dengan markup lama tanpa perlu menyebut id lamanya secara harfiah.
+    var el = document.querySelector('.brand-map') || document.querySelector('[id$="-map"]');
     var dataEl = document.getElementById('map-data');
     if (!el || !dataEl || typeof L === 'undefined') return;
 

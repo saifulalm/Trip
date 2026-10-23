@@ -3,39 +3,14 @@
     <h2>Daftar Paket Wisata (<%= pg.total %>)</h2>
     <a href="/admin/paket/baru" class="btn-a btn-a--sunset">+ Tambah Paket</a>
   </div>
-  <form class="filter-bar" action="/admin/paket" method="get">
-    <input type="search" name="q" value="<%= q %>" placeholder="Cari judul atau destinasi…">
-    <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Cari</button>
-  </form>
-  <% if (pg.rows.length === 0) { %>
-    <p style="color:var(--a-soft)">Belum ada paket.</p>
-  <% } else { %>
-    <div class="table-wrap">
-      <table class="a-table">
-        <thead><tr><th>Judul</th><th>Destinasi</th><th>Durasi</th><th>Harga</th><th>Status</th><th>Aksi</th></tr></thead>
-        <tbody>
-          <% pg.rows.forEach(function (p) { %>
-            <tr>
-              <td><strong><%= p.title %></strong><br><small style="color:var(--a-soft)">/<%= p.slug %></small></td>
-              <td><%= p.destinationName %></td>
-              <td><%= p.days %>H<%= p.nights %>M</td>
-              <td><%= formatRupiah(p.price) %></td>
-              <td><span class="badge badge--<%= publicationStatusTone(p.status) %>"><%= publicationStatusLabel(p.status) %></span></td>
-              <td>
-                <div class="actions">
-                  <a href="/paket/<%= p.slug %>" target="_blank" rel="noopener" class="btn-a btn-a--ghost btn-a--sm">Lihat</a>
-                  <a href="/admin/paket/<%= p.id %>/edit" class="btn-a btn-a--primary btn-a--sm">Edit</a>
-                  <form action="/admin/paket/<%= p.id %>/hapus" method="post" onsubmit="return confirm('Hapus paket <%= p.title %>?')">
-                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
-                  </form>
-                </div>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
+  <form class="table-toolbar" data-live-search action="/admin/paket" method="get">
+    <div class="search-box">
+      <input type="search" name="q" value="<%= q %>" placeholder="Cari judul, destinasi, durasi, harga, atau status…" autocomplete="off">
     </div>
-    <%- include('partials/pagination', { pg: pg, q: q }) %>
-  <% } %>
+    <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Cari</button>
+    <span class="search-meta" data-search-meta><%= pg.total %> paket</span>
+  </form>
+  <div class="table-region" data-partial-url="/admin/paket">
+    <%- include('partials/list-packages', { rows: pg.rows, pg, q, status, sort, dir }) %>
+  </div>
 </div>

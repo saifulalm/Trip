@@ -1,0 +1,45 @@
+<%# Tabel Pesan Masuk %>
+<% if (!rows || rows.length === 0) { %>
+  <p class="no-results">Tidak ada pesan yang cocok dengan pencarian ini.</p>
+<% } else { %>
+  <div class="table-wrap">
+    <table class="a-table">
+      <thead>
+        <tr>
+          <%- include('th', { label: 'Pengirim', field: 'name', sort, dir }) %>
+          <%- include('th', { label: 'Subjek', field: 'subject', sort, dir }) %>
+          <th>Pesan</th>
+          <%- include('th', { label: 'Tanggal', field: 'createdAt', sort, dir }) %>
+          <th>Status</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(function (m) { %>
+          <tr>
+            <td><strong><%= m.name %></strong><br><small style="color:var(--a-soft)"><%= m.email %><% if (m.phone) { %><br><%= m.phone %><% } %></small></td>
+            <td><%= m.subject %></td>
+            <td style="max-width:340px"><%= excerpt(m.message, 120) %></td>
+            <td><%= formatDateShort(m.createdAt) %></td>
+            <td><span class="badge badge--<%= m.read ? 'completed' : 'pending' %>"><%= m.read ? 'Dibaca' : 'Baru' %></span></td>
+            <td>
+              <div class="actions">
+                <form action="/admin/pesan/<%= m.id %>/baca" method="post">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn-a btn-a--ghost btn-a--sm"><%= m.read ? 'Tandai belum' : 'Tandai dibaca' %></button>
+                </form>
+                <a href="mailto:<%= m.email %>?subject=Re: <%= encodeURIComponent(m.subject) %>" class="btn-a btn-a--primary btn-a--sm">Balas</a>
+                <form action="/admin/pesan/<%= m.id %>/hapus" method="post" onsubmit="return confirm('Hapus pesan ini?')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          <tr><td colspan="6" style="background:#fdf9f0"><%= m.message %></td></tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+<%- include('pagination', { pg, q, status, sort, dir }) %>

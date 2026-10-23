@@ -1,66 +1,102 @@
+<%
+  // Nilai form: pakai input terakhir yang di-stash (setelah error) bila ada.
+  const f = (typeof form !== 'undefined' && form) ? form : {};
+  const val = (key, fallback) => (f[key] !== undefined && f[key] !== '' ? f[key] : fallback);
+  const curLat = item && item.lat != null ? item.lat : '';
+  const curLng = item && item.lng != null ? item.lng : '';
+  const latVal = val('lat', curLat);
+  const lngVal = val('lng', curLng);
+%>
 <div class="panel">
   <div class="panel__head">
     <h2><%= item ? 'Edit Destinasi' : 'Tambah Destinasi Baru' %></h2>
     <a href="/admin/destinasi" class="btn-a btn-a--ghost btn-a--sm">← Kembali</a>
   </div>
-  <form action="<%= action %>" method="post" enctype="multipart/form-data" class="a-form">
+  <form action="<%= action %>" method="post" enctype="multipart/form-data" class="a-form" id="destForm" novalidate>
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="a-form-grid">
       <div class="a-field">
         <label>Nama Destinasi <span class="req">*</span></label>
-        <input type="text" name="name" required value="<%= item ? item.name : '' %>" placeholder="Pulau Sabesi">
+        <input type="text" name="name" required value="<%= val('name', item ? item.name : '') %>" placeholder="Pulau Sabesi">
       </div>
       <div class="a-field">
         <label>Region <span class="req">*</span></label>
-        <input type="text" name="region" required value="<%= item ? item.region : '' %>" placeholder="Raja Ampat, Papua Barat Daya">
+        <input type="text" name="region" required value="<%= val('region', item ? item.region : '') %>" placeholder="Raja Ampat, Papua Barat Daya">
       </div>
       <div class="a-field a-field--full">
         <label>Tagline Singkat</label>
-        <input type="text" name="tagline" value="<%= item ? item.tagline : '' %>" placeholder="Gerbang timur Raja Ampat…">
+        <input type="text" name="tagline" value="<%= val('tagline', item ? item.tagline : '') %>" placeholder="Gerbang timur Raja Ampat…">
       </div>
       <div class="a-field a-field--full">
         <label>Deskripsi <span class="req">*</span></label>
-        <textarea name="description" rows="6" required placeholder="Jelajahi destinasi dengan teks panjang…"><%= item ? item.description : '' %></textarea>
+        <textarea name="description" rows="6" required placeholder="Jelajahi destinasi dengan teks panjang…"><%= val('description', item ? item.description : '') %></textarea>
       </div>
       <div class="a-field a-field--full">
         <label>Daya Tarik (satu per baris)</label>
-        <textarea name="highlights" rows="4" placeholder="Snorkeling di Spot Yenbuba&#10;Sunset di dermaga"><%= item && item.highlights ? item.highlights.join('\n') : '' %></textarea>
+        <textarea name="highlights" rows="4" placeholder="Snorkeling di Spot Yenbuba&#10;Sunset di dermaga"><%= item && item.highlights ? item.highlights.join('\n') : (f.highlights || '') %></textarea>
       </div>
       <div class="a-field">
         <label>Musim Terbaik</label>
-        <input type="text" name="bestSeason" value="<%= item ? item.bestSeason : '' %>" placeholder="Oktober – April">
+        <input type="text" name="bestSeason" value="<%= val('bestSeason', item ? item.bestSeason : '') %>" placeholder="Oktober – April">
       </div>
       <div class="a-field">
         <label>Durasi Ideal</label>
-        <input type="text" name="duration" value="<%= item ? item.duration : '' %>" placeholder="3–5 hari">
+        <input type="text" name="duration" value="<%= val('duration', item ? item.duration : '') %>" placeholder="3–5 hari">
       </div>
       <div class="a-field a-field--full">
         <label>Cara ke Sana</label>
-        <input type="text" name="gettingThere" value="<%= item ? item.gettingThere : '' %>" placeholder="Pesawat ke Sorong, lalu speedboat…">
+        <input type="text" name="gettingThere" value="<%= val('gettingThere', item ? item.gettingThere : '') %>" placeholder="Pesawat ke Sorong, lalu speedboat…">
       </div>
       <div class="a-field a-field--full">
         <label>Fasilitas (satu per baris)</label>
-        <textarea name="facilities" rows="3" placeholder="Homestay&#10;Warung makan"><%= item && item.facilities ? item.facilities.join('\n') : '' %></textarea>
+        <textarea name="facilities" rows="3" placeholder="Homestay&#10;Warung makan"><%= item && item.facilities ? item.facilities.join('\n') : (f.facilities || '') %></textarea>
       </div>
       <div class="a-field">
         <label>Harga Mulai (Rp) <span class="req">*</span></label>
-        <input type="number" name="priceFrom" min="0" value="<%= item ? item.priceFrom : '' %>">
+        <input type="number" name="priceFrom" min="0" step="1000" value="<%= val('priceFrom', item ? item.priceFrom : '') %>">
       </div>
       <div class="a-field">
         <label>Status</label>
         <select name="status">
-          <option value="published" <%= item && item.status === 'published' ? 'selected' : '' %>>Terbit</option>
-          <option value="draft" <%= item && item.status === 'draft' ? 'selected' : '' %>>Draf</option>
+          <option value="published" <%= (item ? item.status : 'draft') === 'published' ? 'selected' : '' %>>Terbit</option>
+          <option value="draft" <%= (item ? item.status : 'draft') === 'draft' ? 'selected' : '' %>>Draf</option>
         </select>
       </div>
-      <div class="a-field">
-        <label>Koordinat GPS — Latitude</label>
-        <input type="text" name="lat" value="<%= item && item.lat != null ? item.lat : '' %>" placeholder="-0.4719">
+
+      <!-- ================= Koordinat GPS ================= -->
+      <div class="a-field a-field--full coord-panel">
+        <div class="coord-panel__head">
+          <label>Koordinat GPS</label>
+          <span class="coord-hint">Klik peta untuk menentukan titik, atau isi manual. Boleh dikosongkan bila belum diketahui.</span>
+        </div>
+
+        <div class="coord-grid">
+          <div class="a-field">
+            <label for="latInput">Latitude <span class="req">*</span></label>
+            <input type="number" id="latInput" name="lat" step="any" inputmode="decimal"
+                   min="-90" max="90"
+                   value="<%= latVal %>" placeholder="-0.4719" autocomplete="off">
+            <small class="coord-range">Rentang valid: −90 s/d 90</small>
+            <small class="coord-error" data-err-for="lat" hidden></small>
+          </div>
+          <div class="a-field">
+            <label for="lngInput">Longitude <span class="req">*</span></label>
+            <input type="number" id="lngInput" name="lng" step="any" inputmode="decimal"
+                   min="-180" max="180"
+                   value="<%= lngVal %>" placeholder="130.7515" autocomplete="off">
+            <small class="coord-range">Rentang valid: −180 s/d 180</small>
+            <small class="coord-error" data-err-for="lng" hidden></small>
+          </div>
+        </div>
+
+        <div class="coord-map" id="coordMap" role="application" aria-label="Pemilih koordinat peta"></div>
+        <p class="coord-status" id="coordStatus">
+          <span class="coord-status__dot"></span>
+          <span id="coordStatusText">Belum ada koordinat.</span>
+        </p>
       </div>
-      <div class="a-field">
-        <label>Koordinat GPS — Longitude</label>
-        <input type="text" name="lng" value="<%= item && item.lng != null ? item.lng : '' %>" placeholder="130.7515">
-      </div>
+      <!-- ============== /Koordinat GPS ============== -->
+
       <div class="a-field">
         <label>Gambar Utama (JPG/PNG/WEBP, maks 5 MB)</label>
         <input type="file" name="imageFile" accept="image/*">
@@ -70,7 +106,10 @@
       </div>
       <div class="a-field" style="justify-content:flex-end">
         <label class="a-check" style="margin-bottom:0.8rem">
-          <input type="checkbox" name="featured" <%= item && item.featured ? 'checked' : '' %>> Jadikan destinasi unggulan
+          <%# Hidden "off" membuat checkbox unchecked tetap terkirim, sehingga
+              pilihan pengguna tidak hilang saat form gagal validasi. %>
+          <input type="hidden" name="featured" value="off">
+          <input type="checkbox" name="featured" <%= (f.featured !== undefined) ? (f.featured === 'on' ? 'checked' : '') : (item && item.featured ? 'checked' : '') %>> Jadikan destinasi unggulan
         </label>
       </div>
     </div>
@@ -80,3 +119,4 @@
     </div>
   </form>
 </div>
+

@@ -1,0 +1,54 @@
+<%# Tabel Destinasi — dipakai oleh view utama & partial live-search %>
+<% if (!rows || rows.length === 0) { %>
+  <p class="no-results">Tidak ada destinasi yang cocok dengan pencarian ini.</p>
+<% } else { %>
+  <div class="table-wrap">
+    <table class="a-table">
+      <thead>
+        <tr>
+          <th>Gambar</th>
+          <%- include('th', { label: 'Nama', field: 'name', sort, dir }) %>
+          <%- include('th', { label: 'Region', field: 'region', sort, dir }) %>
+          <%- include('th', { label: 'Harga Mulai', field: 'priceFrom', sort, dir }) %>
+          <%- include('th', { label: 'Status', field: 'status', sort, dir }) %>
+          <th>Unggulan</th>
+          <%- include('th', { label: 'Koordinat', field: 'coords', sort, dir }) %>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(function (d) { %>
+          <tr>
+            <td><img src="<%= d.image %>" alt="" class="img-preview" style="width:72px;height:46px"></td>
+            <td><strong><%= d.name %></strong><br><small style="color:var(--a-soft)">/<%= d.slug %></small></td>
+            <td><%= d.region %></td>
+            <td><%= formatRupiah(d.priceFrom) %></td>
+            <td><span class="badge badge--<%= publicationStatusTone(d.status) %>"><%= publicationStatusLabel(d.status) %></span></td>
+            <td><%= d.featured ? '⭐ Ya' : '—' %></td>
+            <td>
+              <% if (d.lat != null && d.lng != null) { %>
+                <small style="white-space:nowrap">
+                  <%= formatCoord(d.lat) %>, <%= formatCoord(d.lng) %><br>
+                  <span style="color:var(--a-soft)">Lat / Lng</span>
+                </small>
+              <% } else { %>
+                <span style="color:var(--a-soft)">—</span>
+              <% } %>
+            </td>
+            <td>
+              <div class="actions">
+                <a href="/destinasi/<%= d.slug %>" target="_blank" rel="noopener" class="btn-a btn-a--ghost btn-a--sm">Lihat</a>
+                <a href="/admin/destinasi/<%= d.id %>/edit" class="btn-a btn-a--primary btn-a--sm">Edit</a>
+                <form action="/admin/destinasi/<%= d.id %>/hapus" method="post" onsubmit="return confirm('Hapus destinasi <%= d.name %>?')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+<%- include('pagination', { pg, q, status, sort, dir }) %>

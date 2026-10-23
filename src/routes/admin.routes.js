@@ -8,6 +8,7 @@ const helpers = require('../utils/helpers');
 const { upload, removeUpload } = require('../multer');
 const { flash } = require('../middleware/context');
 const { requireLogin, loginLimiter } = require('../middleware/security');
+const BRAND = require('../brand');
 
 const router = express.Router();
 
@@ -51,6 +52,9 @@ router.use((req, res, next) => {
 // Modul marketing (kontak + blast WhatsApp) di bawah /admin/marketing
 router.use('/marketing', require('./marketing.routes').createMarketingRouter());
 
+// Panel kendali WhatsApp (status koneksi, QR scan, reconnect, pesan uji)
+router.use('/whatsapp', require('./whatsapp.routes').createWhatsappRouter());
+
 /* ------------------------------------------------------------------ */
 /* Dashboard                                                           */
 /* ------------------------------------------------------------------ */
@@ -76,19 +80,59 @@ router.get('/', (req, res) => {
 /* ------------------------------------------------------------------ */
 /* Destinasi                                                           */
 /* ------------------------------------------------------------------ */
+
+/** Kolom yang bisa diurutkan + accessor-nya (dipakai juga untuk header tabel). */
+const SORT_DESTINATIONS = {
+  name: (d) => d.name,
+  region: (d) => d.region,
+  priceFrom: (d) => Number(d.priceFrom) || 0,
+  status: (d) => d.status,
+  coords: (d) => (d.lat != null && d.lng != null ? d.lat : null),
+  createdAt: (d) => d.createdAt
+};
+
+/** Pencarian multi-field: nama, region, slug, tagline, status, harga, koordinat. */
+const SEARCH_DESTINATIONS = [
+  (d) => d.name,
+  (d) => d.region,
+  (d) => d.slug,
+  (d) => d.tagline,
+  (d) => d.status,
+  (d) => d.description,
+  (d) => d.priceFrom,
+  (d) => d.lat,
+  (d) => d.lng,
+  (d) => (d.featured ? 'unggulan' : '')
+];
+
 router.get('/destinasi', (req, res) => {
-  const q = String(req.query.q || '').trim().toLowerCase();
-  let list = [...req.data.destinations];
-  if (q) list = list.filter((x) => x.name.toLowerCase().includes(q) || x.region.toLowerCase().includes(q));
+  const q = String(req.query.q || '').trim();
+  const { sort, dir } = helpers.readSort(req.query, Object.keys(SORT_DESTINATIONS), 'name');
+  res.locals.sort = { sort, dir };
+
+  let list = helpers.sortRows([...req.data.destinations], sort, dir, SORT_DESTINATIONS);
+  list = list.filter((d) => helpers.matchesAny(d, q, SEARCH_DESTINATIONS));
+
   const pg = helpers.paginate(list, req.query.page, 8);
-  res.render('admin/destinations', { title: 'Kelola Destinasi', pg, q: req.query.q || '' });
+  const status = '';
+  if (req.query.partial === '1') {
+    return res.render('admin/partials/list-destinations', { rows: pg.rows, pg, q, status, sort, dir, layout: false });
+  }
+  res.render('admin/destinations', { title: 'Kelola Destinasi', pg, q, status, sort, dir });
 });
 
 router.get('/destinasi/baru', (req, res) => {
-  res.render('admin/destination-form', { title: 'Tambah Destinasi', item: null, action: '/admin/destinasi' });
+  res.render('admin/destination-form', {
+    title: 'Tambah Destinasi',
+    item: null,
+    action: '/admin/destinasi',
+    useLeaflet: true,
+    form: takeForm(req, 'dstForm')
+  });
 });
 
-function destFromBody(body, oldImage) {
+function destFromBody(body, oldImage, coords) {
+  const c = coords || { lat: null, lng: null };
   return {
     name: String(body.name || '').trim(),
     region: String(body.region || '').trim(),
@@ -106,13 +150,32 @@ function destFromBody(body, oldImage) {
       .map((s) => s.trim())
       .filter(Boolean),
     priceFrom: parseInt(body.priceFrom, 10) || 0,
-    lat: body.lat !== '' && body.lat != null ? parseFloat(body.lat) : null,
-    lng: body.lng !== '' && body.lng != null ? parseFloat(body.lng) : null,
+    // Koordinat sudah tervalidasi & dibulatkan (7 desimal) oleh helpers.
+    lat: c.lat,
+    lng: c.lng,
     image: oldImage || '/img/dest-default.svg',
     gallery: [],
     featured: body.featured === 'on',
     status: body.status === 'published' ? 'published' : 'draft'
   };
+}
+
+/** Simpan input form ke session supaya isian user tidak hilang saat error. */
+function stashForm(req, key, body) {
+  if (!req.session) return;
+  const copy = {};
+  for (const [k, v] of Object.entries(body || {})) {
+    if (typeof v === 'string') copy[k] = v;
+  }
+  req.session[key] = copy;
+}
+
+/** Ambil & hapus input form yang tersimpan di session. */
+function takeForm(req, key) {
+  if (!req.session || !req.session[key]) return null;
+  const val = req.session[key];
+  delete req.session[key];
+  return val;
 }
 
 router.post('/destinasi', upload.single('imageFile'), (req, res) => {
@@ -121,12 +184,16 @@ router.post('/destinasi', upload.single('imageFile'), (req, res) => {
   if (!body.name || body.name.trim().length < 3) errors.push('Nama destinasi wajib diisi.');
   if (!body.region || body.region.trim().length < 3) errors.push('Lokasi/region wajib diisi.');
   if (!body.description || body.description.trim().length < 20) errors.push('Deskripsi minimal 20 karakter.');
+  // Validasi Latitude (-90..90) & Longitude (-180..180).
+  const coords = helpers.validateCoordinates(body.lat, body.lng);
+  errors.push(...coords.errors);
   if (errors.length) {
     flash('error', errors.join(' '), req);
+    stashForm(req, 'dstForm', body);
     return res.redirect('/admin/destinasi/baru');
   }
   const data = req.data;
-  const record = destFromBody(body, req.file ? `/uploads/${req.file.filename}` : null);
+  const record = destFromBody(body, req.file ? `/uploads/${req.file.filename}` : null, coords);
   record.id = db.uid('dst');
   record.slug = db.uniqueSlug(data.destinations, db.slugify(body.name));
   record.gallery = record.image ? [record.image] : [];
@@ -143,7 +210,9 @@ router.get('/destinasi/:id/edit', (req, res, next) => {
   res.render('admin/destination-form', {
     title: `Edit: ${item.name}`,
     item,
-    action: `/admin/destinasi/${item.id}`
+    action: `/admin/destinasi/${item.id}`,
+    useLeaflet: true,
+    form: takeForm(req, 'dstForm')
   });
 });
 
@@ -151,8 +220,15 @@ router.post('/destinasi/:id', upload.single('imageFile'), (req, res, next) => {
   const data = req.data;
   const item = data.destinations.find((x) => x.id === req.params.id);
   if (!item) return next();
+  // Validasi koordinat sebelum menimpa data yang ada.
+  const coords = helpers.validateCoordinates(req.body.lat, req.body.lng);
+  if (coords.errors.length) {
+    flash('error', coords.errors.join(' '), req);
+    stashForm(req, 'dstForm', req.body);
+    return res.redirect(`/admin/destinasi/${item.id}/edit`);
+  }
   const oldImage = item.image;
-  const updated = destFromBody(req.body, oldImage);
+  const updated = destFromBody(req.body, oldImage, coords);
   if (req.file) {
     if (oldImage && oldImage.startsWith('/uploads/')) removeUpload(oldImage.replace('/uploads/', ''));
     updated.image = `/uploads/${req.file.filename}`;
@@ -179,12 +255,42 @@ router.post('/destinasi/:id/hapus', (req, res, next) => {
 /* ------------------------------------------------------------------ */
 /* Paket                                                               */
 /* ------------------------------------------------------------------ */
+const SORT_PACKAGES = {
+  title: (p) => p.title,
+  destinationName: (p) => p.destinationName,
+  days: (p) => Number(p.days) || 0,
+  price: (p) => Number(p.price) || 0,
+  status: (p) => p.status,
+  createdAt: (p) => p.createdAt
+};
+
+const SEARCH_PACKAGES = [
+  (p) => p.title,
+  (p) => p.destinationName,
+  (p) => p.slug,
+  (p) => p.summary,
+  (p) => p.status,
+  (p) => p.days,
+  (p) => p.nights,
+  (p) => p.price,
+  (p) => p.groupSize,
+  (p) => (p.featured ? 'unggulan' : '')
+];
+
 router.get('/paket', (req, res) => {
-  const q = String(req.query.q || '').trim().toLowerCase();
-  let list = [...req.data.packages];
-  if (q) list = list.filter((x) => x.title.toLowerCase().includes(q) || x.destinationName.toLowerCase().includes(q));
+  const q = String(req.query.q || '').trim();
+  const { sort, dir } = helpers.readSort(req.query, Object.keys(SORT_PACKAGES), 'title');
+  res.locals.sort = { sort, dir };
+
+  let list = helpers.sortRows([...req.data.packages], sort, dir, SORT_PACKAGES);
+  list = list.filter((p) => helpers.matchesAny(p, q, SEARCH_PACKAGES));
+
   const pg = helpers.paginate(list, req.query.page, 8);
-  res.render('admin/packages', { title: 'Kelola Paket Wisata', pg, q: req.query.q || '' });
+  const status = '';
+  if (req.query.partial === '1') {
+    return res.render('admin/partials/list-packages', { rows: pg.rows, pg, q, status, sort, dir, layout: false });
+  }
+  res.render('admin/packages', { title: 'Kelola Paket Wisata', pg, q, status, sort, dir });
 });
 
 router.get('/paket/baru', (req, res) => {
@@ -291,12 +397,39 @@ router.post('/paket/:id/hapus', (req, res, next) => {
 /* ------------------------------------------------------------------ */
 /* Artikel                                                             */
 /* ------------------------------------------------------------------ */
+const SORT_ARTICLES = {
+  title: (a) => a.title,
+  category: (a) => a.category,
+  author: (a) => a.author,
+  publishedAt: (a) => a.publishedAt,
+  status: (a) => a.status,
+  createdAt: (a) => a.createdAt
+};
+
+const SEARCH_ARTICLES = [
+  (a) => a.title,
+  (a) => a.category,
+  (a) => a.author,
+  (a) => a.slug,
+  (a) => a.status,
+  (a) => a.excerpt,
+  (a) => a.body
+];
+
 router.get('/artikel', (req, res) => {
-  const q = String(req.query.q || '').trim().toLowerCase();
-  let list = [...req.data.articles];
-  if (q) list = list.filter((x) => x.title.toLowerCase().includes(q) || x.category.toLowerCase().includes(q));
+  const q = String(req.query.q || '').trim();
+  const { sort, dir } = helpers.readSort(req.query, Object.keys(SORT_ARTICLES), 'publishedAt');
+  res.locals.sort = { sort, dir };
+
+  let list = helpers.sortRows([...req.data.articles], sort, dir, SORT_ARTICLES);
+  list = list.filter((a) => helpers.matchesAny(a, q, SEARCH_ARTICLES));
+
   const pg = helpers.paginate(list, req.query.page, 8);
-  res.render('admin/articles', { title: 'Kelola Artikel', pg, q: req.query.q || '' });
+  const status = '';
+  if (req.query.partial === '1') {
+    return res.render('admin/partials/list-articles', { rows: pg.rows, pg, q, status, sort, dir, layout: false });
+  }
+  res.render('admin/articles', { title: 'Kelola Artikel', pg, q, status, sort, dir });
 });
 
 router.get('/artikel/baru', (req, res) => {
@@ -309,7 +442,7 @@ function artFromBody(body, oldImage) {
     excerpt: String(body.excerpt || '').trim(),
     body: String(body.body || '').trim(),
     category: String(body.category || 'Umum').trim() || 'Umum',
-    author: String(body.author || 'Tim JJE').trim() || 'Tim JJE',
+    author: String(body.author || `Tim ${BRAND.display}`).trim() || `Tim ${BRAND.display}`,
     coverImage: oldImage || '/img/dest-default.svg',
     status: body.status === 'published' ? 'published' : 'draft',
     publishedAt: body.status === 'published' ? new Date().toISOString() : null
@@ -377,18 +510,46 @@ router.post('/artikel/:id/hapus', (req, res, next) => {
 /* ------------------------------------------------------------------ */
 /* Booking                                                             */
 /* ------------------------------------------------------------------ */
+const SORT_BOOKINGS = {
+  code: (b) => b.code,
+  name: (b) => b.name,
+  packageName: (b) => b.packageName,
+  departureDate: (b) => b.departureDate,
+  totalAmount: (b) => Number(b.totalAmount) || 0,
+  status: (b) => b.status,
+  createdAt: (b) => b.createdAt
+};
+
+const SEARCH_BOOKINGS = [
+  (b) => b.code,
+  (b) => b.name,
+  (b) => b.email,
+  (b) => b.phone,
+  (b) => b.packageName,
+  (b) => b.packageSlug,
+  (b) => b.status,
+  (b) => b.paymentStatus,
+  (b) => b.paymentMethod,
+  (b) => b.notes,
+  (b) => b.totalAmount,
+  (b) => b.participants
+];
+
 router.get('/booking', (req, res) => {
-  const q = String(req.query.q || '').trim().toLowerCase();
+  const q = String(req.query.q || '').trim();
   const status = String(req.query.status || '').trim();
-  let list = [...req.data.bookings];
-  if (q) {
-    list = list.filter(
-      (b) => b.name.toLowerCase().includes(q) || b.code.toLowerCase().includes(q) || b.packageName.toLowerCase().includes(q)
-    );
-  }
+  const { sort, dir } = helpers.readSort(req.query, Object.keys(SORT_BOOKINGS), 'createdAt');
+  res.locals.sort = { sort, dir };
+
+  let list = helpers.sortRows([...req.data.bookings], sort, dir, SORT_BOOKINGS);
+  list = list.filter((b) => helpers.matchesAny(b, q, SEARCH_BOOKINGS));
   if (status) list = list.filter((b) => b.status === status);
+
   const pg = helpers.paginate(list, req.query.page, 10);
-  res.render('admin/bookings', { title: 'Booking Masuk', pg, q: req.query.q || '', status });
+  if (req.query.partial === '1') {
+    return res.render('admin/partials/list-bookings', { rows: pg.rows, pg, q, status, sort, dir, layout: false });
+  }
+  res.render('admin/bookings', { title: 'Booking Masuk', pg, q, status, sort, dir });
 });
 
 /* Detail booking: info, pembayaran, peta check-in & waypoint perjalanan. */
@@ -495,9 +656,37 @@ router.post('/booking/:id/hapus', (req, res, next) => {
 /* ------------------------------------------------------------------ */
 /* Pesan / Kontak                                                      */
 /* ------------------------------------------------------------------ */
+const SORT_MESSAGES = {
+  name: (m) => m.name,
+  subject: (m) => m.subject,
+  createdAt: (m) => m.createdAt,
+  read: (m) => (m.read ? 1 : 0)
+};
+
+const SEARCH_MESSAGES = [
+  (m) => m.name,
+  (m) => m.email,
+  (m) => m.phone,
+  (m) => m.subject,
+  (m) => m.message
+];
+
 router.get('/pesan', (req, res) => {
-  const pg = helpers.paginate([...req.data.messages], req.query.page, 10);
-  res.render('admin/messages', { title: 'Kotak Pesan', pg });
+  const q = String(req.query.q || '').trim();
+  const status = String(req.query.status || '').trim();
+  const { sort, dir } = helpers.readSort(req.query, Object.keys(SORT_MESSAGES), 'createdAt');
+  res.locals.sort = { sort, dir };
+
+  let list = helpers.sortRows([...req.data.messages], sort, dir, SORT_MESSAGES);
+  list = list.filter((m) => helpers.matchesAny(m, q, SEARCH_MESSAGES));
+  if (status === 'unread') list = list.filter((m) => !m.read);
+  if (status === 'read') list = list.filter((m) => m.read);
+
+  const pg = helpers.paginate(list, req.query.page, 10);
+  if (req.query.partial === '1') {
+    return res.render('admin/partials/list-messages', { rows: pg.rows, pg, q, status, sort, dir, layout: false });
+  }
+  res.render('admin/messages', { title: 'Kotak Pesan', pg, q, status, sort, dir });
 });
 
 router.post('/pesan/:id/baca', (req, res, next) => {
@@ -522,9 +711,29 @@ router.post('/pesan/:id/hapus', (req, res, next) => {
 /* ------------------------------------------------------------------ */
 /* Pelanggan (portal akun)                                              */
 /* ------------------------------------------------------------------ */
+const SORT_CUSTOMERS = {
+  name: (c) => c.name,
+  email: (c) => c.email,
+  phone: (c) => c.phone,
+  bookingCount: (c) => c.bookingCount,
+  createdAt: (c) => c.createdAt
+};
+
+const SEARCH_CUSTOMERS = [
+  (c) => c.name,
+  (c) => c.email,
+  (c) => c.phone,
+  (c) => c.id,
+  (c) => c.lastBooking ? c.lastBooking.code : '',
+  (c) => c.lastBooking ? c.lastBooking.packageName : ''
+];
+
 router.get('/pelanggan', (req, res) => {
-  const q = String(req.query.q || '').trim().toLowerCase();
+  const q = String(req.query.q || '').trim();
   const data = req.data;
+  const { sort, dir } = helpers.readSort(req.query, Object.keys(SORT_CUSTOMERS), 'createdAt');
+  res.locals.sort = { sort, dir };
+
   let list = (data.customers || []).map((c) => {
     const bookings = (data.bookings || []).filter((b) => b.customerId === c.id);
     return {
@@ -533,10 +742,15 @@ router.get('/pelanggan', (req, res) => {
       lastBooking: bookings.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0] || null
     };
   });
-  if (q) list = list.filter((c) => c.name.toLowerCase().includes(q) || c.email.includes(q) || (c.phone || '').includes(q));
-  list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  list = list.filter((c) => helpers.matchesAny(c, q, SEARCH_CUSTOMERS));
+  list = helpers.sortRows(list, sort, dir, SORT_CUSTOMERS);
+
   const pg = helpers.paginate(list, req.query.page, 10);
-  res.render('admin/customers', { title: 'Pelanggan', pg, q: req.query.q || '' });
+  const status = '';
+  if (req.query.partial === '1') {
+    return res.render('admin/partials/list-customers', { rows: pg.rows, pg, q, status, sort, dir, layout: false });
+  }
+  res.render('admin/customers', { title: 'Pelanggan', pg, q, status, sort, dir });
 });
 
 router.post('/pelanggan/:id/hapus', (req, res, next) => {
@@ -555,13 +769,38 @@ router.post('/pelanggan/:id/hapus', (req, res, next) => {
 /* ------------------------------------------------------------------ */
 /* Testimoni / ulasan                                                  */
 /* ------------------------------------------------------------------ */
+const SORT_REVIEWS = {
+  customerName: (r) => r.customerName,
+  packageName: (r) => r.packageName,
+  rating: (r) => Number(r.rating) || 0,
+  status: (r) => r.status,
+  createdAt: (r) => r.createdAt
+};
+
+const SEARCH_REVIEWS = [
+  (r) => r.customerName,
+  (r) => r.packageName,
+  (r) => r.bookingCode,
+  (r) => r.comment,
+  (r) => r.status,
+  (r) => r.rating
+];
+
 router.get('/testimoni', (req, res) => {
+  const q = String(req.query.q || '').trim();
   const status = String(req.query.status || '').trim();
-  let list = [...(req.data.reviews || [])];
+  const { sort, dir } = helpers.readSort(req.query, Object.keys(SORT_REVIEWS), 'createdAt');
+  res.locals.sort = { sort, dir };
+
+  let list = helpers.sortRows([...(req.data.reviews || [])], sort, dir, SORT_REVIEWS);
+  list = list.filter((r) => helpers.matchesAny(r, q, SEARCH_REVIEWS));
   if (status) list = list.filter((r) => r.status === status);
-  list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
   const pg = helpers.paginate(list, req.query.page, 10);
-  res.render('admin/testimoni', { title: 'Testimoni & Ulasan', pg, status });
+  if (req.query.partial === '1') {
+    return res.render('admin/partials/list-reviews', { rows: pg.rows, pg, q, status, sort, dir, layout: false });
+  }
+  res.render('admin/testimoni', { title: 'Testimoni & Ulasan', pg, q, status, sort, dir });
 });
 
 router.post('/testimoni/:id/status', (req, res, next) => {
@@ -624,6 +863,7 @@ router.post('/pengaturan', upload.fields([{ name: 'logoFile', maxCount: 1 }, { n
   s.tripayApiKey = String(b.tripayApiKey || s.tripayApiKey || '').trim();
   if ('tripayProduction' in b) s.tripayProduction = b.tripayProduction === 'on';
   // WhatsApp marketing (hanya token & phone id resmi Cloud API)
+  s.waProvider = b.waProvider === 'web' ? 'web' : 'cloud';
   s.waToken = String(b.waToken || s.waToken || '').trim();
   s.waPhoneId = String(b.waPhoneId || s.waPhoneId || '').trim();
   s.waDefaultTemplate = String(b.waDefaultTemplate || s.waDefaultTemplate || '').trim();

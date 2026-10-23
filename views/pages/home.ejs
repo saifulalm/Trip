@@ -35,8 +35,8 @@
       <h1><%= settings.heroTitle || 'Pulau-pulau Indonesia,\ndibuat enak dikunjungi.' %></h1>
       <p class="hero__sub"><%= settings.heroSubtitle || 'Dari Sabesi hingga Ora — kami susun perjalanan bahari yang nyaman, aman, dan mendukung warga lokal.' %></p>
       <div class="hero__actions">
-        <a href="/paket" class="btn btn--sunset">Lihat Paket Wisata →</a>
-        <a href="/destinasi" class="btn btn--ghost">Jelajahi Destinasi</a>
+        <a href="/paket" class="btn btn--sunset" data-magnetic="0.22">Lihat Paket Wisata →</a>
+        <a href="/destinasi" class="btn btn--ghost" data-magnetic="0.18">Jelajahi Destinasi</a>
       </div>
       <div class="hero__stats">
         <div class="hero__stat"><strong data-count="<%= allDestinations.length %>" data-suffix="+">0+</strong><span>Destinasi pulau</span></div>
@@ -46,7 +46,7 @@
     </div>
     <div class="hero__art" data-depth="0.05">
       <div class="hero__card">
-        <img src="<%= settings.heroImageUrl || '/img/dest-sabesi.svg' %>" alt="Pemandangan pulau pilihan JalanJalanEnak">
+        <img src="<%= settings.heroImageUrl || '/img/dest-sabesi.svg' %>" alt="Pemandangan pulau pilihan <%= brand.display %>">
       </div>
       <div class="hero__stamp">Sabesi<br>Raja Ampat<br>✦</div>
     </div>
@@ -92,31 +92,31 @@
   </div>
 </section>
 
-<!-- Kenapa JJE -->
-<section class="section" style="padding-top:1rem">
+<!-- Kenapa <%= brand.display %> -->
+<section class="section aurora" style="padding-top:1rem">
   <div class="container">
     <div class="section-head reveal">
-      <span class="eyebrow">Kenapa JalanJalanEnak</span>
+      <span class="eyebrow">Kenapa <%= brand.display %></span>
       <h2>Empat hal yang bikin perjalananmu beda</h2>
       <p>Bukan sekadar tiket dan hotel — kami urus seluruh rantai perjalanan baharimu.</p>
     </div>
     <div class="grid grid--4">
-      <div class="why-card reveal">
+      <div class="why-card reveal glass neon-edge">
         <span class="why-card__icon">🧭</span>
         <h3>Itinerary Kurasi</h3>
         <p>Rute disusun berdasarkan musim, arus laut, dan pengalaman pemandu lokal puluhan tahun.</p>
       </div>
-      <div class="why-card reveal">
+      <div class="why-card reveal glass neon-edge">
         <span class="why-card__icon">🤝</span>
         <h3>Homestay Warga</h3>
         <p>Pendapatan mengalir langsung ke keluarga lokal — Anda tidur, mereka terinspirasi menjaga laut.</p>
       </div>
-      <div class="why-card reveal">
+      <div class="why-card reveal glass neon-edge">
         <span class="why-card__icon">🛟</span>
         <h3>Tim Siaga 24/7</h3>
         <p>Admin operasional standby selama trip. Ada masalah? Satu chat, kami tangani.</p>
       </div>
-      <div class="why-card reveal">
+      <div class="why-card reveal glass neon-edge">
         <span class="why-card__icon">📍</span>
         <h3>GPS Check-in</h3>
         <p>Portal akun dengan check-in GPS — keluarga di rumah tahu posisimu aman di pulau.</p>
@@ -134,7 +134,7 @@
     </div>
     <div class="grid grid--3">
       <% featuredDestinations.forEach(function (d) { %>
-        <a href="/destinasi/<%= d.slug %>" class="dest-card reveal" data-tilt="6">
+        <a href="/destinasi/<%= d.slug %>" class="dest-card reveal glass neon-edge" data-tilt="6">
           <div class="dest-card__media">
             <img src="<%= d.image %>" alt="<%= d.name %>" loading="lazy">
             <span class="dest-card__region"><%= d.region %></span>
@@ -165,7 +165,7 @@
     </div>
     <div class="grid grid--3">
       <% featuredPackages.forEach(function (p) { %>
-        <div class="pass-card reveal" data-tilt="5">
+        <div class="pass-card reveal glass neon-edge" data-tilt="5">
           <div class="pass-card__top">
             <span class="pass-card__code"><%= p.days %>H<%= p.nights %>M · <%= p.destinationName %></span>
             <h3><%= p.title %></h3>
@@ -196,7 +196,7 @@
   </div>
   <div class="gal-strip reveal">
     <% galleryStrip.forEach(function (img) { %>
-      <img src="<%= img %>" alt="Dokumentasi perjalanan JalanJalanEnak" loading="lazy">
+      <img src="<%= img %>" alt="Dokumentasi perjalanan <%= brand.display %>" loading="lazy">
     <% }) %>
   </div>
 </section>
@@ -213,7 +213,7 @@
     </div>
     <div class="grid grid--3">
       <% testimonials.forEach(function (t) { %>
-        <figure class="quote-card reveal" data-tilt="4">
+        <figure class="quote-card reveal glass neon-edge" data-tilt="4">
           <div class="quote-card__stars" aria-label="Rating <%= t.rating %> dari 5"><%= starRating(t.rating) %></div>
           <blockquote>“<%= t.comment %>”</blockquote>
           <figcaption>
@@ -235,7 +235,7 @@
     </div>
     <div class="grid grid--3">
       <% articles.forEach(function (a) { %>
-        <a href="/artikel/<%= a.slug %>" class="article-card reveal">
+        <a href="/artikel/<%= a.slug %>" class="article-card reveal glass neon-edge">
           <div class="article-card__media"><img src="<%= a.coverImage %>" alt="<%= a.title %>" loading="lazy"></div>
           <div class="article-card__body">
             <span class="article-card__cat"><%= a.category %></span>
@@ -258,7 +258,7 @@
         <p>Ceritakan tanggal dan jumlah pesertanya — tim kami susun itinerary terbaik dalam 1×24 jam.</p>
       </div>
       <div style="display:flex; gap:0.8rem; flex-wrap:wrap">
-        <a href="/kontak" class="btn btn--sunset">Konsultasi Gratis</a>
+        <a href="/kontak" class="btn btn--sunset" data-magnetic="0.2">Konsultasi Gratis</a>
         <a href="https://wa.me/<%= settings.whatsapp || '6281234567890' %>" target="_blank" rel="noopener" class="btn btn--ghost">Chat WhatsApp</a>
       </div>
     </div>

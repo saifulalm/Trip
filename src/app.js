@@ -1,13 +1,14 @@
 'use strict';
 
 const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const session = require('express-session');
 const expressLayouts = require('express-ejs-layouts');
 const methodOverride = require('method-override');
 
 const { context } = require('./middleware/context');
-const { verifyCsrf } = require('./middleware/security');
+const { verifyCsrf, rejectCsrf } = require('./middleware/security');
 const publicRoutes = require('./routes/public.routes');
 const adminRoutes = require('./routes/admin.routes');
 
@@ -33,7 +34,10 @@ function createApp() {
 
   app.use(
     session({
-      secret: process.env.SESSION_SECRET || 'jje-dev-secret-ganti-dengan-string-acak',
+      // Tanpa SESSION_SECRET di environment, pakai secret acak per proses:
+      // lebih aman daripada secret hardcoded di source (yang bisa bocor lewat
+      // repo), dengan konsekuensi sesi tidak bertahan setelah restart.
+      secret: process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
       resave: false,
       saveUninitialized: false,
       cookie: { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 60 * 60 * 1000 }
@@ -41,13 +45,27 @@ function createApp() {
   );
 
   app.use(context);
-  app.use(verifyCsrf);
+  // attachCustomer SEBELUM verifyCsrf: middleware CSRF me-render halaman error
+  // dengan layout publik. Kalau currentCustomer belum di-set, render itu
+  // melempar ReferenceError dan pengguna melihat stack trace, bukan pesan
+  // "sesi kedaluwarsa" yang rapi.
   app.use(require('./middleware/customerAuth').attachCustomer);
+  app.use(verifyCsrf);
 
   app.use('/', publicRoutes);
   app.use('/', require('./routes/payment.routes'));
   app.use('/', require('./routes/account.routes'));
   app.use('/admin', adminRoutes);
+
+  // Jaring pengaman CSRF: request multipart yang verifikasi token-nya
+  // ditunda (karena body baru ter-parse setelah multer) TIDAK boleh lolos
+  // tanpa TOKEN yang sudah dicek.
+  app.use((req, res, next) => {
+    if (req.csrfDeferred && !req.csrfVerified) {
+      return rejectCsrf(res);
+    }
+    next();
+  });
 
   app.use((req, res) => {
     res.status(404).render('pages/404', {

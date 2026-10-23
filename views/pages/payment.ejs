@@ -52,7 +52,7 @@
           <dl class="info-rows">
             <div><dt>Bank</dt><dd><%= settings.paymentBank || 'BCA' %></dd></div>
             <div><dt>No. Rekening</dt><dd><%= settings.paymentAccount || '1234567890' %></dd></div>
-            <div><dt>a.n.</dt><dd><%= settings.paymentAccountName || 'PT JalanJalanEnak' %></dd></div>
+            <div><dt>a.n.</dt><dd><%= settings.paymentAccountName || brand.company %></dd></div>
             <div><dt>Jumlah Transfer</dt><dd><strong><%= formatRupiah(booking.totalAmount) %></strong></dd></div>
           </dl>
           <form action="/pembayaran/<%= booking.code %>/manual" method="post" enctype="multipart/form-data" class="form-grid" style="grid-template-columns:1fr">

@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= title %> · Admin JJE</title>
+  <title><%= title %> · Admin <%= brand.display %></title>
   <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/admin.css">
-  <% if (typeof mapData !== 'undefined' && mapData) { %>
+  <% if ((typeof mapData !== 'undefined' && mapData) || (typeof useLeaflet !== 'undefined' && useLeaflet)) { %>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <% } %>
 </head>
@@ -19,7 +19,7 @@
       <div class="admin-brand">
         <img src="/img/logo.svg" alt="Logo">
         <div>
-          <strong>JalanJalanEnak</strong>
+          <strong><%= brand.display %></strong>
           <small>Panel Admin</small>
         </div>
       </div>
@@ -38,6 +38,7 @@
         <span class="admin-nav__label">Marketing</span>
         <a href="/admin/marketing/kontak" class="<%= currentPath.startsWith('/marketing/kontak') ? 'active' : '' %>"><span class="ico">📇</span> Kontak</a>
         <a href="/admin/marketing/blast" class="<%= currentPath.startsWith('/marketing/blast') ? 'active' : '' %>"><span class="ico">📣</span> Blast WhatsApp</a>
+        <a href="/admin/whatsapp" class="<%= currentPath.startsWith('/whatsapp') ? 'active' : '' %>"><span class="ico">🔗</span> WhatsApp &amp; QR</a>
         <span class="admin-nav__label">Sistem</span>
         <a href="/admin/seo" class="<%= currentPath.startsWith('/seo') ? 'active' : '' %>"><span class="ico">🔎</span> SEO &amp; Peta Situs</a>
         <a href="/admin/pengaturan" class="<%= currentPath.startsWith('/pengaturan') ? 'active' : '' %>"><span class="ico">⚙</span> Pengaturan</a>
@@ -47,7 +48,7 @@
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <button type="submit" class="btn-a btn-a--ghost" style="width:100%; justify-content:center; color:rgba(246,240,230,0.8); border-color:rgba(246,240,230,0.25)">Keluar</button>
       </form>
-      <div class="admin-sidebar__foot">v1.0 · jalanjalanenak.com</div>
+      <div class="admin-sidebar__foot">v1.0 · <%= brand.domain %></div>
     </aside>
 
     <div class="admin-main">
@@ -74,9 +75,16 @@
       </div>
     </div>
   </div>
-  <% if (typeof mapData !== 'undefined' && mapData) { %>
+  <% if ((typeof mapData !== 'undefined' && mapData) || (typeof useLeaflet !== 'undefined' && useLeaflet)) { %>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <% } %>
+  <% if (typeof mapData !== 'undefined' && mapData) { %>
     <script src="/js/map.js"></script>
   <% } %>
+  <% if (typeof useLeaflet !== 'undefined' && useLeaflet) { %>
+    <script src="/js/coord-picker.js" defer></script>
+  <% } %>
+  <script src="/js/toast.js"></script>
+  <script src="/js/admin-table.js"></script>
 </body>
 </html>

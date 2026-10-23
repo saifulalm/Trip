@@ -9,6 +9,31 @@ function safeEqual(a, b) {
   return crypto.timingSafeEqual(ba, bb);
 }
 
+/** Ambil token CSRF dari body (form), query string, atau header. */
+function csrfTokenFrom(req) {
+  return (
+    (req.body && req.body._csrf) ||
+    (req.query && req.query._csrf) ||
+    req.headers['x-csrf-token']
+  );
+}
+
+/** True bila token yang dikirim cocok dengan token pada sesi ini. */
+function isCsrfValid(req) {
+  if (!req.session || !req.session.csrf) return false;
+  return safeEqual(csrfTokenFrom(req), req.session.csrf);
+}
+
+/** Halaman 403 untuk token CSRF yang tidak valid. */
+function rejectCsrf(res) {
+  return res.status(403).render('pages/error', {
+    title: 'Permintaan Ditolak',
+    status: 403,
+    message: 'Token keamanan tidak valid atau kedaluwarsa. Silakan muat ulang halaman dan coba lagi.',
+    layout: 'layouts/public'
+  });
+}
+
 /** Verifikasi token CSRF sederhana berbasis session untuk semua request non-GET. */
 function verifyCsrf(req, res, next) {
   const method = req.method.toUpperCase();
@@ -16,15 +41,17 @@ function verifyCsrf(req, res, next) {
   // Webhook payment gateway bersifat server-to-server tanpa sesi —
   // keamanannya dijamin verifikasi signature masing-masing gateway.
   if (req.path.startsWith('/payment/webhook/')) return next();
-  const token = (req.body && req.body._csrf) || req.headers['x-csrf-token'];
-  if (!req.session || !safeEqual(token, req.session.csrf)) {
-    return res.status(403).render('pages/error', {
-      title: 'Permintaan Ditolak',
-      status: 403,
-      message: 'Token keamanan tidak valid atau kedaluwarsa. Silakan muat ulang halaman dan coba lagi.',
-      layout: 'layouts/public'
-    });
+  // multipart/form-data: req.body BELUM ter-parse saat middleware global ini
+  // berjalan (body baru terurai setelah multer). Verifikasi ditunda ke
+  // wrapper upload di src/multer.js — kalau tidak, setiap upload 403.
+  if (req.is('multipart/form-data')) {
+    req.csrfDeferred = true;
+    return next();
   }
+  if (!isCsrfValid(req)) {
+    return rejectCsrf(res);
+  }
+  req.csrfVerified = true;
   next();
 }
 
@@ -63,4 +90,12 @@ function requireLogin(req, res, next) {
   next();
 }
 
-module.exports = { verifyCsrf, loginLimiter, requireLogin, safeEqual };
+module.exports = {
+  verifyCsrf,
+  rejectCsrf,
+  loginLimiter,
+  requireLogin,
+  safeEqual,
+  csrfTokenFrom,
+  isCsrfValid
+};

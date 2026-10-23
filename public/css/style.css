@@ -1,5 +1,5 @@
 /* ==========================================================================
-   jalanjalanenak.com — Tropical Expedition Editorial
+   seayoulatertrip.com — Tropical Expedition Editorial
    Palet: deep sea teal, foam sand, apricot sunset
    ========================================================================== */
 
@@ -680,6 +680,15 @@ h1, h2, h3, h4 {
   .section { padding: 3.5rem 0; }
 }
 
+/* Nama brand "Seayoulatertrip" + sublabel "Wisata Bahari Nusantara" tidak
+   muat satu baris di layar 360–420px. Sublabel disembunyikan agar header
+   tetap ringkas dan tombol menu tidak terdorong. */
+@media (max-width: 460px) {
+  .brand__tag { display: none; }
+  .brand__name { font-size: 1.05rem; }
+  .brand img { width: 38px; height: 38px; }
+}
+
 /* ============ Portal Pelanggan ============ */
 .container--narrow { max-width: 640px; }
 .portal-card {
@@ -753,7 +762,7 @@ h1, h2, h3, h4 {
 .rating-select { max-width: 260px; }
 
 /* ============ Peta (Leaflet) ============ */
-.jje-map {
+.brand-map {
   height: 340px;
   border-radius: 16px;
   border: 1px solid rgba(15, 64, 60, 0.15);

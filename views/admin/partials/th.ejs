@@ -1,0 +1,9 @@
+<%# Header tabel sortable. Locals: label, field, sort, dir %>
+<%
+  const _isSorted = (typeof sort !== 'undefined' && sort) === field;
+  const _dirNow = (typeof dir !== 'undefined' && dir) === 'desc' ? 'desc' : 'asc';
+  const _ind = _isSorted ? (_dirNow === 'asc' ? '▲' : '▼') : '↕';
+%>
+<th class="is-sortable <%= _isSorted ? 'is-sorted' : '' %>" data-sort-field="<%= field %>">
+  <a href="<%= sortUrl(field) %>" style="color:inherit;text-decoration:none"><%= label %><span class="sort-ind"><%= _ind %></span></a>
+</th>

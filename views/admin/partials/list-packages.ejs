@@ -1,0 +1,41 @@
+<%# Tabel Paket Wisata %>
+<% if (!rows || rows.length === 0) { %>
+  <p class="no-results">Tidak ada paket yang cocok dengan pencarian ini.</p>
+<% } else { %>
+  <div class="table-wrap">
+    <table class="a-table">
+      <thead>
+        <tr>
+          <%- include('th', { label: 'Judul', field: 'title', sort, dir }) %>
+          <%- include('th', { label: 'Destinasi', field: 'destinationName', sort, dir }) %>
+          <%- include('th', { label: 'Durasi', field: 'days', sort, dir }) %>
+          <%- include('th', { label: 'Harga', field: 'price', sort, dir }) %>
+          <%- include('th', { label: 'Status', field: 'status', sort, dir }) %>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(function (p) { %>
+          <tr>
+            <td><strong><%= p.title %></strong><br><small style="color:var(--a-soft)">/<%= p.slug %></small></td>
+            <td><%= p.destinationName %></td>
+            <td><%= p.days %>H<%= p.nights %>M</td>
+            <td><%= formatRupiah(p.price) %></td>
+            <td><span class="badge badge--<%= publicationStatusTone(p.status) %>"><%= publicationStatusLabel(p.status) %></span></td>
+            <td>
+              <div class="actions">
+                <a href="/paket/<%= p.slug %>" target="_blank" rel="noopener" class="btn-a btn-a--ghost btn-a--sm">Lihat</a>
+                <a href="/admin/paket/<%= p.id %>/edit" class="btn-a btn-a--primary btn-a--sm">Edit</a>
+                <form action="/admin/paket/<%= p.id %>/hapus" method="post" onsubmit="return confirm('Hapus paket <%= p.title %>?')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+<%- include('pagination', { pg, q, status, sort, dir }) %>

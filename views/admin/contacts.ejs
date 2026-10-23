@@ -23,37 +23,17 @@
 </div>
 
 <div class="panel">
-  <div class="a-table-wrap">
-    <table class="a-table">
-      <thead><tr><th>Nama</th><th>WhatsApp</th><th>Sumber</th><th>Izin Promo</th><th>Kelola</th></tr></thead>
-      <tbody>
-        <% contacts.forEach((c) => { %>
-          <tr>
-            <td><strong><%= c.name %></strong><br><small style="color:var(--a-soft)"><%= c.email || '—' %></small></td>
-            <td><%= c.phone %></td>
-            <td><span class="badge badge--<%= c.source === 'booking' ? 'completed' : c.source === 'manual' ? 'pending' : 'pending' %>"><%= c.source %></span></td>
-            <td>
-              <form action="/admin/marketing/kontak/<%= c.id %>/toggle" method="post" style="display:flex; gap:0.3rem; flex-wrap:wrap">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <input type="hidden" name="field" value="optIn">
-                <button type="submit" class="badge badge--<%= c.optIn ? 'completed' : 'cancelled' %>" style="border:0; cursor:pointer"><%= c.optIn ? '✓ Opt-in' : '✕ Belum izin' %></button>
-              </form>
-              <form action="/admin/marketing/kontak/<%= c.id %>/toggle" method="post" style="display:inline">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <input type="hidden" name="field" value="optOut">
-                <button type="submit" class="badge badge--<%= c.optOut ? 'cancelled' : 'pending' %>" style="border:0; cursor:pointer"><%= c.optOut ? 'Minta berhenti' : '—' %></button>
-              </form>
-            </td>
-            <td>
-              <form action="/admin/marketing/kontak/<%= c.id %>/hapus" method="post" onsubmit="return confirm('Hapus kontak <%= c.name %>?')">
-                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
-              </form>
-            </td>
-          </tr>
-        <% }) %>
-        <% if (!contacts.length) { %><tr><td colspan="5" style="text-align:center; padding:2rem">Belum ada kontak. Tamu booking &amp; pesan kontak otomatis terdaftar di sini.</td></tr><% } %>
-      </tbody>
-    </table>
+  <div class="panel__head">
+    <h2>Daftar Kontak (<%= pg.total %>)</h2>
+  </div>
+  <form class="table-toolbar" data-live-search action="/admin/marketing/kontak" method="get">
+    <div class="search-box">
+      <input type="search" name="q" value="<%= q %>" placeholder="Cari nama, nomor WhatsApp, email, atau sumber…" autocomplete="off">
+    </div>
+    <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Cari</button>
+    <span class="search-meta" data-search-meta><%= pg.total %> kontak</span>
+  </form>
+  <div class="table-region" data-partial-url="/admin/marketing/kontak">
+    <%- include('partials/list-contacts', { rows: pg.rows, pg, q, status, sort, dir }) %>
   </div>
 </div>

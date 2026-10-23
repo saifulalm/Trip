@@ -1,14 +1,35 @@
+<%#
+  PaginationPartial — tetap bekerja tanpa JS.
+  Mempertahankan q, status, sort, dan dir saat berpindah halaman.
+%>
+<% const _q = typeof q !== 'undefined' ? (q || '') : ''; %>
+<% const _status = typeof status !== 'undefined' ? (status || '') : ''; %>
+<% const _sort = typeof sort !== 'undefined' ? (sort || '') : ''; %>
+<% const _dir = typeof dir !== 'undefined' ? (dir || '') : ''; %>
+<% const _qs = (page) => {
+      const sp = new URLSearchParams();
+      if (page > 1) sp.set('page', page);
+      if (_q) sp.set('q', _q);
+      if (_status) sp.set('status', _status);
+      if (_sort) sp.set('sort', _sort);
+      if (_dir) sp.set('dir', _dir);
+      const s = sp.toString();
+      return s ? '?' + s : '';
+    };
+%>
 <% if (pg && pg.pages > 1) { %>
   <div class="pagination">
-    <a class="<%= pg.hasPrev ? '' : 'disabled' %>" href="?page=<%= pg.page - 1 %>&q=<%= q || '' %><%= typeof status !== 'undefined' && status ? '&status=' + status : '' %>">‹ Prev</a>
+    <a class="<%= pg.hasPrev ? '' : 'disabled' %>" href="<%= _qs(pg.page - 1) %>">‹ Prev</a>
     <% for (let i = 1; i <= pg.pages; i++) { %>
       <% if (i === pg.page) { %>
         <span class="current"><%= i %></span>
       <% } else if (Math.abs(i - pg.page) <= 2 || i === 1 || i === pg.pages) { %>
-        <a href="?page=<%= i %>&q=<%= q || '' %><%= typeof status !== 'undefined' && status ? '&status=' + status : '' %>"><%= i %></a>
+        <a href="<%= _qs(i) %>"><%= i %></a>
       <% } %>
     <% } %>
-    <a class="<%= pg.hasNext ? '' : 'disabled' %>" href="?page=<%= pg.page + 1 %>&q=<%= q || '' %><%= typeof status !== 'undefined' && status ? '&status=' + status : '' %>">Next ›</a>
+    <a class="<%= pg.hasNext ? '' : 'disabled' %>" href="<%= _qs(pg.page + 1) %>">Next ›</a>
     <span class="info">Menampilkan <%= pg.from %>–<%= pg.to %> dari <%= pg.total %></span>
   </div>
+<% } else if (pg) { %>
+  <div class="pagination"><span class="info">Menampilkan <%= pg.from %>–<%= pg.to %> dari <%= pg.total %></span></div>
 <% } %>

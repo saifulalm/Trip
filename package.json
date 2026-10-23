@@ -1,13 +1,19 @@
 {
-  "name": "jalanjalanenak-website",
+  "name": "seayoulatertrip-website",
   "version": "1.0.0",
-  "description": "Website wisata pulau jalanjalanenak.com — public site + admin panel (Node.js + Express + EJS)",
+  "description": "Website wisata pulau seayoulatertrip.com — public site + admin panel (Node.js + Express + EJS)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "seed": "node src/seed.js --force",
-    "images": "node scripts/generate-images.js"
+    "seed": "node src/seed.js",
+    "seed:force": "node src/seed.js --force",
+    "images": "node scripts/generate-images.js",
+    "migrate:brand": "node scripts/migrate-brand.js",
+    "migrate:brand:dry": "node scripts/migrate-brand.js --dry-run",
+    "check": "node scripts/check-syntax.js",
+    "test": "node scripts/test-splash.js",
+    "smoke": "node scripts/smoke-test.js"
   },
   "keywords": [
     "wisata",
@@ -16,8 +22,12 @@
     "express",
     "ejs"
   ],
-  "author": "jalanjalanenak.com",
+  "author": "seayoulatertrip.com",
   "license": "MIT",
+  "optionalDependencies": {
+    "baileys": "^6.17.16",
+    "qrcode": "^1.5.4"
+  },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "ejs": "^3.1.10",

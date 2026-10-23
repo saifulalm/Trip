@@ -2,6 +2,7 @@
 
 const express = require('express');
 const db = require('../db');
+const helpers = require('../utils/helpers');
 const { flash } = require('../middleware/context');
 const wa = require('../services/wa');
 
@@ -10,11 +11,44 @@ function createMarketingRouter() {
   const router = express.Router();
 
   /* Kontak marketing */
+  const SORT_CONTACTS = {
+    name: (c) => c.name,
+    phone: (c) => c.phone,
+    email: (c) => c.email,
+    source: (c) => c.source,
+    createdAt: (c) => c.createdAt
+  };
+  const SEARCH_CONTACTS = [
+    (c) => c.name,
+    (c) => c.phone,
+    (c) => c.email,
+    (c) => c.source,
+    (c) => (c.optIn ? 'opt-in' : 'belum izin'),
+    (c) => (c.optOut ? 'opt-out' : '')
+  ];
+
   router.get('/kontak', (req, res) => {
     const data = db.read();
+    const q = String(req.query.q || '').trim();
+    const { sort, dir } = helpers.readSort(req.query, Object.keys(SORT_CONTACTS), 'name');
+    res.locals.sort = { sort, dir };
+
+    let list = helpers.sortRows([...(data.contacts || [])], sort, dir, SORT_CONTACTS);
+    list = list.filter((c) => helpers.matchesAny(c, q, SEARCH_CONTACTS));
+
+    const pg = helpers.paginate(list, req.query.page, 12);
+    const status = '';
+    if (req.query.partial === '1') {
+      return res.render('admin/partials/list-contacts', { rows: pg.rows, pg, q, status, sort, dir, layout: false });
+    }
     res.render('admin/contacts', {
       title: 'Kontak Marketing',
-      contacts: data.contacts || [],
+      contacts: list,
+      pg,
+      q,
+      status,
+      sort,
+      dir,
       waActive: wa.isActive(data.settings),
       quietHour: wa.isQuietHour(),
       maxPerRun: wa.MAX_PER_RUN,
