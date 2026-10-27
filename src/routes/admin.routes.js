@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 
 const db = require('../db');
 const helpers = require('../utils/helpers');
-const { upload, removeUpload } = require('../multer');
+const { upload, removeUpload, discardUpload } = require('../multer');
 const { flash } = require('../middleware/context');
 const { requireLogin, loginLimiter } = require('../middleware/security');
 const BRAND = require('../brand');
@@ -17,9 +17,44 @@ function load(req, res, next) {
   next();
 }
 
+/**
+ * Penjaga admin: memverifikasi SESI **dan** role di backend.
+ *
+ * Sebelumnya hanya `req.session.userId` yang dicek, sehingga field
+ * `role` di database tidak pernah dipakai — siapa pun yang punya sesi
+ * login dianggap admin penuh. Sekarang role wajib 'admin'.
+ */
+function requireAdmin(req, res, next) {
+  if (!req.session || !req.session.userId) {
+    return res.redirect('/admin/login');
+  }
+  const data = db.read();
+  const user = (data.users || []).find((u) => u.id === req.session.userId);
+  if (!user) {
+    // Akun sudah dihapus / sesi usang → paksa login ulang.
+    return req.session.destroy(() => res.redirect('/admin/login'));
+  }
+  if (String(user.role || '').toLowerCase() !== 'admin') {
+    // Sesi tetap hidup (hanya hak akses yang dicabut) supaya pesan flash
+    // bisa tampil di halaman login. Pesan diambil dari res.locals.flash,
+    // karena middleware context sudah memindahkannya dari session.
+    delete req.session.userId;
+    flash('error', 'Akun ini tidak memiliki akses ke panel admin.', req);
+    return res.redirect('/admin/login');
+  }
+  req.currentUser = user;
+  next();
+}
+
 router.get('/login', (req, res) => {
   if (req.session.userId) return res.redirect('/admin');
-  res.render('admin/login', { title: 'Masuk Admin', layout: false, error: null });
+  // Pesan tertunda (mis. "role tidak diizinkan" atau rate limit) dibawa
+  // lewat flash; middleware context sudah memindahkannya ke res.locals.
+  const pending = (res.locals.flash || [])
+    .filter((f) => f.type === 'error')
+    .map((f) => f.message)
+    .join(' ');
+  res.render('admin/login', { title: 'Masuk Admin', layout: false, error: pending || null });
 });
 
 router.post('/login', loginLimiter(), (req, res) => {
@@ -33,15 +68,32 @@ router.post('/login', loginLimiter(), (req, res) => {
       error: 'Username atau password salah.'
     });
   }
-  req.session.userId = user.id;
-  res.redirect('/admin');
+  if (String(user.role || '').toLowerCase() !== 'admin') {
+    return res.status(403).render('admin/login', {
+      title: 'Masuk Admin',
+      layout: false,
+      error: 'Akun ini tidak memiliki akses ke panel admin.'
+    });
+  }
+  // Regenerasi ID sesi saat login (mitigasi session fixation).
+  req.session.regenerate((err) => {
+    if (err) {
+      return res.status(500).render('admin/login', {
+        title: 'Masuk Admin',
+        layout: false,
+        error: 'Gagal membuat sesi. Silakan coba lagi.'
+      });
+    }
+    req.session.userId = user.id;
+    res.redirect('/admin');
+  });
 });
 
 router.post('/logout', requireLogin, (req, res) => {
   req.session.destroy(() => res.redirect('/admin/login'));
 });
 
-router.use(requireLogin, load);
+router.use(requireAdmin, load);
 
 // Semua halaman setelah login memakai layout admin
 router.use((req, res, next) => {
@@ -155,7 +207,9 @@ function destFromBody(body, oldImage, coords) {
     lng: c.lng,
     image: oldImage || '/img/dest-default.svg',
     gallery: [],
-    featured: body.featured === 'on',
+    // `featured` datang sebagai array bila form memakai hidden "off" +
+    // checkbox "on" → harus dinormalkan, bukan dibandingkan langsung.
+    featured: helpers.isChecked(body.featured),
     status: body.status === 'published' ? 'published' : 'draft'
   };
 }
@@ -188,6 +242,9 @@ router.post('/destinasi', upload.single('imageFile'), (req, res) => {
   const coords = helpers.validateCoordinates(body.lat, body.lng);
   errors.push(...coords.errors);
   if (errors.length) {
+    // Berkas sempat tersimpan sebelum validasi form gagal → buang agar
+    // tidak tertinggal sebagai file orphan di folder upload.
+    discardUpload(req);
     flash('error', errors.join(' '), req);
     stashForm(req, 'dstForm', body);
     return res.redirect('/admin/destinasi/baru');
@@ -223,6 +280,7 @@ router.post('/destinasi/:id', upload.single('imageFile'), (req, res, next) => {
   // Validasi koordinat sebelum menimpa data yang ada.
   const coords = helpers.validateCoordinates(req.body.lat, req.body.lng);
   if (coords.errors.length) {
+    discardUpload(req);
     flash('error', coords.errors.join(' '), req);
     stashForm(req, 'dstForm', req.body);
     return res.redirect(`/admin/destinasi/${item.id}/edit`);
@@ -330,7 +388,7 @@ function pkgFromBody(body, oldImage) {
     includes: parseList(body.includes),
     excludes: parseList(body.excludes),
     image: oldImage || '/img/dest-default.svg',
-    featured: body.featured === 'on',
+    featured: helpers.isChecked(body.featured),
     status: body.status === 'published' ? 'published' : 'draft'
   };
 }
@@ -341,6 +399,7 @@ router.post('/paket', upload.single('imageFile'), (req, res) => {
   if (!req.body.destinationSlug) errors.push('Destinasi wajib dipilih.');
   if (!(parseInt(req.body.price, 10) > 0)) errors.push('Harga harus lebih dari 0.');
   if (errors.length) {
+    discardUpload(req);
     flash('error', errors.join(' '), req);
     return res.redirect('/admin/paket/baru');
   }
@@ -454,6 +513,7 @@ router.post('/artikel', upload.single('imageFile'), (req, res) => {
   if (!req.body.title || req.body.title.trim().length < 5) errors.push('Judul artikel wajib minimal 5 karakter.');
   if (!req.body.body || req.body.body.trim().length < 50) errors.push('Isi artikel minimal 50 karakter.');
   if (errors.length) {
+    discardUpload(req);
     flash('error', errors.join(' '), req);
     return res.redirect('/admin/artikel/baru');
   }
@@ -637,6 +697,10 @@ router.post('/booking/:id/tolak-bayar', (req, res, next) => {
   const item = data.bookings.find((x) => x.id === req.params.id);
   if (!item) return next();
   item.paymentStatus = 'unpaid';
+  // Buang berkas bukti lama supaya tidak tertinggal di folder upload.
+  if (item.proofImage && item.proofImage.startsWith('/uploads/')) {
+    removeUpload(item.proofImage.replace('/uploads/', ''));
+  }
   item.proofImage = null;
   db.write();
   flash('error', `Bukti pembayaran booking ${item.code} ditolak. Tamu diminta mengunggah ulang.`, req);
@@ -857,21 +921,42 @@ router.post('/pengaturan', upload.fields([{ name: 'logoFile', maxCount: 1 }, { n
   s.paymentAccountName = String(b.paymentAccountName || s.paymentAccountName || '').trim();
   s.midtransServerKey = String(b.midtransServerKey || s.midtransServerKey || '').trim();
   s.midtransClientKey = String(b.midtransClientKey || s.midtransClientKey || '').trim();
-  if ('midtransProduction' in b) s.midtransProduction = b.midtransProduction === 'on';
+  if ('midtransProduction' in b) s.midtransProduction = helpers.isChecked(b.midtransProduction);
   s.tripayMerchantCode = String(b.tripayMerchantCode || s.tripayMerchantCode || '').trim();
   s.tripayPrivateKey = String(b.tripayPrivateKey || s.tripayPrivateKey || '').trim();
   s.tripayApiKey = String(b.tripayApiKey || s.tripayApiKey || '').trim();
-  if ('tripayProduction' in b) s.tripayProduction = b.tripayProduction === 'on';
-  // WhatsApp marketing (hanya token & phone id resmi Cloud API)
-  s.waProvider = b.waProvider === 'web' ? 'web' : 'cloud';
+  if ('tripayProduction' in b) s.tripayProduction = helpers.isChecked(b.tripayProduction);
+  // WhatsApp marketing (hanya token & phone id resmi Cloud API).
+  // Penjaga `in` dipakai agar form pengaturan lain (mis. "Simpan Rekening")
+  // tidak diam-diam mengembalikan provider ke 'cloud'.
+  if ('waProvider' in b) s.waProvider = b.waProvider === 'web' ? 'web' : 'cloud';
   s.waToken = String(b.waToken || s.waToken || '').trim();
   s.waPhoneId = String(b.waPhoneId || s.waPhoneId || '').trim();
   s.waDefaultTemplate = String(b.waDefaultTemplate || s.waDefaultTemplate || '').trim();
-  if (req.files && req.files.logoFile && req.files.logoFile[0]) s.logo = `/uploads/${req.files.logoFile[0].filename}`;
-  if (req.files && req.files.heroFile && req.files.heroFile[0]) s.heroImageUrl = `/uploads/${req.files.heroFile[0].filename}`;
-  if (b.heroImageReset === '1') s.heroImageUrl = '';
-  // Menu WhatsApp mengambang
-  s.waFloatEnabled = b.waFloatEnabled === 'on';
+  if (req.files && req.files.logoFile && req.files.logoFile[0]) {
+    if (s.logo && s.logo.startsWith('/uploads/')) removeUpload(s.logo.replace('/uploads/', ''));
+    s.logo = `/uploads/${req.files.logoFile[0].filename}`;
+  }
+  if (req.files && req.files.heroFile && req.files.heroFile[0]) {
+    if (s.heroImageUrl && s.heroImageUrl.startsWith('/uploads/')) {
+      removeUpload(s.heroImageUrl.replace('/uploads/', ''));
+    }
+    s.heroImageUrl = `/uploads/${req.files.heroFile[0].filename}`;
+  }
+  if (b.heroImageReset === '1') {
+    s.heroImageUrl = '';
+    // Bila pengguna juga mengunggah hero baru, berkas baru itu tidak lagi
+    // dipakai → hapus agar tidak tertinggal di folder upload.
+    if (req.files && req.files.heroFile && req.files.heroFile[0]) {
+      removeUpload(req.files.heroFile[0].filename);
+    }
+  }
+  // Menu WhatsApp mengambang.
+  // PENTING: pakai penjaga `in` — halaman Pengaturan punya 4 form terpisah
+  // yang semuanya POST ke /admin/pengaturan. Tanpa penjaga ini, form lain
+  // (mis. "Simpan Gateway") akan diam-diam mematikan tombol WhatsApp
+  // mengambang karena field-nya tidak ikut terkirim.
+  if ('waFloatEnabled' in b) s.waFloatEnabled = helpers.isChecked(b.waFloatEnabled);
   s.waFloatMessage = String(b.waFloatMessage || s.waFloatMessage || '').trim();
   db.write();
   flash('success', 'Pengaturan situs berhasil disimpan.', req);
@@ -899,8 +984,13 @@ router.post('/seo', upload.fields([{ name: 'ogFile', maxCount: 1 }]), (req, res)
   const b = req.body;
   s.siteUrl = String(b.siteUrl || '').trim().replace(/\/+$/, '');
   s.seoDescription = String(b.seoDescription || '').trim().slice(0, 300);
-  s.seoIndex = b.seoIndex === 'on';
-  if (req.files && req.files.ogFile && req.files.ogFile[0]) s.ogImageUrl = `/uploads/${req.files.ogFile[0].filename}`;
+  s.seoIndex = helpers.isChecked(b.seoIndex);
+  if (req.files && req.files.ogFile && req.files.ogFile[0]) {
+    if (s.ogImageUrl && s.ogImageUrl.startsWith('/uploads/')) {
+      removeUpload(s.ogImageUrl.replace('/uploads/', ''));
+    }
+    s.ogImageUrl = `/uploads/${req.files.ogFile[0].filename}`;
+  }
   if (b.ogImageReset === '1') s.ogImageUrl = '';
   db.write();
   flash('success', 'Pengaturan SEO berhasil disimpan.', req);

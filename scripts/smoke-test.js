@@ -62,7 +62,7 @@ function request(pathname, { method = 'GET', jar, body } = {}) {
       let data = '';
       res.setEncoding('utf8');
       res.on('data', (c) => { data += c; });
-      res.on('end', () => resolve({ status: res.statusCode, body: data }));
+      res.on('end', () => resolve({ status: res.statusCode, body: data, headers: res.headers }));
     });
     req.on('error', reject);
     if (payload) req.write(payload);
@@ -140,12 +140,25 @@ async function expectOk(name, pathname, opts = {}) {
         method: 'POST', jar, body: { _csrf: token, name: 'Uji Smoke', email: 'smoke@example.com', message: 'Pesan uji otomatis' }
       });
       if (pkg) {
-        await expectOk('Booking (POST)', `/paket/${pkg.slug}/booking`, {
+        const bookingRes = await expectOk('Booking (POST)', `/paket/${pkg.slug}/booking`, {
           method: 'POST', jar, body: {
             _csrf: token, name: 'Uji Smoke', email: 'smoke@example.com', phone: '081234567890',
             departureDate: '2030-01-01', participants: '2', notes: 'uji'
           }
         });
+        // Konfirmasi transfer manual: endpoint ini publik, jadi harus menolak
+        // request yang tidak menyertakan email pemesan yang cocok.
+        const code = bookingRes.headers && bookingRes.headers.location
+          ? String(bookingRes.headers.location).split('/').pop()
+          : null;
+        if (code && code.startsWith('SYLT-')) {
+          await expectOk('Pembayaran manual tanpa email (harus ditolak)', `/pembayaran/${code}/manual`, {
+            method: 'POST', jar, body: { _csrf: token, note: 'tanpa email' }
+          });
+          await expectOk('Pembayaran manual dengan email benar', `/pembayaran/${code}/manual`, {
+            method: 'POST', jar, body: { _csrf: token, email: 'smoke@example.com', note: 'uji otomatis' }
+          });
+        }
       }
       await expectOk('CSRF ditolak (harus 403, bukan 500)', '/kontak', {
         method: 'POST', jar, body: { name: 'Tanpa Token', email: 'x@example.com', message: 'tanpa token' }

@@ -29,7 +29,7 @@
       </div>
       <div class="a-field">
         <label>Gambar Sampul</label>
-        <input type="file" name="imageFile" accept="image/*">
+        <input type="file" name="imageFile" accept="image/jpeg,image/png,image/webp,image/gif" data-upload>
         <% if (item && item.coverImage) { %><img src="<%= item.coverImage %>" alt="" class="img-preview" style="margin-top:0.5rem"><% } %>
       </div>
       <div class="a-field">

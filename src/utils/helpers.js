@@ -128,6 +128,25 @@ function isPhone(value) {
   return /^(\+?62|0)\d{7,13}$/.test(digits);
 }
 
+/**
+ * Nilai checkbox HTML.
+ *
+ * Penting: saat sebuah form memuat HIDDEN "off" dilanjutkan CHECKBOX "on"
+ * (pola yang dipakai agar pilihan pengguna tidak hilang saat validasi gagal),
+ * browser mengirim DUA field bernama sama. Express mem-parse hasilnya
+ * menjadi array: ['off', 'on'] saat dicentang, dan 'off' (string) saat tidak.
+ *
+ * Karena itu perbandingan `value === 'on'` SELALU salah untuk form seperti
+ * itu — checkbox tidak pernah tersimpan. Fungsi ini menormalkan kedua
+ * bentuk tersebut.
+ */
+function isChecked(value) {
+  if (Array.isArray(value)) {
+    return value.some((v) => v === 'on' || v === 'true' || v === '1');
+  }
+  return value === 'on' || value === 'true' || value === '1';
+}
+
 const PAYMENT_STATUS = {
   unpaid: { label: 'Belum Bayar', tone: 'pending' },
   waiting_confirmation: { label: 'Menunggu Verifikasi', tone: 'pending' },
@@ -358,6 +377,7 @@ module.exports = {
   paginate,
   isEmail,
   isPhone,
+  isChecked,
   PAYMENT_STATUS,
   paymentStatusLabel,
   paymentStatusTone,

@@ -57,9 +57,13 @@
           </dl>
           <form action="/pembayaran/<%= booking.code %>/manual" method="post" enctype="multipart/form-data" class="form-grid" style="grid-template-columns:1fr">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <%# Email pemesan ikut dikirim sebagai bukti kepemilikan booking.
+                Server memverifikasinya sebelum menerima bukti transfer. %>
+            <input type="hidden" name="email" value="<%= booking.email %>">
             <div class="field">
               <label for="proof">Unggah bukti transfer (opsional)</label>
-              <input id="proof" type="file" name="proof" accept="image/*">
+              <input id="proof" type="file" name="proof" accept="image/jpeg,image/png,image/webp,image/gif" data-upload>
+              <p class="upload-hint">JPG, PNG, WEBP, atau GIF — maksimal 5 MB.</p>
             </div>
             <div class="field">
               <label for="pnote">Catatan transfer (opsional)</label>

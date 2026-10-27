@@ -60,12 +60,12 @@
       </div>
       <div class="a-field">
         <label>Logo (opsional)</label>
-        <input type="file" name="logoFile" accept="image/*">
+        <input type="file" name="logoFile" accept="image/jpeg,image/png,image/webp,image/gif" data-upload>
         <% if (item.logo) { %><img src="<%= item.logo %>" alt="" class="img-preview" style="margin-top:0.5rem"><% } %>
       </div>
       <div class="a-field a-field--full">
         <label>Gambar Hero Beranda (JPG/PNG/WEBP, maks 5 MB — opsional, tampil di kartu hero)</label>
-        <input type="file" name="heroFile" accept="image/*">
+        <input type="file" name="heroFile" accept="image/jpeg,image/png,image/webp,image/gif" data-upload>
         <% if (item.heroImageUrl) { %>
           <img src="<%= item.heroImageUrl %>" alt="" class="img-preview" style="margin-top:0.5rem; max-height:160px">
           <label class="a-check" style="margin-top:0.4rem">

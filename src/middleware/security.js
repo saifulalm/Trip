@@ -83,6 +83,38 @@ function loginLimiter(maxAttempts = 5, windowMs = 10 * 60 * 1000) {
   };
 }
 
+/**
+ * Rate limit serbaguna per IP (anti spam / abuse).
+ * Membalas dengan flash + redirect ke halaman sebelumnya.
+ */
+function rateLimit(options = {}) {
+  const max = options.max || 10;
+  const windowMs = options.windowMs || 10 * 60 * 1000;
+  const message = options.message || 'Terlalu banyak permintaan. Coba lagi beberapa menit lagi.';
+  const hits = new Map();
+  return function limiter(req, res, next) {
+    const key = req.ip || 'unknown';
+    const now = Date.now();
+    let entry = hits.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 0, resetAt: now + windowMs };
+      hits.set(key, entry);
+    }
+    entry.count += 1;
+    if (entry.count > max) {
+      if (req.session) {
+        req.session.flash = req.session.flash || [];
+        req.session.flash.push({ type: 'error', message });
+      }
+      return res.redirect(req.get('Referrer') || '/');
+    }
+    if (hits.size > 500) {
+      for (const [k, v] of hits) if (now > v.resetAt) hits.delete(k);
+    }
+    next();
+  };
+}
+
 function requireLogin(req, res, next) {
   if (!req.session || !req.session.userId) {
     return res.redirect('/admin/login');
@@ -94,6 +126,7 @@ module.exports = {
   verifyCsrf,
   rejectCsrf,
   loginLimiter,
+  rateLimit,
   requireLogin,
   safeEqual,
   csrfTokenFrom,

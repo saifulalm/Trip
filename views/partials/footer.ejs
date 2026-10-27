@@ -3,7 +3,7 @@
     <div class="footer-grid">
       <div class="footer-brand">
         <div class="brand">
-          <img src="/img/logo.svg" alt="Logo" style="width:40px;height:40px">
+          <img src="<%= settings.logo || '/img/logo.svg' %>" alt="Logo" style="width:40px;height:40px;object-fit:contain">
           <span class="brand__name" style="color:#f6f0e6"><%= brandParts.lead %><span style="color:#f2a65a"><%= brandParts.accent %></span></span>
         </div>
         <p><%= settings.about ? settings.about.slice(0, 140) + '…' : '' %></p>

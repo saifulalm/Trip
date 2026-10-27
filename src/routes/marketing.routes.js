@@ -75,7 +75,7 @@ function createMarketingRouter() {
       phone: String(req.body.phone || '').trim(),
       email: String(req.body.email || '').trim(),
       source: 'manual',
-      optIn: req.body.optIn === 'on',
+      optIn: helpers.isChecked(req.body.optIn),
       optOut: false,
       createdAt: new Date().toISOString()
     });

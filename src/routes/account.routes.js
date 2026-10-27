@@ -48,8 +48,11 @@ router.post('/daftar', (req, res) => {
   }
 
   const data = db.read();
-  const customers = data.customers || [];
-  if (customers.some((c) => c.email === email)) {
+  // PENTING: pastikan array-nya benar-benar menempel ke `data`. Kalau
+  // `data.customers` belum ada, `data.customers || []` membuat array BARU
+  // yang tidak tersimpan — akun baru akan hilang diam-diam.
+  data.customers = data.customers || [];
+  if (data.customers.some((c) => c.email === email)) {
     flash('error', 'Email sudah terdaftar. Silakan masuk.', req);
     return res.redirect('/masuk');
   }
@@ -62,11 +65,18 @@ router.post('/daftar', (req, res) => {
     passwordHash: bcrypt.hashSync(password, 10),
     createdAt: new Date().toISOString()
   };
-  customers.push(customer);
-  db.write(data);
-  req.session.customerId = customer.id;
-  flash('success', 'Akun berhasil dibuat. Selamat datang!', req);
-  res.redirect('/akun');
+  data.customers.push(customer);
+  db.write();
+  // Regenerasi ID sesi (mitigasi session fixation).
+  req.session.regenerate((err) => {
+    if (err) {
+      flash('error', 'Akun berhasil dibuat, tetapi sesi gagal dibuat. Silakan masuk.', req);
+      return res.redirect('/masuk');
+    }
+    req.session.customerId = customer.id;
+    flash('success', 'Akun berhasil dibuat. Selamat datang!', req);
+    res.redirect('/akun');
+  });
 });
 
 /* ============ Login ============ */
@@ -92,12 +102,19 @@ router.post('/masuk', customerLoginLimiter, (req, res) => {
   }
 
   clearCustomerLoginAttempts(req);
-  req.session.customerId = customer.id;
-  flash('success', `Halo, ${customer.name.split(' ')[0]}!`, req);
+  // Regenerasi ID sesi saat login (mitigasi session fixation).
+  req.session.regenerate((err) => {
+    if (err) {
+      flash('error', 'Gagal membuat sesi. Silakan coba lagi.', req);
+      return res.redirect('/masuk');
+    }
+    req.session.customerId = customer.id;
+    flash('success', `Halo, ${customer.name.split(' ')[0]}!`, req);
 
-  // Hanya izinkan redirect internal.
-  const safeNext = nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/akun';
-  res.redirect(safeNext);
+    // Hanya izinkan redirect internal.
+    const safeNext = nextUrl.startsWith('/') && !nextUrl.startsWith('//') ? nextUrl : '/akun';
+    res.redirect(safeNext);
+  });
 });
 
 router.post('/keluar', (req, res) => {
@@ -146,7 +163,7 @@ router.post('/akun/profil', requireCustomer, (req, res) => {
   if (customer) {
     customer.name = name;
     customer.phone = phone;
-    db.write(data);
+    db.write();
   }
   flash('success', 'Profil berhasil diperbarui.', req);
   res.redirect('/akun/profil');
@@ -173,7 +190,7 @@ router.post('/akun/sandi', requireCustomer, (req, res) => {
   }
 
   customer.passwordHash = bcrypt.hashSync(next, 10);
-  db.write(data);
+  db.write();
   flash('success', 'Kata sandi berhasil diganti.', req);
   res.redirect('/akun/profil');
 });
@@ -194,7 +211,7 @@ router.post('/akun/sambung-booking', requireCustomer, (req, res) => {
     return res.redirect('/akun');
   }
   booking.customerId = req.customer.id;
-  db.write(data);
+  db.write();
   flash('success', `Booking ${code} berhasil disambungkan ke akun Anda.`, req);
   res.redirect(`/akun/booking/${booking.id}`);
 });
@@ -261,7 +278,7 @@ router.post('/akun/booking/:id/checkin', requireCustomer, (req, res) => {
   booking.checkIn = { lat, lng, accuracy, at: new Date().toISOString() };
   booking.track = booking.track || [];
   booking.track.push({ label: `Check-in ${booking.name}`, lat, lng, at: booking.checkIn.at });
-  db.write(data);
+  db.write();
 
   flash('success', 'Check-in berhasil! Koordinat keberangkatan Anda tercatat.', req);
   res.redirect(`/akun/booking/${booking.id}`);
@@ -301,7 +318,7 @@ router.post('/akun/booking/:id/ulasan', requireCustomer, (req, res) => {
     createdAt: new Date().toISOString()
   });
   data.reviews = reviews;
-  db.write(data);
+  db.write();
 
   flash('success', 'Terima kasih! Ulasan Anda menunggu persetujuan admin.', req);
   res.redirect(`/akun/booking/${booking.id}`);

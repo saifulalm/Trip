@@ -1,7 +1,6 @@
 'use strict';
 
 const express = require('express');
-const bcrypt = require('bcryptjs');
 
 const db = require('../db');
 const helpers = require('../utils/helpers');
@@ -196,7 +195,7 @@ router.post('/paket/:slug/booking', (req, res, next) => {
   data.bookings.unshift(booking);
 
   // Sinkronkan tamu ke daftar kontak marketing (opt-in hanya bila dicentang).
-  const waConsent = req.body.waConsent === 'on';
+  const waConsent = helpers.isChecked(req.body.waConsent);
   data.contacts = data.contacts || [];
   const phoneKey = String(booking.phone).replace(/[^\d]/g, '');
   const existing = data.contacts.find((c) => String(c.phone).replace(/[^\d]/g, '') === phoneKey);
@@ -344,26 +343,17 @@ router.get('/cari', (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Login admin (ditangani juga di /admin/login agar konsisten)         */
+/* Login admin                                                        */
+/*                                                                      */
+/* Sengaja TIDAK didefinisikan di sini.                                */
+/*                                                                      */
+/* Sebelumnya router publik punya POST /admin/login sendiri. Karena     */
+/* `app.use('/', publicRoutes)` dipasang SEBELUM `app.use('/admin', …)`, */
+/* handler tanpa rate-limiter itulah yang menang — sehingga login admin  */
+/* bisa ditebak tanpa batas (brute force).                             */
+/*                                                                      */
+/* Sekarang seluruh login admin ditangani oleh src/routes/admin.routes.js */
+/* yang memakai `loginLimiter()`.                                       */
 /* ------------------------------------------------------------------ */
-router.get('/admin/login', (req, res) => {
-  if (req.session.userId) return res.redirect('/admin');
-  res.render('admin/login', { title: 'Masuk Admin', layout: false, error: null });
-});
-
-router.post('/admin/login', (req, res) => {
-  const { username, password } = req.body;
-  const data = db.read();
-  const user = (data.users || []).find((u) => u.username === String(username || '').trim());
-  if (!user || !bcrypt.compareSync(String(password || ''), user.passwordHash)) {
-    return res.status(401).render('admin/login', {
-      title: 'Masuk Admin',
-      layout: false,
-      error: 'Username atau password salah.'
-    });
-  }
-  req.session.userId = user.id;
-  res.redirect('/admin');
-});
 
 module.exports = router;

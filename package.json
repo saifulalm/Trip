@@ -13,6 +13,8 @@
     "migrate:brand:dry": "node scripts/migrate-brand.js --dry-run",
     "check": "node scripts/check-syntax.js",
     "test": "node scripts/test-splash.js",
+    "test:upload": "node scripts/test-upload.js",
+    "test:admin": "node scripts/test-admin.js",
     "smoke": "node scripts/smoke-test.js"
   },
   "keywords": [

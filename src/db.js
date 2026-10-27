@@ -11,8 +11,12 @@ const path = require('path');
 const crypto = require('crypto');
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
-const DB_FILE = path.join(DATA_DIR, 'db.json');
-const TMP_FILE = path.join(DATA_DIR, '.db.tmp');
+// DB_FILE bisa dioverride lewat environment (dipakai test otomatis supaya
+// data uji tidak pernah menyentuh data produksi). Default tetap data/db.json.
+const DB_FILE = process.env.DB_FILE
+  ? path.resolve(process.env.DB_FILE)
+  : path.join(DATA_DIR, 'db.json');
+const TMP_FILE = path.join(path.dirname(DB_FILE), `.${path.basename(DB_FILE)}.tmp`);
 
 let cache = null;
 /** Sidik jari file di disk (mtime + ukuran) — dipakai untuk mendeteksi

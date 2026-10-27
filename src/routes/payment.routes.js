@@ -3,8 +3,9 @@
 const express = require('express');
 const db = require('../db');
 const helpers = require('../utils/helpers');
-const { upload } = require('../multer');
+const { upload, discardUpload, removeUpload } = require('../multer');
 const { flash } = require('../middleware/context');
+const { rateLimit } = require('../middleware/security');
 const gateways = require('../payment/gateways');
 
 const router = express.Router();
@@ -71,18 +72,49 @@ router.post('/pembayaran/:code/bayar', async (req, res, next) => {
   }
 });
 
-/* Konfirmasi manual transfer: tandai "menunggu verifikasi" + opsional bukti. */
-router.post('/pembayaran/:code/manual', upload.single('proof'), (req, res, next) => {
-  const { data, booking } = findBooking(req.params.code);
-  if (!booking) return next();
-  booking.paymentMethod = 'manual';
-  booking.paymentStatus = 'awaiting_review';
-  booking.paymentNote = String(req.body.note || '').trim().slice(0, 300);
-  if (req.file) booking.proofImage = `/uploads/${req.file.filename}`;
-  db.write();
-  flash('success', `Terima kasih! Bukti transfer booking ${booking.code} diterima. Admin akan memverifikasi maksimal 1×24 jam.`, req);
-  res.redirect(`/pembayaran/${booking.code}`);
-});
+/* Konfirmasi manual transfer: tandai "menunggu verifikasi" + opsional bukti.
+ *
+ * Endpoint ini publik (tidak butuh login), jadi dua lapis pengaman:
+ *  1. Rate limit per IP — mencegah spam unggah bukti.
+ *  2. Verifikasi kepemilikan — email yang dikirim harus cocok dengan email
+ *     pemesan pada booking tersebut. Tanpa ini, siapa pun yang tahu kode
+ *     booking bisa mengubah status pembayaran.
+ */
+router.post(
+  '/pembayaran/:code/manual',
+  rateLimit({
+    max: 10,
+    windowMs: 10 * 60 * 1000,
+    message: 'Terlalu banyak percobaan konfirmasi pembayaran. Coba lagi beberapa menit lagi.'
+  }),
+  upload.single('proof'),
+  (req, res, next) => {
+    const { data, booking } = findBooking(req.params.code);
+    if (!booking) return next();
+
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const bookingEmail = String(booking.email || '').trim().toLowerCase();
+    if (!email || email !== bookingEmail) {
+      // Berkas bukti sudah sempat tersimpan → buang, jangan biarkan orphan.
+      discardUpload(req);
+      flash('error', 'Email pemesan tidak cocok dengan booking ini.', req);
+      return res.redirect(`/pembayaran/${booking.code}`);
+    }
+
+    // Ganti bukti lama (bila ada) agar tidak menumpuk di folder upload.
+    if (booking.proofImage && booking.proofImage.startsWith('/uploads/')) {
+      removeUpload(booking.proofImage.replace('/uploads/', ''));
+    }
+
+    booking.paymentMethod = 'manual';
+    booking.paymentStatus = 'awaiting_review';
+    booking.paymentNote = String(req.body.note || '').trim().slice(0, 300);
+    if (req.file) booking.proofImage = `/uploads/${req.file.filename}`;
+    db.write();
+    flash('success', `Terima kasih! Bukti transfer booking ${booking.code} diterima. Admin akan memverifikasi maksimal 1×24 jam.`, req);
+    res.redirect(`/pembayaran/${booking.code}`);
+  }
+);
 
 /* Webhook Midtrans (server-to-server). */
 router.post('/payment/webhook/midtrans', express.json(), (req, res) => {

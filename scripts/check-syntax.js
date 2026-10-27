@@ -137,6 +137,61 @@ if (brandHits) {
   console.log('✓ Tidak ada sisa nama brand lama di kode maupun data');
 }
 
+/* ---------- 5. Konsistensi penanganan checkbox & redirect ---------- */
+/* Checkbox HTML yang memakai pola "hidden off + checkbox on" mengirim DUA
+   field bernama sama, sehingga body berisi ARRAY (['off','on']). Perbandingan
+   `x === 'on'` selalu salah → checkbox tidak pernah tersimpan.
+   Semua checkbox WAJIB lewat helpers.isChecked(). */
+const routeDir = path.join(ROOT, 'src', 'routes');
+let checkboxHits = 0;
+if (fs.existsSync(routeDir)) {
+  for (const entry of fs.readdirSync(routeDir)) {
+    if (!entry.endsWith('.js')) continue;
+    const full = path.join(routeDir, entry);
+    const text = fs.readFileSync(full, 'utf8');
+    const bad = text.match(/\b[a-zA-Z_$][\w$]*\s*===\s*'on'/g);
+    if (bad) {
+      checkboxHits += bad.length;
+      console.error(`✗ Perbandingan checkbox langsung di ${path.relative(ROOT, full)}: ${bad.join(', ')}`);
+      console.error('  Pakai helpers.isChecked(...) agar field "hidden off + checkbox on" tidak terlewat.');
+    }
+  }
+}
+if (checkboxHits) {
+  errors += 1;
+} else {
+  console.log('✓ Semua checkbox diproses lewat helpers.isChecked()');
+}
+
+/* res.redirect('back') sudah deprecated di Express 4 dan melempar 500
+   bila request tidak membawa header Referer. */
+let redirectBackHits = 0;
+const BACK_SCAN_SKIP = new Set([path.join(ROOT, 'scripts', 'check-syntax.js')]);
+for (const d of ['src', 'scripts']) {
+  const walkDir = (dir) => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const target = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules') continue;
+        walkDir(target);
+      } else if (entry.name.endsWith('.js')) {
+        if (BACK_SCAN_SKIP.has(target)) continue;
+        if (fs.readFileSync(target, 'utf8').includes("redirect('back')")) {
+          redirectBackHits += 1;
+          console.error(`✗ res.redirect('back') masih dipakai di ${path.relative(ROOT, target)}`);
+        }
+      }
+    }
+  };
+  walkDir(path.join(ROOT, d));
+}
+if (redirectBackHits) {
+  errors += 1;
+} else {
+  console.log('✓ Tidak ada res.redirect(\'back\') yang bisa melempar 500');
+}
+
 console.log('');
 if (errors) {
   console.error(`✗ ${errors} masalah ditemukan.`);

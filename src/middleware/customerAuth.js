@@ -41,10 +41,13 @@ function customerLoginLimiter(req, res, next) {
   }
   entry.count += 1;
   if (entry.count > MAX_ATTEMPTS) {
-    req.session.flash = {
+    // Flash harus berupa ARRAY — partial views/partials/flash.ejs memakai
+    // flash.forEach. Objek biasa akan membuat pesan ini tidak pernah tampil.
+    req.session.flash = req.session.flash || [];
+    req.session.flash.push({
       type: 'error',
       message: 'Terlalu banyak percobaan login. Coba lagi dalam beberapa menit.'
-    };
+    });
     return res.redirect('/masuk');
   }
   next();
