@@ -1,0 +1,165 @@
+<section class="portal-shell">
+  <div class="container">
+
+    <header class="portal-hero reveal">
+      <div>
+        <span class="portal-hero__eyebrow">Fellow Traveler</span>
+        <h1 class="portal-hero__title">🔎 Cari Peserta</h1>
+        <p class="portal-hero__sub">
+          Cari fellow traveler yang berbagi perjalanan dengan Anda. Hanya
+          peserta yang punya booking atau rombongan sama dengan Anda yang
+          boleh Anda lihat.
+        </p>
+      </div>
+      <div class="portal-hero__actions">
+        <a href="/akun/lokasi" class="btn btn--ghost btn--sm">📍 Lokasi Saya</a>
+        <a href="/akun" class="btn btn--ghost btn--sm">← Dashboard</a>
+      </div>
+    </header>
+
+    <div class="portal-grid">
+      <!-- ============ Kolom utama ============ -->
+      <div class="portal-stack">
+
+        <!-- Form pencarian -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">Formulir Pencarian</h2>
+              <p class="portal-panel__hint">
+                Ketik nama, email, atau nomor HP peserta. Kosongkan bila ingin
+                melihat semua peserta yang berhak Anda lihat.
+              </p>
+            </div>
+          </div>
+
+          <form class="search-bar" action="/akun/cari" method="get">
+            <input
+              type="search"
+              name="q"
+              value="<%= q || '' %>"
+              placeholder="Cari nama / email / nomor HP"
+              aria-label="Kata kunci pencarian peserta">
+            <select name="booking" aria-label="Filter kode booking">
+              <option value="">Semua booking saya</option>
+              <% myBookings.forEach(function (b) { %>
+                <option value="<%= b.code %>" <%= bookingCode === b.code ? 'selected' : '' %>>
+                  <%= b.code %> · <%= b.packageName || '' %>
+                </option>
+              <% }); %>
+            </select>
+            <button class="btn btn--deep btn--sm" type="submit">Cari</button>
+          </form>
+
+          <p class="loc-note" style="margin-top:0.9rem">
+            🔒 <strong>Privasi:</strong> hasil pencarian hanya memuat peserta yang
+            berbagi booking atau rombongan dengan Anda. Pelanggan lain tidak
+            pernah ditampilkan.
+          </p>
+        </section>
+
+        <!-- Hasil pencarian -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">Hasil (<%= results.length %>)</h2>
+              <p class="portal-panel__hint">
+                <% if (q) { %>Kata kunci “<%= q %>”<% } else { %>Semua peserta yang berhak Anda lihat<% } %>
+              </p>
+            </div>
+          </div>
+
+          <% if (results.length === 0) { %>
+            <div class="portal-empty">
+              <div class="portal-empty__icon">🔎</div>
+              <h3 class="portal-empty__title">Belum ada peserta yang cocok</h3>
+              <p>
+                Tidak ada fellow traveler yang cocok dengan filter tersebut, atau
+                Anda belum memiliki booking/rombongan yang bisa dilihat.
+              </p>
+              <a href="/akun" class="btn btn--outline btn--sm">Lihat Booking Saya</a>
+            </div>
+          <% } else { %>
+            <ul class="loc-history">
+              <% results.forEach(function (r) { %>
+                <li>
+                  <span>
+                    <span class="loc-history__code"><%= r.name %></span><br>
+                    <span><%= r.phone || r.email || '-' %></span>
+                    <% if (r.at) { %>
+                      <br><span>terakhir terlihat <%= formatAge(r.at) %></span>
+                    <% } %>
+                  </span>
+                  <span class="loc-history__time">
+                    <% if (r.mapsUrl) { %>
+                      <a class="btn btn--outline btn--sm" href="<%= r.mapsUrl %>" target="_blank" rel="noopener">
+                        Buka di Google Maps ↗
+                      </a>
+                    <% } else { %>
+                      <span>Posisi belum diketahui</span>
+                    <% } %>
+                  </span>
+                </li>
+              <% }); %>
+            </ul>
+          <% } %>
+        </section>
+      </div>
+
+      <!-- ============ Kolom samping ============ -->
+      <div class="portal-stack">
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <h2 class="portal-panel__title">Rombongan Saya</h2>
+          </div>
+
+          <% if (myGroups.length === 0) { %>
+            <p class="portal-panel__hint">
+              Anda belum masuk rombongan mana pun. Rombongan dibuat oleh tim
+              untuk menggabungkan beberapa booking dalam satu kapal.
+            </p>
+          <% } else { %>
+            <ul class="loc-history">
+              <% myGroups.forEach(function (g) { %>
+                <li>
+                  <span>
+                    <span class="loc-history__code"><%= g.name %></span><br>
+                    <span><%= (g.bookingCodes || []).length %> booking</span>
+                  </span>
+                  <span class="loc-history__time">
+                    <a class="btn btn--outline btn--sm" href="/akun/rombongan/<%= g.id %>">
+                      Buka Roster →
+                    </a>
+                  </span>
+                </li>
+              <% }); %>
+            </ul>
+          <% } %>
+        </section>
+
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <h2 class="portal-panel__title">Booking Saya</h2>
+          </div>
+          <% if (myBookings.length === 0) { %>
+            <p class="portal-panel__hint">Belum ada booking aktif.</p>
+          <% } else { %>
+            <ul class="loc-history">
+              <% myBookings.forEach(function (b) { %>
+                <li>
+                  <span>
+                    <span class="loc-history__code"><%= b.code %></span><br>
+                    <span><%= b.packageName || '' %></span>
+                  </span>
+                  <span class="loc-history__time">
+                    <%= formatDateShort(b.departureDate) %>
+                  </span>
+                </li>
+              <% }); %>
+            </ul>
+          <% } %>
+        </section>
+      </div>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,153 @@
+<section class="portal-shell">
+  <div class="container">
+
+    <header class="portal-hero reveal">
+      <div>
+        <span class="portal-hero__eyebrow">Rombongan</span>
+        <h1 class="portal-hero__title">🚤 <%= group.name %></h1>
+        <p class="portal-hero__sub">
+          Daftar peserta rombongan Anda beserta posisi terakhir yang diketahui.
+          Hanya anggota rombongan ini yang dapat membuka halaman ini.
+        </p>
+      </div>
+      <div class="portal-hero__actions">
+        <a href="/akun/cari" class="btn btn--ghost btn--sm">🔎 Cari Peserta</a>
+        <a href="/akun" class="btn btn--ghost btn--sm">← Dashboard</a>
+      </div>
+    </header>
+
+    <div class="portal-grid">
+      <!-- ============ Kolom utama ============ -->
+      <div class="portal-stack">
+
+        <!-- Peta rombongan -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">Peta Rombongan</h2>
+              <p class="portal-panel__hint">
+                <% if (meetingPoint && meetingPoint.lat) { %>
+                  Titik kumpul: <strong><%= meetingPoint.name || group.name %></strong>
+                <% } else { %>
+                  Belum ada titik kumpul yang ditetapkan untuk rombongan ini.
+                <% } %>
+              </p>
+            </div>
+          </div>
+
+          <div id="syl-map" class="portal-map portal-map--tall" role="img" aria-label="Peta peserta rombongan"></div>
+          <script id="map-data" type="application/json"><%- mapData %></script>
+
+          <div class="trip-card__foot" style="margin-top:0.8rem">
+            <% if (mapsUrl) { %>
+              <a href="<%= mapsUrl %>" class="btn btn--outline btn--sm" target="_blank" rel="noopener">
+                Buka Titik Kumpul di Google Maps ↗
+              </a>
+            <% } %>
+          </div>
+        </section>
+
+        <!-- Daftar peserta -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">Peserta (<%= members.length %>)</h2>
+              <p class="portal-panel__hint">
+                Posisi terakhir yang diketahui — bukan lokasi real-time.
+              </p>
+            </div>
+          </div>
+
+          <% if (members.length === 0) { %>
+            <div class="portal-empty">
+              <div class="portal-empty__icon">🧑‍🤝‍🧑</div>
+              <h3 class="portal-empty__title">Belum ada peserta</h3>
+              <p>Rombongan ini belum memuat booking apa pun.</p>
+              <a href="/akun" class="btn btn--outline btn--sm">Lihat Booking Saya</a>
+            </div>
+          <% } else { %>
+            <ul class="loc-history">
+              <% members.forEach(function (m) { %>
+                <li>
+                  <span>
+                    <span class="loc-history__code"><%= m.name %></span><br>
+                    <span><%= m.bookingCode %><%= m.packageName ? ' · ' + m.packageName : '' %></span>
+                    <% if (m.ageLabel && m.ageLabel !== '-') { %>
+                      <br><span>terakhir terlihat <%= m.ageLabel %></span>
+                    <% } %>
+                    <% if (m.distanceLabel) { %>
+                      <br><span><%= m.distanceLabel %> dari titik kumpul</span>
+                    <% } %>
+                  </span>
+                  <span class="loc-history__time">
+                    <% if (m.phone) { %>
+                      <a class="btn btn--outline btn--sm" href="https://wa.me/<%= m.phone %>" target="_blank" rel="noopener">
+                        WhatsApp
+                      </a>
+                    <% } %>
+                    <% if (m.mapsUrl) { %>
+                      <br><a href="<%= m.mapsUrl %>" target="_blank" rel="noopener">Buka di Google Maps ↗</a>
+                    <% } %>
+                  </span>
+                </li>
+              <% }); %>
+            </ul>
+          <% } %>
+        </section>
+      </div>
+
+      <!-- ============ Kolom samping ============ -->
+      <div class="portal-stack">
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <h2 class="portal-panel__title">Ringkasan Rombongan</h2>
+          </div>
+
+          <div class="loc-grid" style="margin-top:0">
+            <div class="loc-cell">
+              <div class="loc-cell__label">Nama</div>
+              <div class="loc-cell__value"><%= group.name %></div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Jumlah Peserta</div>
+              <div class="loc-cell__value"><%= members.length %></div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Titik Kumpul</div>
+              <div class="loc-cell__value">
+                <% if (meetingPoint && meetingPoint.lat) { %>
+                  <%= meetingPoint.name || group.name %>
+                <% } else { %>—<% } %>
+              </div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Radius Titik Kumpul</div>
+              <div class="loc-cell__value"><%= group.radiusM || 5000 %> m</div>
+            </div>
+          </div>
+
+          <p class="loc-note" style="margin-top:0.9rem">
+            🔒 <strong>Privasi:</strong> halaman ini hanya menampilkan peserta
+            yang berada dalam rombongan Anda sendiri.
+          </p>
+        </section>
+
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <h2 class="portal-panel__title">Booking Rombongan</h2>
+          </div>
+          <ul class="loc-history">
+            <% (group.bookingCodes || []).forEach(function (code) { %>
+              <li>
+                <span>
+                  <span class="loc-history__code"><%= code %></span>
+                </span>
+                <span class="loc-history__time">—</span>
+              </li>
+            <% }); %>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </div>
+</section>

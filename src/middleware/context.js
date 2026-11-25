@@ -6,6 +6,7 @@ const helpers = require('../utils/helpers');
 const seo = require('../seo');
 const themeService = require('../services/theme');
 const brandService = require('../services/brand');
+const geo = require('../services/geo');
 const onepageService = require('../services/onepage');
 
 /** Menyediakan data global (settings, flash, csrf) untuk semua template. */
@@ -56,6 +57,10 @@ function context(req, res, next) {
   // Onepage (halaman beranda): daftar section untuk nav anchor & rail.
   res.locals.onepageNavSections = onepageService.navSections();
   res.locals.onepageRailSections = onepageService.railSections();
+  // Helper peta untuk template (deep link Google Maps + usia relatif).
+  res.locals.mapsUrl = geo.mapsUrl;
+  res.locals.mapsDirUrl = geo.mapsDirUrl;
+  res.locals.formatAge = geo.formatAge;
   // Mode onepage aktif hanya di beranda — halaman lain tetap nav route biasa.
   res.locals.isOnepage = req.path === '/';
   // Tautan profil media sosial untuk footer situs publik.

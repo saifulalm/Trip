@@ -8,6 +8,8 @@ const { flash } = require('../middleware/context');
 const { requireCustomer, customerLoginLimiter, clearCustomerLoginAttempts } = require('../middleware/customerAuth');
 const { isEmail, isPhone } = require('../utils/helpers');
 const geo = require('../services/geo');
+const presence = require('../services/presence');
+const roster = require('../services/roster');
 const trip = require('../services/trip');
 
 const router = express.Router();
@@ -267,6 +269,154 @@ router.get('/akun/lokasi', requireCustomer, (req, res) => {
       checkIn: lastCheckIn && geo.isValidLatLng(lastCheckIn.lat, lastCheckIn.lng) ? lastCheckIn : null,
       track: history.map((h) => ({ label: h.code, lat: h.lat, lng: h.lng, at: h.at }))
     })
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Cari peserta (fellow traveler)                                      */
+/* ------------------------------------------------------------------ */
+/*
+ * Pelanggan boleh mencari fellow traveler-nya sendiri. Ini bukan
+ * direktori publik: hasil pencarian hanya berisi orang yang memang sudah
+ * berhak dilihat (booking sama atau rombongan sama).
+ *
+ * Yang TIDAK boleh terjadi: satu pelanggan melihat pelanggan lain yang
+ * tidak punya hubungan trip dengan dia.
+ */
+router.get('/akun/cari', requireCustomer, (req, res) => {
+  const data = db.read();
+  const customer = req.customer;
+  const q = String(req.query.q || '').trim().toLowerCase();
+  const bookingCode = String(req.query.booking || '').trim().toUpperCase();
+
+  // Kumpulkan booking milik pelanggan ini.
+  const myBookings = (data.bookings || []).filter((b) => b.customerId === customer.id);
+  const myCodes = myBookings.map((b) => b.code);
+
+  // Kumpulkan group yang diikuti pelanggan ini.
+  const myGroups = roster.groupsForCustomer(data, customer.id);
+  const myGroupIds = myGroups.map((g) => g.id);
+
+  // Kandidat: semua pelanggan yang ada di booking saya atau group saya.
+  const allowedCodes = new Set();
+  myBookings.forEach((b) => allowedCodes.add(b.code));
+  myGroups.forEach((g) => (g.bookingCodes || []).forEach((c) => allowedCodes.add(c)));
+
+  const customers = data.customers || [];
+  const allowedCustomerIds = new Set();
+  (data.bookings || []).forEach((b) => {
+    if (allowedCodes.has(b.code) && b.customerId) allowedCustomerIds.add(b.customerId);
+  });
+
+  // Kumpulkan posisi terakhir yang diketahui (live + last-seen).
+  const seenMap = {};
+  presence.lastSeenAll().forEach((e) => {
+    seenMap[e.role + ':' + e.refId] = e;
+  });
+
+  let results = customers
+    .filter((c) => allowedCustomerIds.has(c.id))
+    .map((c) => {
+      const entry = seenMap['customer:' + c.id] || null;
+      const at = entry && entry.at ? new Date(entry.at).getTime() : 0;
+      return {
+        id: c.id,
+        name: c.name,
+        phone: c.phone,
+        email: c.email,
+        lat: entry ? entry.lat : null,
+        lng: entry ? entry.lng : null,
+        accuracy: entry ? entry.accuracy : null,
+        at: entry ? entry.at : null,
+        ageMin: at ? Math.max(0, Math.round((Date.now() - at) / 60000)) : null,
+        mapsUrl: entry ? geo.mapsUrl(entry.lat, entry.lng, c.name) : '',
+        shared: Boolean(c.id !== customer.id && entry)
+      };
+    });
+
+  // Filter pencarian.
+  if (q) {
+    results = results.filter((c) =>
+      String(c.name || '').toLowerCase().includes(q) ||
+      String(c.email || '').toLowerCase().includes(q) ||
+      String(c.phone || '').includes(q)
+    );
+  }
+  if (bookingCode) {
+    const b = (data.bookings || []).find((x) => x.code === bookingCode);
+    const allowed = b && allowedCustomerIds.has(b.customerId);
+    if (!allowed) results = [];
+  }
+
+  res.render('pages/account-search', {
+    title: 'Cari Peserta',
+    layout: 'layouts/public',
+    q: req.query.q || '',
+    bookingCode: bookingCode,
+    results,
+    myBookings,
+    myCodes,
+    myGroups,
+    allowedCodes: Array.from(allowedCodes),
+    myGroupIds
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Roster rombongan — peta bersama satu kapal                           */
+/* ------------------------------------------------------------------ */
+router.get('/akun/rombongan/:id', requireCustomer, (req, res, next) => {
+  const data = db.read();
+  const customer = req.customer;
+  const group = roster.groupOf(data, req.params.id);
+
+  // Pelanggan hanya boleh membuka group yang dia ikuti.
+  const myGroupIds = roster.groupsForCustomer(data, customer.id).map((g) => g.id);
+  if (!group || !myGroupIds.includes(group.id)) return next();
+
+  const seenMap = {};
+  presence.lastSeenAll().forEach((e) => {
+    seenMap[e.role + ':' + e.refId] = e;
+  });
+
+  const members = roster.rosterOf(data, group, {}, seenMap).map((p) => {
+    const distance = roster.distanceToMeetingPoint(group, p);
+    return {
+      ...p,
+      distance: distance,
+      distanceLabel: Number.isFinite(distance) ? geo.formatDistance(distance) : null,
+      mapsUrl: geo.mapsUrl(p.lat, p.lng, p.name),
+      ageLabel: geo.formatAge(p.at)
+    };
+  });
+
+  res.render('pages/account-group', {
+    title: group.name,
+    layout: 'layouts/public',
+    group,
+    members,
+    meetingPoint: group.meetingPoint || null,
+    mapsUrl: geo.mapsUrl(
+      group.meetingPoint && group.meetingPoint.lat,
+      group.meetingPoint && group.meetingPoint.lng,
+      group.name
+    ),
+    mapData: JSON.stringify({
+      dest: group.meetingPoint || null,
+      checkIn: null,
+      track: [],
+      live: null,
+      peers: members
+        .filter((m) => m.lat != null && m.lng != null)
+        .map((m) => ({
+          role: 'customer',
+          name: m.name,
+          label: m.ageLabel,
+          lat: m.lat,
+          lng: m.lng,
+          distance: m.distance
+        }))
+    }).replace(/</g, '\\u003c')
   });
 });
 
