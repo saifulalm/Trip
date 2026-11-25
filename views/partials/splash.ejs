@@ -1,0 +1,58 @@
+<%#
+  Splash screen — pembuka website.
+
+  Parameter (opsional):
+    splashWord    nama brand yang ditampilkan (huruf sambung, tanpa spasi)
+    splashLogo    URL logo
+    splashTagline teks kecil di bawah nama brand
+
+  Catatan: elemen dimuat dengan atribut `hidden` supaya (1) tidak berkedip
+  sebelum JS sempat berjalan, dan (2) bila JavaScript dimatikan, situs tetap
+  bisa diakses (splash tidak akan pernah menutup viewport).
+%>
+<%
+const s_word = (typeof splashWord !== 'undefined' && splashWord) ? splashWord : (brandWordmark || 'seayoulatertrip');
+const s_logo = (typeof splashLogo !== 'undefined' && splashLogo) ? splashLogo : (settings.logo || '/img/logo.svg');
+const s_tag = (typeof splashTagline !== 'undefined' && splashTagline) ? splashTagline : (settings.tagline || 'Wisata Bahari Nusantara');
+/* Indeks huruf yang diwarnai aksen-orange: dihitung oleh service brand
+   (batas kata terkuat, mis. huruf awal "trip"). */
+const s_accent = (typeof brandAccentFrom !== 'undefined' && brandAccentFrom >= 0) ? brandAccentFrom : (() => {
+  const m = String(s_word).match(/[A-Z]/);
+  if (m && m.index > 0) return m.index;
+  return Math.min(String(s_word).length - 1, Math.floor(String(s_word).length * 0.55));
+})();
+%>
+<div class="splash" id="splash" role="dialog" aria-modal="true" aria-label="Pembuka <%= s_word %>" hidden>
+  <div class="splash__waves" aria-hidden="true">
+    <div class="splash__wave splash__wave--1"></div>
+    <div class="splash__wave splash__wave--2"></div>
+    <div class="splash__wave splash__wave--3"></div>
+  </div>
+
+  <button type="button" class="splash__skip" data-splash-skip aria-label="Lewati splash dan langsung ke konten">Lewati</button>
+
+  <div class="splash__inner">
+    <div class="splash__mark" aria-hidden="true">
+      <span class="splash__mark-ring"></span>
+      <span class="splash__mark-ring splash__mark-ring--2"></span>
+      <img class="splash__mark-logo" src="<%= s_logo %>" alt="" data-splash-logo>
+    </div>
+
+    <div class="splash__word"
+         data-splash-word="<%= s_word %>"
+         data-splash-accent-from="<%= s_accent %>"
+         aria-label="<%= s_word %>"><%= s_word %></div>
+
+    <div class="splash__rule" aria-hidden="true"></div>
+
+    <p class="splash__tagline"><%= s_tag %></p>
+
+    <div class="splash__progress" role="progressbar" aria-label="Memuat situs" aria-valuemin="0" aria-valuemax="100">
+      <div class="splash__progress-bar" data-splash-bar></div>
+    </div>
+
+    <p class="splash__status" data-splash-status aria-live="polite">Menyiapkan perjalanan…</p>
+
+    <button type="button" class="splash__enter" data-splash-enter>Masuk</button>
+  </div>
+</div>
