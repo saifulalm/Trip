@@ -1,0 +1,486 @@
+/* ==========================================================================
+   Portal Pelanggan v2 — redesigned dashboard + fitur lokasi
+   Dipisah dari style.css agar mudah dirawat dan tidak menabrak gaya lama.
+   Token memakai variabel yang sama dengan style.css (--deep-teal, --ink, ...)
+   ========================================================================== */
+
+.portal-shell {
+  padding: 2.6rem 0 4rem;
+}
+
+/* ---------- Kepala portal ---------- */
+.portal-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.6rem;
+  align-items: center;
+  padding: 2rem 2.2rem;
+  border-radius: 26px;
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(47, 159, 176, 0.28), transparent 55%),
+    linear-gradient(135deg, var(--accent-deep), var(--accent-darkest));
+  color: #f7f3ea;
+  box-shadow: 0 26px 60px -34px rgba(6, 31, 37, 0.85);
+  overflow: hidden;
+  position: relative;
+}
+.portal-hero::after {
+  content: "";
+  position: absolute;
+  right: -60px;
+  top: -80px;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background: rgba(246, 240, 230, 0.08);
+  pointer-events: none;
+}
+.portal-hero__eyebrow {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(247, 243, 234, 0.72);
+}
+.portal-hero__title {
+  font-family: var(--display);
+  font-size: clamp(1.7rem, 3.6vw, 2.5rem);
+  line-height: 1.12;
+  margin: 0.35rem 0 0.5rem;
+  color: #fffdf8;
+}
+.portal-hero__sub {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(247, 243, 234, 0.84);
+  max-width: 52ch;
+}
+.portal-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  position: relative;
+  z-index: 1;
+}
+.portal-hero .btn--ghost {
+  color: #f7f3ea;
+  border: 1px solid rgba(247, 243, 234, 0.35);
+}
+.portal-hero .btn--ghost:hover {
+  background: rgba(247, 243, 234, 0.14);
+}
+.portal-hero .btn--outline {
+  background: rgba(247, 243, 234, 0.95);
+  border-color: transparent;
+  color: var(--accent-deep);
+}
+.portal-hero .btn--outline:hover {
+  background: #fff;
+  color: var(--accent-darkest);
+}
+
+/* ---------- KPI ---------- */
+.portal-kpi {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.9rem;
+  margin: 1.4rem 0 0;
+}
+.kpi {
+  background: var(--white);
+  border: 1px solid rgba(15, 64, 60, 0.12);
+  border-radius: 18px;
+  padding: 1.1rem 1.2rem;
+  display: grid;
+  gap: 0.25rem;
+  box-shadow: 0 12px 32px -26px rgba(15, 64, 60, 0.6);
+}
+.kpi__label {
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.kpi__value {
+  font-family: var(--display);
+  font-size: 1.75rem;
+  line-height: 1.05;
+  color: var(--deep-teal, #0f4c47);
+}
+.kpi__hint {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+.kpi--accent {
+  background: linear-gradient(150deg, rgba(242, 166, 90, 0.2), rgba(232, 106, 79, 0.1));
+  border-color: rgba(232, 106, 79, 0.32);
+}
+
+/* ---------- Layout dua kolom ---------- */
+.portal-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 1.3rem;
+  margin-top: 1.4rem;
+  align-items: start;
+}
+.portal-stack {
+  display: grid;
+  gap: 1.3rem;
+}
+
+.portal-panel {
+  background: var(--white);
+  border: 1px solid rgba(15, 64, 60, 0.12);
+  border-radius: 22px;
+  padding: 1.6rem 1.7rem;
+  box-shadow: 0 16px 44px -32px rgba(15, 64, 60, 0.55);
+}
+.portal-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.portal-panel__title {
+  font-family: var(--display);
+  font-size: 1.16rem;
+  color: var(--deep-teal, #0f4c47);
+  margin: 0;
+}
+.portal-panel__hint {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin: 0.15rem 0 0;
+}
+
+/* ---------- Kartu booking ---------- */
+.trip-card {
+  border: 1px solid rgba(15, 64, 60, 0.12);
+  border-radius: 20px;
+  background: var(--white);
+  padding: 1.25rem 1.35rem;
+  display: grid;
+  gap: 0.95rem;
+  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+}
+.trip-card:hover {
+  box-shadow: 0 20px 46px -30px rgba(15, 64, 60, 0.55);
+  transform: translateY(-2px);
+  border-color: rgba(15, 64, 60, 0.24);
+}
+.trip-card--next {
+  border-color: rgba(232, 106, 79, 0.45);
+  background: linear-gradient(160deg, rgba(242, 166, 90, 0.12), rgba(255, 255, 255, 0) 55%), var(--white);
+}
+.trip-card__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.trip-card__code {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+  color: var(--coral, #c96f4a);
+}
+.trip-card__title {
+  font-family: var(--display);
+  font-size: 1.12rem;
+  color: var(--deep-teal, #0f4c47);
+  margin: 0.15rem 0 0.3rem;
+}
+.trip-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.trip-card__badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.trip-card__foot {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.trip-card__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.24rem 0.6rem;
+  border-radius: 999px;
+  background: var(--accent-soft, #e3f1f3);
+  color: var(--accent-deep, #0a3d47);
+}
+
+/* ---------- Stepper progres ---------- */
+.trip-steps {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trip-step {
+  display: grid;
+  gap: 0.3rem;
+  justify-items: center;
+  text-align: center;
+}
+.trip-step__dot {
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(15, 64, 60, 0.14);
+}
+.trip-step--done .trip-step__dot { background: var(--accent, #166b7a); }
+.trip-step--active .trip-step__dot {
+  background: linear-gradient(90deg, var(--apricot, #f2a65a), var(--coral, #e86a4f));
+}
+.trip-step--cancelled .trip-step__dot { background: rgba(15, 64, 60, 0.08); }
+.trip-step__label {
+  font-size: 0.68rem;
+  line-height: 1.25;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.trip-step--done .trip-step__label { color: var(--accent-deep, #0a3d47); }
+.trip-step--active .trip-step__label { color: var(--coral, #c96f4a); }
+
+/* ---------- Badge status ----------
+   Catatan: kelas .badge dipakai di halaman publik (home, payment,
+   account) tapi TIDAK punya definisi di style.css — hanya ada di
+   admin.css yang tidak dimuat di layout publik. Akibatnya badge tampil
+   tanpa gaya (teks polos tanpa kapsul). Definisi ini dipindahkan ke sini. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.26rem 0.66rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.badge--confirmed { background: #e7f6ee; color: #15803d; border-color: rgba(21, 128, 61, 0.18); }
+.badge--pending { background: #fef3e2; color: #b45309; border-color: rgba(180, 83, 9, 0.18); }
+.badge--completed { background: #e0f2f7; color: #0e7490; border-color: rgba(14, 116, 144, 0.18); }
+.badge--cancelled { background: #fdecea; color: #b91c1c; border-color: rgba(185, 28, 28, 0.18); }
+[data-theme="dark"] .badge--confirmed { background: rgba(47, 158, 99, 0.18); color: #7ee2ac; }
+[data-theme="dark"] .badge--pending { background: rgba(217, 130, 43, 0.18); color: #f5c07a; }
+[data-theme="dark"] .badge--completed { background: rgba(47, 159, 176, 0.18); color: #8fdce6; }
+[data-theme="dark"] .badge--cancelled { background: rgba(214, 69, 69, 0.2); color: #f4a3a3; }
+
+/* ---------- Panel lokasi ---------- */
+.loc-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-radius: 16px;
+  background: var(--accent-softer, #f1f8f9);
+  border: 1px solid rgba(15, 64, 60, 0.12);
+}
+.loc-bar__status {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.87rem;
+  font-weight: 600;
+  color: var(--deep-teal, #0f4c47);
+}
+.loc-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #9aa8ab;
+  flex: none;
+}
+.loc-dot--granted { background: #2e9e63; box-shadow: 0 0 0 3px rgba(46, 158, 99, 0.18); }
+.loc-dot--denied { background: var(--coral, #e86a4f); box-shadow: 0 0 0 3px rgba(232, 106, 79, 0.18); }
+.loc-dot--pending { background: var(--apricot, #f2a65a); box-shadow: 0 0 0 3px rgba(242, 166, 90, 0.2); }
+.loc-dot--busy { animation: loc-pulse 1.1s ease-in-out infinite; }
+@keyframes loc-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+.loc-note {
+  margin: 0.6rem 0 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+.loc-note--warn { color: var(--coral, #c96f4a); font-weight: 600; }
+.loc-note--ok { color: #2e7d5b; font-weight: 600; }
+
+.loc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.7rem;
+  margin-top: 1rem;
+}
+.loc-cell {
+  padding: 0.85rem 0.95rem;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 64, 60, 0.1);
+  background: var(--white);
+}
+.loc-cell__label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+.loc-cell__value {
+  font-family: var(--display);
+  font-size: 1.06rem;
+  color: var(--deep-teal, #0f4c47);
+  margin-top: 0.15rem;
+  word-break: break-word;
+}
+.loc-cell__value--mono {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.9rem;
+}
+
+/* ---------- Peta ---------- */
+.portal-map {
+  height: 320px;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 64, 60, 0.16);
+  overflow: hidden;
+  z-index: 1;
+  background: var(--sand, #f6f0e6);
+}
+.portal-map--tall { height: 420px; }
+.leaflet-container { font: inherit; }
+.portal-map__empty {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: 0.4rem;
+  padding: 2rem;
+  border-radius: 18px;
+  border: 1px dashed rgba(15, 64, 60, 0.25);
+  background: var(--accent-softer, #f1f8f9);
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+/* ---------- Rekomendasi ---------- */
+.rec-card {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 0.9rem;
+  padding: 0.75rem;
+  border-radius: 16px;
+  border: 1px solid rgba(15, 64, 60, 0.1);
+  background: var(--white);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+.rec-card:hover { border-color: rgba(15, 64, 60, 0.26); transform: translateY(-2px); }
+.rec-card__img {
+  width: 92px;
+  height: 74px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: var(--sand-dark, #ece2d0);
+}
+.rec-card__title {
+  font-family: var(--display);
+  font-size: 0.98rem;
+  color: var(--deep-teal, #0f4c47);
+  margin: 0 0 0.15rem;
+}
+.rec-card__meta { font-size: 0.8rem; color: var(--ink-soft); }
+
+/* ---------- Riwayat lokasi ---------- */
+.loc-history { display: grid; gap: 0.55rem; margin: 0; padding: 0; list-style: none; }
+.loc-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.7rem;
+  align-items: baseline;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  border: 1px solid rgba(15, 64, 60, 0.09);
+  font-size: 0.85rem;
+}
+.loc-history__code { font-weight: 700; color: var(--coral, #c96f4a); font-size: 0.75rem; }
+.loc-history__time { color: var(--ink-soft); font-size: 0.78rem; }
+
+/* ---------- Empty state ---------- */
+.portal-empty {
+  text-align: center;
+  padding: 2.6rem 1.4rem;
+  border-radius: 20px;
+  border: 1px dashed rgba(15, 64, 60, 0.24);
+  background: var(--accent-softer, #f1f8f9);
+}
+.portal-empty__icon { font-size: 2rem; }
+.portal-empty__title {
+  font-family: var(--display);
+  font-size: 1.16rem;
+  color: var(--deep-teal, #0f4c47);
+  margin: 0.5rem 0 0.3rem;
+}
+.portal-empty p { color: var(--ink-soft); margin: 0 0 1rem; font-size: 0.92rem; }
+
+/* ---------- Mode gelap ---------- */
+[data-theme="dark"] .portal-panel,
+[data-theme="dark"] .kpi,
+[data-theme="dark"] .trip-card,
+[data-theme="dark"] .loc-cell,
+[data-theme="dark"] .rec-card {
+  background: var(--white);
+  border-color: var(--line);
+}
+[data-theme="dark"] .trip-card--next {
+  background: linear-gradient(160deg, rgba(242, 166, 90, 0.12), rgba(18, 38, 44, 0) 55%), var(--white);
+}
+[data-theme="dark"] .kpi--accent {
+  background: linear-gradient(150deg, rgba(242, 166, 90, 0.16), rgba(232, 106, 79, 0.08));
+}
+[data-theme="dark"] .loc-bar { background: var(--sand-dark); border-color: var(--line); }
+[data-theme="dark"] .portal-empty { background: var(--sand-dark); }
+[data-theme="dark"] .trip-step__dot { background: rgba(246, 240, 230, 0.14); }
+[data-theme="dark"] .trip-card__tag { background: rgba(47, 159, 176, 0.2); color: var(--ink); }
+
+/* ---------- Responsif ---------- */
+@media (max-width: 1000px) {
+  .portal-grid { grid-template-columns: 1fr; }
+  .portal-kpi { grid-template-columns: repeat(2, 1fr); }
+  .portal-hero { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .portal-shell { padding: 1.6rem 0 3rem; }
+  .portal-hero { padding: 1.5rem 1.35rem; border-radius: 20px; }
+  .portal-hero__actions { width: 100%; }
+  .portal-hero__actions .btn { flex: 1 1 auto; }
+  .portal-panel { padding: 1.2rem 1.1rem; border-radius: 18px; }
+  .kpi { padding: 0.9rem 0.95rem; border-radius: 15px; }
+  .kpi__value { font-size: 1.45rem; }
+  .trip-steps { grid-template-columns: repeat(3, 1fr); row-gap: 0.7rem; }
+  .portal-map { height: 260px; }
+  .portal-map--tall { height: 320px; }
+  .rec-card { grid-template-columns: 72px 1fr; }
+  .rec-card__img { width: 72px; height: 62px; }
+}

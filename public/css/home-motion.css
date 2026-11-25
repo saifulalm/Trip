@@ -1,0 +1,469 @@
+/* ==========================================================================
+   Beranda — animasi section & widget mengambang
+   Berisi: bar progres scroll, animasi masuk section (stagger), dan
+   peningkatan widget WhatsApp mengambang (cincin denyut, panel stagger,
+   tombol kembali ke atas).
+   ========================================================================== */
+
+/* ==========================================================================
+   1. BAR PROGRES SCROLL
+   Ditaruh tepat di bawah header sticky. Lebarnya diisi JS sesuai
+   rasio scrollY / (scrollHeight - innerHeight).
+   ========================================================================== */
+.scroll-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.scroll-progress__bar {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 0 3px 3px 0;
+  /* Gradasi apricot → coral → teal: Reading progress yang mata easily follows. */
+  background: linear-gradient(90deg, var(--apricot) 0%, var(--coral) 55%, var(--teal-400) 100%);
+  box-shadow: 0 0 10px rgba(242, 166, 90, 0.55);
+  transition: width 0.12s linear, opacity 0.3s ease;
+}
+
+/* Halaman yang tidak bisa digulir → sembunyikan bar. */
+.scroll-progress__bar.is-hidden {
+  opacity: 0;
+}
+
+/* ==========================================================================
+   2. ANIMASI MASUK SECTION (stagger)
+   Section beranda memakai .reveal (style.css) + .is-visible dari
+   IntersectionObserver di layout publik. Di sini kita menambah
+   "child stagger" supaya konten di dalam section muncul bertahap,
+   bukan sekaligus — terasa lebih hidup.
+   ========================================================================== */
+/* Penundaan bertahap untuk anak langsung dari container ber-stagger.
+   CATATAN 1: gallery-bento.css memakai shorthand `transition` pada .reveal
+   yang me-reset transition-delay. Karena itu home-motion.css WAJIB
+   dimuat setelah gallery-bento.css (lihat views/layouts/public.ejs).
+   CATATAN 2: jangan pakai selektor [data-reveal] .reveal untuk hal ini —
+   spesifisitasnya (0,2,0) lebih tinggi dari .stagger > * (0,1,0) sehingga
+   transition-delay kembali dipaksa jadi 0. */
+.stagger > * {
+  transition-delay: calc(var(--i, 0) * 70ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stagger > * { transition-delay: 0s !important; }
+}
+
+/* ==========================================================================
+   3. WIDGET WHATSAPP MENGAMBANG (animasi lebih hidup)
+   ========================================================================== */
+.wa-float {
+  position: fixed;
+  right: 1.2rem;
+  bottom: 1.2rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.7rem;
+}
+
+/* ---------- Baris aksi (ke-atas + WhatsApp) ---------- */
+.wa-float__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+/* ---------- Tombol utama ---------- */
+.wa-float__btn {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  background: #25d366;
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 10px 26px rgba(37, 211, 102, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.25s ease;
+}
+
+.wa-float__btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 14px 32px rgba(37, 211, 102, 0.55);
+}
+
+.wa-float__btn:active { transform: scale(0.96); }
+
+/* Cincin denyut: penanda "ada pesan menunggu" tanpa mengganggu.
+   Animasi hanya jalan saat panel tertutup. */
+.wa-float__pulse {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(37, 211, 102, 0.65);
+  pointer-events: none;
+  animation: wa-pulse 2.6s ease-out infinite;
+}
+
+.wa-float__btn.is-open .wa-float__pulse {
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes wa-pulse {
+  0%   { transform: scale(1);    opacity: 0.85; }
+  70%  { transform: scale(1.55); opacity: 0; }
+  100% { transform: scale(1.55); opacity: 0; }
+}
+
+/* Badge notifikasi kecil di pojok tombol. */
+.wa-float__badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--coral, #e86a4f);
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border: 2px solid var(--paper);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease;
+}
+
+.wa-float__btn.is-open .wa-float__badge {
+  transform: scale(0);
+  opacity: 0;
+}
+
+/* Ikon: WhatsApp saat tertutup, "X" saat panel terbuka. */
+.wa-float__glyph {
+  display: grid;
+  place-items: center;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.wa-float__btn.is-open .wa-float__glyph {
+  transform: rotate(90deg);
+}
+
+.wa-float__ico-close { display: none; }
+
+.wa-float__btn.is-open .wa-float__ico-wa { display: none; }
+.wa-float__btn.is-open .wa-float__ico-close { display: block; }
+
+/* ---------- Panel menu ---------- */
+.wa-float__panel {
+  background: var(--white);
+  border: 1px solid rgba(15, 64, 60, 0.14);
+  border-radius: 16px;
+  box-shadow: 0 18px 46px -18px rgba(15, 64, 60, 0.45);
+  padding: 1rem;
+  display: grid;
+  gap: 0.45rem;
+  min-width: 240px;
+  /* Muncul dengan skala + naik sedikit (efek "pop").
+     Animation lama (waPop) di style.css dimatikan agar tidak bertabrakan
+     dengan transisi ini. */
+  animation: none;
+  transform-origin: bottom right;
+  transform: translateY(10px) scale(0.94);
+  opacity: 0;
+  transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+.wa-float__panel.is-open {
+  opacity: 1;
+  transform: none;
+}
+
+/* Setiap item muncul sedikit demi sedikit (stagger). */
+.wa-float__panel.is-open .wa-float__item {
+  animation: waItemIn 0.32s cubic-bezier(0.22, 0.68, 0.28, 1) backwards;
+}
+.wa-float__panel.is-open .wa-float__item:nth-child(2) { animation-delay: 0.05s; }
+.wa-float__panel.is-open .wa-float__item:nth-child(3) { animation-delay: 0.11s; }
+.wa-float__panel.is-open .wa-float__item:nth-child(4) { animation-delay: 0.17s; }
+
+@keyframes waItemIn {
+  from { opacity: 0; transform: translateX(14px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.wa-float__head {
+  margin: 0 0 0.3rem;
+  font-family: var(--display);
+  font-weight: 600;
+  color: var(--accent-ink);
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.wa-float__head-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(37, 211, 102, 0.12);
+  font-size: 0.86rem;
+  /* Ikon kepala. Panel WhatsApp memakai `background: var(--white)` yang
+     berbalik saat tema gelap, jadi ikon harus mengikuti token tinta
+     tema (--ink), bukan warna tetap. Warna aksen (--accent-ink) di mode
+     gelap = teal-300 yang nyaris sama dengan latar panel -> ikon
+     lenyap (~1:1). */
+  color: var(--ink);
+}
+
+.wa-float__item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: var(--ink);
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.wa-float__item:hover {
+  background: #ecf8f0;
+  color: #128c4b;
+  transform: translateX(2px);
+}
+
+.wa-float__item-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  flex: none;
+  border-radius: 8px;
+  background: rgba(22, 107, 122, 0.08);
+  font-size: 0.82rem;
+  /* Sama seperti ikon kepala: panel WhatsApp mengikuti token --white
+     yang berbalik saat tema gelap, jadi ikon memakai --ink (tinta
+     tema) — bukan --accent-ink yang lenyap di mode gelap. */
+  color: var(--ink);
+}
+
+/* ---------- Tombol "kembali ke atas" ---------- */
+.wa-float__top {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--white);
+  color: var(--accent-deep);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 8px 22px -10px rgba(15, 64, 60, 0.5);
+  /* Sembunyi default, muncul saat halaman digulir. */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(10px) scale(0.85);
+  transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1),
+    background 0.2s ease, color 0.2s ease;
+}
+
+.wa-float__top.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+.wa-float__top:hover {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+.wa-float__top:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* ==========================================================================
+   4. ANIMASI TAMBAHAN UNTUK KARTU BERANDA
+   ========================================================================== */
+
+/* Garis aksen yang tumbuh saat kartu why-card muncul — memberi tanda
+   "konten aktif" tanpa menambah bobot visual. */
+.why-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.why-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 3px;
+  width: 100%;
+  background: linear-gradient(90deg, var(--apricot), var(--coral));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.4s cubic-bezier(0.22, 0.68, 0.28, 1);
+}
+
+.why-card:hover::before,
+.why-card.is-visible::before {
+  transform: scaleX(1);
+}
+
+/* Ikon alasan sedikit "mengambang" saat kartu terlihat. */
+.why-card.is-visible .why-card__icon {
+  animation: whyIconFloat 3.4s ease-in-out infinite;
+}
+
+.why-card:nth-child(2).is-visible .why-card__icon { animation-delay: 0.4s; }
+.why-card:nth-child(3).is-visible .why-card__icon { animation-delay: 0.8s; }
+.why-card:nth-child(4).is-visible .why-card__icon { animation-delay: 1.2s; }
+
+@keyframes whyIconFloat {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-6px) rotate(-4deg); }
+}
+
+/* Kartu testimoni: tanda kutip besar samar di belakang. */
+.quote-card {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.quote-card::after {
+  content: "\201C";
+  position: absolute;
+  top: -0.35rem;
+  right: 0.6rem;
+  font-family: var(--font-display);
+  font-size: 5.5rem;
+  line-height: 1;
+  color: rgba(22, 107, 122, 0.08);
+  pointer-events: none;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.quote-card:hover::after {
+  color: rgba(242, 166, 90, 0.16);
+  transform: scale(1.06) rotate(-4deg);
+}
+
+.quote-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 22px 46px -26px rgba(15, 64, 60, 0.55);
+}
+
+/* Bintang rating menyala bertahap saat kartu terlihat. */
+.quote-card.is-visible .quote-card__stars {
+  animation: starGlow 2.6s ease-in-out infinite;
+}
+
+@keyframes starGlow {
+  0%, 100% { opacity: 0.92; }
+  50%      { opacity: 1; }
+}
+
+/* Judul section: garis bawah yang menyala saat section terlihat. */
+.section-head h2 {
+  position: relative;
+  display: inline-block;
+}
+
+.section-head h2::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -0.35rem;
+  width: 3.2rem;
+  height: 3px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--apricot), var(--coral));
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.5s cubic-bezier(0.22, 0.68, 0.28, 1) 0.15s;
+}
+
+.section-head.is-visible h2::after {
+  transform: scaleX(1);
+}
+
+/* Marquee: sedikit lebih lambat & sedikit miring saat hover — hidup
+   tanpa mengganggu. */
+.marquee__track {
+  animation-duration: 42s;
+}
+
+.marquee:hover .marquee__track {
+  animation-duration: 26s;
+}
+
+/* ==========================================================================
+   5. KOORDINASI FIXED ELEMENTS (anti tumpang tindih)
+   Tombol audio hero dan panel WhatsApp sama-sama fixed di pojok kanan
+   bawah. Saat panel WhatsApp terbuka, audio disembunyikan (lewat kelas
+   body .is-wa-panel-open) supaya keduanya tidak pernah bertumpuk.
+   ========================================================================== */
+body.is-wa-panel-open .hero-audio {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(10px);
+}
+
+/* Panel WhatsApp juga menutupi rail navigasi section di sisi kanan.
+   Sembunyikan rail selama panel terbuka supaya keduanya tidak bertabrakan
+   dan rail tidak "menyala" di belakang panel. */
+body.is-wa-panel-open .section-rail {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-50%) translateX(12px);
+}
+
+.section-rail {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+/* ==========================================================================
+   6. RESPONSIF
+   ========================================================================== */
+@media (max-width: 600px) {
+  .wa-float { right: 0.9rem; bottom: 0.9rem; }
+  .wa-float__btn { width: 50px; height: 50px; }
+  .wa-float__top { width: 38px; height: 38px; }
+  .wa-float__panel { min-width: 210px; }
+}
+
+/* Layar pendek (landscape ponsel): widget tidak lagi memenuhi layar. */
+@media (max-height: 520px) {
+  .wa-float__badge { display: none; }
+}
+
+/* Reduced motion: matikan semua animasi dekoratif widget. */
+@media (prefers-reduced-motion: reduce) {
+  .wa-float__pulse { animation: none; opacity: 0; }
+  .wa-float__panel.is-open .wa-float__item { animation: none; }
+  .why-card.is-visible .why-card__icon,
+  .quote-card.is-visible .quote-card__stars { animation: none; }
+  .section-head h2::after { transition: none; }
+  .marquee__track { animation: none; }
+}

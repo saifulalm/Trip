@@ -1,0 +1,755 @@
+/* ==========================================================================
+   Modul Media Sosial — Connect Social Media
+   --------------------------------------------------------------------------
+   Layer 6, dimuat TERAKHIR di views/layouts/admin.ejs (setelah admin-v2.css).
+   Prinsip:
+   1. Hanya menambah/override — class lama tidak dihapus.
+   2. Mode gelap hanya menimpa token, tidak menulis ulang aturan.
+   3. Semua class memakai prefiks "a-so-" agar tidak bentrok dengan class lama.
+   ========================================================================== */
+
+/* ---------- Token ---------- */
+:root {
+  --a-so-radius: 16px;
+  --a-so-radius-sm: 11px;
+  --a-so-gap: 1rem;
+  --a-so-hero-glow: var(--accent-glow);
+  /* Token teks error. --a-red (#d64545) hanya mencapai ~3,9:1 di atas
+     latar merah muda → tidak memenuhi WCAG AA 4,5:1 untuk teks.
+     Nilai di bawah sudah dihitung numerik (luminance + komposit alpha). */
+  --a-so-danger-ink: #9c2f2f;
+  --a-so-danger-ink-dark: #f4a3a3;
+}
+
+/* ==========================================================================
+   1. Hero status — ringkasan koneksi Postiz
+   ========================================================================== */
+.a-so-hero {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--a-space-4);
+  align-items: center;
+  padding: 1.4rem 1.6rem;
+  margin-bottom: 1.4rem;
+  border-radius: var(--a-radius-lg);
+  border: 1px solid var(--a-line);
+  background:
+    radial-gradient(700px 260px at 6% -30%, var(--a-so-hero-glow), transparent 70%),
+    var(--a-surface-1);
+  box-shadow: var(--a-shadow-1);
+}
+.a-so-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--a-gradient-accent);
+  opacity: 0.85;
+}
+.a-so-hero.is-offline::after { background: var(--a-amber); }
+.a-so-hero.is-broken::after { background: var(--a-red); }
+
+.a-so-hero__lead { min-width: 0; }
+.a-so-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--a-soft);
+  margin-bottom: 0.4rem;
+}
+.a-so-hero__title {
+  font-family: var(--a-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: var(--a-ink);
+  line-height: 1.2;
+  margin: 0 0 0.35rem;
+}
+.a-so-hero__desc {
+  margin: 0;
+  font-size: 0.87rem;
+  color: var(--a-soft);
+  line-height: 1.55;
+  max-width: 62ch;
+}
+.a-so-hero__desc code {
+  font-size: 0.82rem;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  background: var(--a-surface-3);
+}
+.a-so-hero__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  min-width: 190px;
+}
+.a-so-hero__actions .btn-a { justify-content: center; }
+
+/* Baris metrik di dalam hero */
+.a-so-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+.a-so-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 999px;
+  background: var(--a-surface-2);
+  border: 1px solid var(--a-line);
+  font-size: 0.76rem;
+  color: var(--a-soft);
+}
+.a-so-stat strong {
+  font-family: var(--a-display);
+  font-size: 0.95rem;
+  color: var(--a-ink);
+}
+
+/* ==========================================================================
+   2. Panel setup (konfigurasi Postiz)
+   ========================================================================== */
+.a-so-setup {
+  border: 1px solid var(--a-line);
+  border-radius: var(--a-radius-lg);
+  background: var(--a-surface-1);
+  box-shadow: var(--a-shadow-1);
+  margin-bottom: 1.4rem;
+  overflow: hidden;
+}
+.a-so-setup__head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--a-line);
+  background: var(--a-surface-2);
+}
+.a-so-setup__head h2 {
+  margin: 0;
+  font-family: var(--a-display);
+  font-size: 1.02rem;
+  color: var(--a-ink);
+}
+.a-so-setup__head .a-so-setup__step {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--a-gradient-accent);
+  color: var(--on-accent, #fff);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+.a-so-setup__body { padding: 1.25rem; }
+
+/* Langkah bernomor di dalam setup */
+.a-so-steps {
+  display: grid;
+  gap: 0.9rem;
+  margin: 0 0 1.1rem;
+  padding: 0;
+  list-style: none;
+}
+.a-so-steps li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 0.6rem;
+  align-items: start;
+  font-size: 0.85rem;
+  color: var(--a-soft);
+  line-height: 1.55;
+}
+.a-so-steps li::before {
+  content: attr(data-n);
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--accent-softer);
+  color: var(--accent-strong);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+[data-theme="dark"] .a-so-steps li::before { color: var(--accent); }
+.a-so-steps strong { color: var(--a-ink); }
+
+/* Opsi "hapus konfigurasi" di baris aksi setup */
+.a-so-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--a-soft);
+  cursor: pointer;
+  user-select: none;
+}
+.a-so-clear input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--a-red);
+  cursor: pointer;
+}
+.a-so-clear:hover { color: var(--a-red); }
+
+/* ==========================================================================
+   3. Kartu platform
+   ========================================================================== */
+.a-so-platforms {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(268px, 1fr));
+  gap: var(--a-so-gap);
+}
+.a-so-card {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 0.7rem;
+  padding: 1.05rem 1.1rem;
+  border-radius: var(--a-radius-lg);
+  border: 1px solid var(--a-line);
+  background: var(--a-surface-1);
+  box-shadow: var(--a-shadow-1);
+  transition: transform var(--a-transition), box-shadow var(--a-transition), border-color var(--a-transition);
+  min-width: 0;
+}
+.a-so-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--a-shadow-2);
+  border-color: var(--accent-line);
+}
+.a-so-card.is-connected {
+  border-color: var(--accent-line);
+  box-shadow: var(--a-shadow-1), 0 0 0 3px var(--accent-glow);
+}
+/* Kartu platform yang baru saja dituju dari balik OAuth/connect link.
+   Menyorot kartu itu supaya admin langsung tahu kanal mana yang diproses. */
+.a-so-card.is-highlight {
+  border-color: var(--accent);
+  box-shadow: var(--a-shadow-2), 0 0 0 4px var(--accent-glow);
+  animation: a-so-pulse 1.6s ease-out 1;
+}
+@keyframes a-so-pulse {
+  0%   { box-shadow: var(--a-shadow-2), 0 0 0 0 var(--accent-glow); }
+  70%  { box-shadow: var(--a-shadow-2), 0 0 0 10px rgba(0, 0, 0, 0); }
+  100% { box-shadow: var(--a-shadow-2), 0 0 0 4px var(--accent-glow); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .a-so-card.is-highlight { animation: none; }
+}
+.a-so-card__top {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+.a-so-card__logo {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: var(--brand, var(--a-soft));
+  color: #ffffff;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  box-shadow: 0 5px 14px -7px rgba(0, 0, 0, 0.6);
+}
+.a-so-card__id { min-width: 0; flex: 1 1 auto; }
+.a-so-card__name {
+  display: block;
+  font-size: 0.96rem;
+  font-weight: 700;
+  color: var(--a-ink);
+  line-height: 1.25;
+}
+.a-so-card__handle {
+  display: block;
+  font-size: 0.76rem;
+  color: var(--a-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.a-so-card__desc {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--a-soft);
+  line-height: 1.5;
+}
+.a-so-card__note {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  margin: 0;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--a-so-radius-sm);
+  background: var(--a-surface-2);
+  border-left: 3px solid var(--a-amber);
+  font-size: 0.75rem;
+  color: var(--a-soft);
+  line-height: 1.45;
+}
+.a-so-card__foot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding-top: 0.2rem;
+  border-top: 1px solid var(--a-line);
+  margin-top: 0.1rem;
+}
+.a-so-card__foot .btn-a { flex: 1 1 auto; justify-content: center; }
+
+/* Daftar kanal terhubung di dalam kartu */
+.a-so-channels {
+  display: grid;
+  gap: 0.4rem;
+}
+.a-so-channel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.42rem 0.55rem;
+  border-radius: var(--a-so-radius-sm);
+  background: var(--a-surface-2);
+  border: 1px solid var(--a-line);
+  font-size: 0.79rem;
+  min-width: 0;
+}
+.a-so-channel__avatar {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--brand, var(--a-soft));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+.a-so-channel__body { min-width: 0; flex: 1 1 auto; }
+.a-so-channel__name {
+  display: block;
+  font-weight: 600;
+  color: var(--a-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.a-so-channel__profile {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--a-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.a-so-channel__del {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--a-line);
+  background: transparent;
+  color: var(--a-soft);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+  line-height: 1;
+  transition: color var(--a-transition), border-color var(--a-transition), background var(--a-transition);
+}
+.a-so-channel__del:hover {
+  color: var(--a-red);
+  border-color: var(--a-red);
+  background: rgba(214, 69, 69, 0.08);
+}
+.a-so-channel.is-disabled { opacity: 0.62; }
+
+/* ==========================================================================
+   4. Composer
+   ========================================================================== */
+.a-so-composer {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 1.2rem;
+  align-items: start;
+}
+.a-so-composer__side { display: grid; gap: 1.2rem; }
+.a-so-composer__main { display: grid; gap: 1.2rem; min-width: 0; }
+
+.a-so-pick {
+  display: grid;
+  gap: 0.45rem;
+}
+.a-so-pick__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--a-so-radius-sm);
+  border: 1.5px solid var(--a-line);
+  background: var(--a-surface-2);
+  cursor: pointer;
+  transition: border-color var(--a-transition), background var(--a-transition), transform var(--a-transition);
+  min-width: 0;
+}
+.a-so-pick__item:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-softer);
+  transform: translateY(-1px);
+}
+.a-so-pick__item:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-softer);
+  box-shadow: var(--a-ring);
+}
+.a-so-pick__item input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+.a-so-pick__logo {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--brand, var(--a-soft));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+.a-so-pick__body { min-width: 0; }
+.a-so-pick__name {
+  display: block;
+  font-size: 0.87rem;
+  font-weight: 700;
+  color: var(--a-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.a-so-pick__meta {
+  display: block;
+  font-size: 0.73rem;
+  color: var(--a-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.a-so-pick__limit {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--a-soft);
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--a-surface-3);
+}
+
+/* Penghitung karakter */
+.a-so-counter {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  align-items: center;
+  margin-top: 0.35rem;
+  font-size: 0.76rem;
+  color: var(--a-soft);
+}
+.a-so-counter__bar {
+  flex: 1 1 auto;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--a-surface-3);
+  overflow: hidden;
+}
+.a-so-counter__fill {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 180ms ease, background 180ms ease;
+}
+.a-so-counter__fill.is-warn { background: var(--a-amber); }
+.a-so-counter__fill.is-over { background: var(--a-red); }
+.a-so-counter__num {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--a-ink);
+  flex: 0 0 auto;
+}
+.a-so-counter.is-over .a-so-counter__num { color: var(--a-red); }
+
+/* Baris aksi bawah (lengket) */
+.a-so-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem;
+  border-radius: var(--a-radius-lg);
+  border: 1px solid var(--a-line);
+  background: var(--a-surface-1);
+  box-shadow: var(--a-shadow-2);
+}
+.a-so-actions__spacer { flex: 1 1 auto; }
+.a-so-actions__hint {
+  font-size: 0.78rem;
+  color: var(--a-soft);
+}
+
+/* Field wajib per platform */
+.a-so-required {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--a-so-radius-sm);
+  background: var(--a-surface-2);
+  border: 1px dashed var(--a-amber);
+  display: grid;
+  gap: 0.45rem;
+}
+.a-so-required__label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--a-ink);
+}
+
+/* ==========================================================================
+   5. Riwayat
+   ========================================================================== */
+.a-so-history {
+  display: grid;
+  gap: 0.55rem;
+}
+.a-so-post {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  gap: 0.85rem;
+  align-items: start;
+  padding: 0.85rem 1rem;
+  border-radius: var(--a-radius-lg);
+  border: 1px solid var(--a-line);
+  background: var(--a-surface-1);
+  box-shadow: var(--a-shadow-1);
+}
+.a-so-post__logo {
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  object-fit: cover;
+  background: var(--brand, var(--a-soft));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+.a-so-post__body { min-width: 0; }
+.a-so-post__content {
+  margin: 0 0 0.35rem;
+  font-size: 0.88rem;
+  color: var(--a-ink);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.a-so-post__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.7rem;
+  font-size: 0.76rem;
+  color: var(--a-soft);
+  align-items: center;
+}
+.a-so-post__meta a { color: var(--accent-strong); }
+[data-theme="dark"] .a-so-post__meta a { color: var(--accent); }
+.a-so-post__error {
+  margin: 0.4rem 0 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  background: rgba(214, 69, 69, 0.09);
+  border-left: 3px solid var(--a-red);
+  font-size: 0.78rem;
+  /* Warna teks error memakai token tersendiri: --a-red (#d64545) hanya
+     mencapai 3,88:1 di atas latar merah muda — di bawah WCAG AA 4,5:1. */
+  color: var(--a-so-danger-ink);
+}
+[data-theme="dark"] .a-so-post__error {
+  /* Di mode gelap latar card jauh lebih gelap, jadi teks harus lebih terang. */
+  color: var(--a-so-danger-ink-dark);
+}
+.a-so-post__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+}
+.a-so-post__actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ==========================================================================
+   6. Daftar tautan profil (footer publik)
+   ========================================================================== */
+.a-so-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 0.55rem;
+}
+.a-so-link {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--a-so-radius-sm);
+  border: 1px solid var(--a-line);
+  background: var(--a-surface-2);
+  min-width: 0;
+}
+.a-so-link__logo {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: var(--brand, var(--a-soft));
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+.a-so-link__body { min-width: 0; }
+.a-so-link__name {
+  display: block;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--a-ink);
+}
+.a-so-link__url {
+  display: block;
+  font-size: 0.73rem;
+  color: var(--a-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   7. Empty state & hint
+   ========================================================================== */
+.a-so-empty {
+  display: grid;
+  place-items: center;
+  gap: 0.6rem;
+  padding: 2.2rem 1.2rem;
+  text-align: center;
+  border-radius: var(--a-radius-lg);
+  border: 1px dashed var(--a-line);
+  background: var(--a-surface-2);
+}
+.a-so-empty__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-softer);
+  color: var(--accent-strong);
+}
+[data-theme="dark"] .a-so-empty__icon { color: var(--accent); }
+.a-so-empty__icon svg { width: 26px; height: 26px; }
+.a-so-empty strong {
+  font-family: var(--a-display);
+  font-size: 1.05rem;
+  color: var(--a-ink);
+}
+.a-so-empty p {
+  margin: 0;
+  max-width: 46ch;
+  font-size: 0.86rem;
+  color: var(--a-soft);
+  line-height: 1.55;
+}
+
+/* ==========================================================================
+   8. Responsive
+   ========================================================================== */
+@media (max-width: 1080px) {
+  .a-so-composer { grid-template-columns: minmax(0, 1fr); }
+  .a-so-composer__side { order: 2; }
+  .a-so-composer__main { order: 1; }
+}
+
+@media (max-width: 760px) {
+  .a-so-hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 1.15rem 1.1rem;
+  }
+  .a-so-hero__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+  .a-so-hero__actions .btn-a { flex: 1 1 auto; }
+  .a-so-platforms { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .a-so-post { grid-template-columns: 38px minmax(0, 1fr); }
+  .a-so-post__logo { width: 38px; height: 38px; }
+  .a-so-post__side {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .a-so-actions { position: static; }
+}
+
+@media (max-width: 520px) {
+  .a-so-platforms { grid-template-columns: minmax(0, 1fr); }
+  .a-so-links { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Hormati preferensi pengguna yang mengurangi animasi */
+@media (prefers-reduced-motion: reduce) {
+  .a-so-card,
+  .a-so-pick__item,
+  .a-so-counter__fill {
+    transition: none !important;
+  }
+  .a-so-card:hover,
+  .a-so-pick__item:hover {
+    transform: none !important;
+  }
+}

@@ -1,0 +1,133 @@
+/* ==========================================================================
+   seayoulatertrip — Cinematic Motion Presentation
+   ========================================================================== */
+
+/* ── Cinematic hero ────────────────────────────────────────────────────── */
+.cinematic-hero {
+  position: relative;
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(242, 166, 90, 0.18), transparent 60%),
+    linear-gradient(180deg, var(--sea-900) 0%, var(--sea-700) 55%, var(--sea-600) 100%);
+  color: #f6f0e6;
+  overflow: hidden;
+}
+.cinematic-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(246, 240, 230, 0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.7), transparent 75%);
+}
+.cinematic-hero__inner {
+  display: grid;
+  grid-template-columns: 1fr 0.85fr;
+  gap: 3.5rem;
+  align-items: center;
+  padding: 5.5rem 0 6rem;
+  position: relative;
+  z-index: 2;
+}
+.cinematic-hero__content {
+  max-width: 640px;
+  z-index: 2;
+}
+.cinematic-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 1rem;
+  border: 1px dashed rgba(246, 240, 230, 0.45);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--teal-300);
+  margin-bottom: 1.4rem;
+}
+.cinematic-hero__content h1 {
+  font-size: clamp(2.2rem, 5.4vw, 3.8rem);
+  font-weight: 600;
+  margin-bottom: 1.2rem;
+  line-height: 1.15;
+}
+.cinematic-hero__content h1 em {
+  font-style: italic;
+  color: var(--apricot);
+}
+.cinematic-hero__sub {
+  font-size: 1.1rem;
+  color: rgba(246, 240, 230, 0.82);
+  max-width: 38rem;
+  margin-bottom: 2.2rem;
+  line-height: 1.65;
+}
+.cinematic-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+
+/* Cinematic art cards */
+.cinematic-hero__art {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 1.2rem;
+}
+.cinematic-hero__card {
+  position: relative;
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  box-shadow: var(--shadow-lift);
+  border: 6px solid rgba(246, 240, 230, 0.14);
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s ease;
+  cursor: pointer;
+}
+.cinematic-hero__card:hover {
+  transform: translateY(-8px) rotate(1.5deg);
+  box-shadow: var(--shadow-lift), 0 0 0 1px var(--accent-glow);
+}
+.cinematic-hero__img-wrap {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+}
+.cinematic-hero__img-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.6s ease;
+}
+.cinematic-hero__card:hover .cinematic-hero__img-wrap img {
+  transform: scale(1.06);
+}
+.cinematic-hero__caption {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.2rem 1.4rem;
+  color: #f6f0e6;
+  background: linear-gradient(0deg, rgba(6, 31, 37, 0.85) 0%, rgba(6, 31, 37, 0.2) 70%, transparent 100%);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .cinematic-hero__inner {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+    padding: 4rem 0 4.5rem;
+  }
+  .cinematic-hero__art {
+    grid-template-rows: 1fr 1fr;
+  }
+}
+@media (max-width: 540px) {
+  .cinematic-hero__inner {
+    padding: 3rem 0 3.5rem;
+  }
+}

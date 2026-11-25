@@ -1,0 +1,358 @@
+/* ==========================================================================
+   seayoulatertrip — Bento Gallery (public)
+   Palet: deep sea teal, foam sand, apricot sunset
+   ========================================================================== */
+
+/* ---------- Bento gallery grid ---------- */
+.gallery-bento {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.6rem;
+  align-content: start;
+}
+
+/* Bento spans: 1x1, 2x1, 1x2, 2x2, 2x3 bento pieces */
+.gallery-bento__item {
+  display: block;
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  background: var(--sand-dark);
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.4s ease, border-color 0.3s ease;
+  border: 1px solid var(--line);
+}
+.gallery-bento__item:hover {
+  transform: translateY(-6px) scale(1.01);
+  box-shadow: var(--shadow-lift);
+  border-color: var(--accent-line);
+}
+.gallery-bento__item:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Span variants */
+.gallery-bento__item--span-2x1 { grid-row: span 1; }
+.gallery-bento__item--span-1x2 { grid-row: span 2; }
+.gallery-bento__item--span-2x2 { grid-row: span 2; grid-column: span 2; }
+.gallery-bento__item--span-2x3 { grid-row: span 3; grid-column: span 2; }
+
+/* Image layer */
+.gallery-bento__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gallery-bento__item:hover .gallery-bento__img {
+  transform: scale(1.06);
+}
+
+/* Overlay caption */
+.gallery-bento__body {
+  position: relative;
+  z-index: 2;
+  padding: 1.2rem 1.3rem 1.1rem;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  /* Overlay caption.
+     Isi kartu bento digambar ke <canvas> berupa ilustrasi dg latar PASIR
+     terang (RGB ~214,209,193). Gradien lama hanya 0,05 alpha di bagian
+     bawah sehingga teks kremolded di atas pasir hanya ~1,47:1 (gagal WCAG).
+     Sekarang gradasi dibuat "sandwich": bagian atas & bawah lebih pekat
+     (tempat eyebrow/judul dan meta/tautan) sementara tengah disisakan
+     0,62 (0,50 minimum) agar teks paragraf tetap >= 4,5:1. */
+  background: linear-gradient(
+    180deg,
+    rgba(11, 46, 55, 0.88) 0%,
+    rgba(11, 46, 55, 0.75) 32%,
+    rgba(11, 46, 55, 0.62) 58%,
+    rgba(11, 46, 55, 0.85) 100%
+  );
+  color: #f6f0e6;
+}
+.gallery-bento__eyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--teal-300);
+  margin-bottom: 0.35rem;
+}
+.gallery-bento__body h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 0.4rem;
+  color: #f6f0e6;
+}
+.gallery-bento__body p {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: rgba(246, 240, 230, 0.82);
+  flex: 1;
+}
+.gallery-bento__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.7rem;
+  font-size: 0.78rem;
+  color: rgba(246, 240, 230, 0.7);
+}
+/* Tautan "Lihat detail" berada di atas gradien gelap kartu bento.
+   Warna aksen gelap (--accent-ink) hanya mencapai ~1,2:1 di sana,
+   jadi memakai krem penuh. */
+.gallery-bento__meta .link-arrow {
+  color: #f6f0e6;
+}
+.gallery-bento__price {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--apricot);
+}
+
+/* -- Asset protection layer ──────────────────────────────────────────── */
+/* Transparent absolute overlay: intercepts ALL pointer events on the image.
+   This prevents clicks / drags from reaching the <img> underneath. */
+.gallery-bento__protection {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: auto;
+  /* Disable right-click & drag & selection via CSS */
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* Disables the native browser context menu (right-click) on the image */
+.gallery-bento__protection.context-menu-disabled {
+  position: relative;
+  background: transparent !important;
+}
+
+/* Canvas rendering layer: images are drawn onto <canvas> so the
+   browser cannot offer "Save Image As" on the original file. */
+.gallery-bento__canvas-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-l);
+}
+.gallery-bento__canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* -- Brand watermark anchored to preview viewports ──────────────────── */
+.brand-watermark {
+  position: fixed;
+  z-index: 99999;
+  pointer-events: none;
+  /* Anchor ke brand di pojok KIRI BAWAH, bukan kiri atas.
+     Alasannya: pojok kiri atas dipakai header sticky yang sudah
+     memuat logo + nama brand (overlap geometris terverifikasi). */
+  left: 1rem;
+  bottom: 1rem;
+  top: auto;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.35em;
+  text-transform: uppercase;
+  /* Watermark berada di atas kartu/ilustrasi yang bisa terang atau gelap.
+     Supaya kontrasnya TIDAK bergantung pada isi kartu, teks memakai
+     krem penuh di atas latar gelap SOLID (bukan rgba semi-transparan).
+     Kalau latar semi-transparan, opacity elemen ikut meredupkan teks
+     sekaligus membiarkan gambar dibelakang ikut terlihat. */
+  color: #f6f0e6;
+  background: #0b191d;
+  border-radius: 6px;
+  padding: 0.28rem 0.55rem 0.34rem;
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.6s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.brand-watermark::before,
+.brand-watermark::after {
+  content: "";
+  display: block;
+  width: 1rem;
+  height: 1px;
+  background: currentColor;
+}
+.brand-watermark span {
+  color: currentColor;
+}
+
+/* Watermark state: redup saat sebuah destinasi aktif (preview).
+   Latar watermark SOLID gelap, jadi opacity elemen hanya mengurangi
+   kontras TEKS terhadap latar itu sendiri (bukan terhadap isi kartu).
+   Opacity 0,55 -> ~5,5:1; 0,72 -> ~8,7:1 (aman dengan margin). */
+.brand-watermark.is-preview {
+  opacity: 0.72;
+  transform: scale(0.9);
+}
+
+/* Reduced motion: watermark stays still, reveals static */
+@media (prefers-reduced-motion: reduce) {
+  .gallery-bento__item,
+  .gallery-bento__img,
+  .gallery-bento__body {
+    transition: none !important;
+    transform: none !important;
+  }
+  .brand-watermark { animation: none !important; }
+}
+
+/* ---------- Scroll reveal (progressive enhancement) ---------- */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* IntersectionObserver refresh: re-trigger reveals on visibility change */
+.reveal.is-repeatable {
+  transition-delay: 0.05s;
+}
+
+/* Responsive: 2 cols under 900px, 1 below 540px */
+@media (max-width: 900px) {
+  .gallery-bento {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.3rem;
+  }
+}
+@media (max-width: 540px) {
+  .gallery-bento {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+/* ---------- Destination detail: large hero gallery ---------- */
+.gallery-hero {
+  position: relative;
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  background: var(--sea-800);
+  box-shadow: var(--shadow-lift);
+}
+.gallery-hero__img {
+  width: 100%;
+  height: 420px;
+  object-fit: cover;
+  display: block;
+}
+.gallery-hero__body {
+  position: relative;
+  z-index: 2;
+  padding: 2.4rem 2.6rem 2.2rem;
+  color: #f6f0e6;
+  background: linear-gradient(180deg, rgba(6, 31, 37, 0.9) 0%, rgba(6, 31, 37, 0.55) 70%, rgba(6, 31, 37, 0.05) 100%);
+}
+.gallery-hero__eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--teal-300);
+  margin-bottom: 0.8rem;
+}
+.gallery-hero__title {
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 700;
+  line-height: 1.15;
+  margin-bottom: 0.9rem;
+}
+.gallery-hero__desc {
+  font-size: 1rem;
+  line-height: 1.65;
+  color: rgba(246, 240, 230, 0.85);
+  margin-bottom: 1.4rem;
+}
+
+/* Small detail strips: full-width images with caption */
+.detail-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+.detail-strip__item {
+  position: relative;
+  border-radius: var(--radius-m);
+  overflow: hidden;
+  aspect-ratio: 16 / 10;
+  background: var(--sand-dark);
+}
+.detail-strip__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+.detail-strip__item:hover img { transform: scale(1.04); }
+.detail-strip__caption {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 0.9rem 1rem;
+  color: #f6f0e6;
+  background: linear-gradient(180deg, transparent 0%, rgba(6, 31, 37, 0.7) 100%);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* Watermark inside the gallery */
+.watermark-sub {
+  position: fixed;
+  z-index: 99998;
+  pointer-events: none;
+  /* Diletakkan di kiri BAWAH, di atas .brand-watermark, bukan di kanan.
+     Posisi kanan bawah dipakai widget WhatsApp mengambang
+     (.wa-float) — sebelumnya keduanya tumpang tindih. */
+  left: 1rem;
+  right: auto;
+  bottom: 3.7rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  /* Sama seperti .brand-watermark: latar gelap SOLID + krem penuh,
+     supaya kontrasnya tidak bergantung pada isi kartu di belakang
+     dan tidak ikut meredup oleh opacity elemen. */
+  color: #f6f0e6;
+  background: #0b191d;
+  border-radius: 6px;
+  padding: 0.26rem 0.5rem 0.3rem;
+  white-space: nowrap;
+}
+
+/* ---------- Responsive tweaks for gallery ---------- */
+@media (max-width: 720px) {
+  .gallery-hero__img { height: 260px; }
+  .gallery-hero__body { padding: 1.6rem 1.6rem 1.4rem; }
+}
