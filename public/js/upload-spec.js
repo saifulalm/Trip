@@ -209,6 +209,100 @@
   }
 
   /**
+   * Baca dimensi (lebar × tinggi) sebuah berkas gambar.
+   *
+   * MENGAPA PERLU ADA
+   * -----------------
+   * Validasi `minShortSide` hanya bisa ditegakkan kalau dimensi diketahui.
+   * Objek `File` di browser TIDAK punya properti `width`/`height`, jadi
+   * pemanggil harus membacanya lewat fungsi ini dulu, lalu mengisi
+   * `file.width`/`file.height` sebelum memanggil `validate()`.
+   *
+   * CONTOH PENGGUNAAN
+   * -----------------
+   *   const dims = await SylUploadSpec.readDimensions(file);
+   *   file.width = dims.width;
+   *   file.height = dims.height;
+   *   const hasil = SylUploadSpec.validate(file, 'card');
+   *
+   * PERILAKU
+   * ---------
+   *  - Bila `createImageBitmap` tersedia, dipakai lebih dulu (lebih cepat dan
+   *    tidak butuh object URL).
+   *  - Bila tidak, jatuh ke `new Image()` + object URL. Object URL WAJIB
+   *    dicabut (`revokeObjectURL`) supaya tidak membocorkan memori — baik saat
+   *    berhasil maupun saat gagal.
+   *  - Kegagalan apa pun (berkas bukan gambar, rusak, browser tanpa API
+   *    gambar) menghasilkan promise yang **ditolak** dengan `Error` yang
+   *    jelas. Fungsi ini TIDAK pernah mengembalikan dimensi palsu, karena
+   *    dimensi palsu akan membuat `validate()` lolos untuk gambar buruk.
+   *
+   * @param {File|Blob} file berkas gambar
+   * @returns {Promise<{width: number, height: number}>} dimensi gambar
+   */
+  function readDimensions(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file) {
+        reject(new Error('Berkas gambar tidak valid untuk dibaca dimensinya.'));
+        return;
+      }
+
+      // Jalur Preferred: createImageBitmap (tanpa object URL).
+      if (typeof createImageBitmap === 'function') {
+        createImageBitmap(file).then(function (bitmap) {
+          if (!bitmap || !bitmap.width || !bitmap.height) {
+            reject(new Error('Dimensi gambar tidak bisa dibaca (bitmap kosong).'));
+            return;
+          }
+          resolve({ width: bitmap.width, height: bitmap.height });
+        }, function (err) {
+          reject(new Error(
+            'Gagal membaca dimensi gambar: ' + (err && err.message ? err.message : err)
+          ));
+        });
+        return;
+      }
+
+      // Jalur cadangan: Image + object URL.
+      if (typeof Image !== 'function' || typeof URL === 'undefined' ||
+          typeof URL.createObjectURL !== 'function') {
+        reject(new Error(
+          'Browser tidak mendukung pembacaan dimensi gambar (createImageBitmap/Image tidak tersedia).'
+        ));
+        return;
+      }
+
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+
+      // lepaskan object URL pada kedua jalur keluar (sukses maupun gagal)
+      function cleanup() {
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch (e) {
+          // revokeObjectURL tidak boleh menggagalkan proses di browser tua
+        }
+      }
+
+      img.onload = function () {
+        cleanup();
+        if (!img.naturalWidth || !img.naturalHeight) {
+          reject(new Error('Dimensi gambar tidak bisa dibaca (gambar kosong).'));
+          return;
+        }
+        resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      };
+
+      img.onerror = function () {
+        cleanup();
+        reject(new Error('Gagal memuat gambar untuk membaca dimensinya.'));
+      };
+
+      img.src = objectUrl;
+    });
+  }
+
+  /**
    * String atribut `accept` untuk input file.
    *
    * @param {string} slotName kunci slot
@@ -228,6 +322,7 @@
     formatBytes: formatBytes,
     validate: validate,
     acceptAttr: acceptAttr,
-    ratioDeviation: ratioDeviation
+    ratioDeviation: ratioDeviation,
+    readDimensions: readDimensions
   };
 })(window);

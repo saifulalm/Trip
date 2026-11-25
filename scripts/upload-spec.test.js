@@ -338,6 +338,195 @@ t('validate menerima berkas yang memenuhi syarat', () => {
   assert.strictEqual(r.warning, null);
 });
 
+// -- Pembacaan dimensi sisi klien (sandbox dengan stub browser) --
+console.log('\n== Pembacaan dimensi sisi klien ==');
+
+/**
+ * Muat modul klien dengan tambahan global tiruan browser.
+ *
+ * Parameter `extraGlobals` disuntikkan ke konteks sandbox sebagai global
+ * (persis seperti di browser nyata), sehingga modul tidak bergantung DOM
+ * sungguhan dan bisa diuji di Node.
+ */
+function loadClientModuleWith(extraGlobals) {
+  const fs = require('fs');
+  const vm = require('vm');
+  const p = path.join(root, 'public', 'js', 'upload-spec.js');
+  const src = fs.readFileSync(p, 'utf8');
+  const ctx = vm.createContext(Object.assign({}, extraGlobals));
+  vm.runInContext('var window = this;', ctx);
+  vm.runInContext(src, ctx);
+  return ctx.SylUploadSpec;
+}
+
+/**
+ * Stub `Image` untuk jalur fallback: saat `src` diisi, dimensi disetel lalu
+ * `onload` dipanggil pada tick berikutnya.
+ */
+function makeImageStub(width, height, failWithError) {
+  function FakeImage() {
+    this.naturalWidth = 0;
+    this.naturalHeight = 0;
+    this.onload = null;
+    this.onerror = null;
+  }
+  Object.defineProperty(FakeImage.prototype, 'src', {
+    set: function (value) {
+      this._src = value;
+      setTimeout(() => {
+        if (failWithError) {
+          if (this.onerror) this.onerror(new Error('gambar rusak'));
+          return;
+        }
+        this.naturalWidth = width;
+        this.naturalHeight = height;
+        if (this.onload) this.onload();
+      }, 0);
+    },
+    get: function () { return this._src; }
+  });
+  return FakeImage;
+}
+
+/**
+ * Stub `URL` yang mencatat object URL yang dibuat dan yang dicabut —
+ * supaya test bisa membuktikan object URL benar-benar dilepas.
+ */
+function makeUrlStub() {
+  const state = { created: [], revoked: [] };
+  state.createObjectURL = function () {
+    const u = 'blob:mock/' + (state.created.length + 1);
+    state.created.push(u);
+    return u;
+  };
+  state.revokeObjectURL = function (u) {
+    state.revoked.push(u);
+  };
+  return state;
+}
+
+/**
+ * Periksa apakah nilai yang ditolak benar-benar sebuah `Error`.
+ *
+ * `instanceof Error` TIDAK bisa dipakai di sini: error dibuat di dalam realm
+ * sandbox `vm`, sedangkan `Error` di realm test — sehingga `instanceof`
+ * selalu salah. `Object.prototype.toString` melihat "nama internal" kelas
+ * dan tetap benar lintas realm.
+ */
+function isError(value) {
+  return !!value &&
+    Object.prototype.toString.call(value) === '[object Error]' &&
+    typeof value.message === 'string';
+}
+
+async function runDimensionSuite() {
+  await ta('readDimensions tersedia sebagai fungsi', async () => {
+    const S = loadClientModuleWith({});
+    assert.strictEqual(typeof S.readDimensions, 'function');
+  });
+
+  await ta('readDimensions mengembalikan Promise', async () => {
+    const S = loadClientModuleWith({
+      createImageBitmap: () => Promise.resolve({ width: 100, height: 50 })
+    });
+    const p = S.readDimensions({ name: 'a.png', type: 'image/png', size: 10 });
+    assert.ok(p && typeof p.then === 'function', 'harus mengembalikan Promise');
+    await p;
+  });
+
+  await ta('readDimensions menolak input invalid dengan Error jelas', async () => {
+    const S = loadClientModuleWith({
+      createImageBitmap: () => Promise.resolve({ width: 100, height: 50 })
+    });
+    await assert.rejects(
+      () => S.readDimensions(null),
+      (err) => {
+        assert.ok(isError(err), 'harus menolak dengan Error: ' + err);
+        assert.ok(err.message && err.message.length > 0, 'pesan error harus terisi');
+        return true;
+      }
+    );
+  });
+
+  await ta('readDimensions memakai createImageBitmap bila tersedia', async () => {
+    const seen = [];
+    const S = loadClientModuleWith({
+      createImageBitmap: (f) => {
+        seen.push(f);
+        return Promise.resolve({ width: 1280, height: 800 });
+      }
+    });
+    const file = { name: 'a.png', type: 'image/png', size: 10 };
+    const dims = await S.readDimensions(file);
+    assert.strictEqual(seen.length, 1, 'createImageBitmap harus dipanggil sekali');
+    assert.strictEqual(seen[0], file, 'berkas harus diteruskan apa adanya');
+    assert.strictEqual(dims.width, 1280);
+    assert.strictEqual(dims.height, 800);
+  });
+
+  await ta('readDimensions menolak bila createImageBitmap gagal', async () => {
+    const S = loadClientModuleWith({
+      createImageBitmap: () => Promise.reject(new Error('decode gagal'))
+    });
+    await assert.rejects(
+      () => S.readDimensions({ name: 'a.png', type: 'image/png', size: 10 }),
+      (err) => {
+        assert.ok(isError(err), 'harus menolak dengan Error: ' + err);
+        assert.ok(/gagal/i.test(err.message), 'pesan harus menjelaskan kegagalan: ' + err.message);
+        return true;
+      }
+    );
+  });
+
+  await ta('readDimensions jatuh ke jalur Image dan melepas object URL', async () => {
+    const urlState = makeUrlStub();
+    const S = loadClientModuleWith({
+      URL: urlState,
+      Image: makeImageStub(640, 480)
+    });
+    const dims = await S.readDimensions({ name: 'a.png', type: 'image/png', size: 10 });
+    assert.strictEqual(dims.width, 640, 'harus memakai naturalWidth');
+    assert.strictEqual(dims.height, 480, 'harus memakai naturalHeight');
+    assert.strictEqual(urlState.created.length, 1, 'object URL harus dibuat');
+    assert.deepStrictEqual(
+      urlState.revoked,
+      urlState.created,
+      'object URL WAJIB dicabut setelah dipakai'
+    );
+  });
+
+  await ta('readDimensions menolak bila Image gagal memuat', async () => {
+    const urlState = makeUrlStub();
+    const S = loadClientModuleWith({
+      URL: urlState,
+      Image: makeImageStub(0, 0, true)
+    });
+    await assert.rejects(
+      () => S.readDimensions({ name: 'a.png', type: 'image/png', size: 10 }),
+      (err) => {
+        assert.ok(isError(err), 'harus menolak dengan Error: ' + err);
+        return true;
+      }
+    );
+    assert.deepStrictEqual(
+      urlState.revoked,
+      urlState.created,
+      'object URL WAJIB dicabut meski gagal memuat'
+    );
+  });
+
+  await ta('readDimensions menolak bila browser tidak mendukung API gambar', async () => {
+    const S = loadClientModuleWith({});
+    await assert.rejects(
+      () => S.readDimensions({ name: 'a.png', type: 'image/png', size: 10 }),
+      (err) => {
+        assert.ok(isError(err), 'harus menolak dengan Error: ' + err);
+        return true;
+      }
+    );
+  });
+}
+
 // -- Validasi backend per-slot -----------------------------------
 const upload = require(path.join(root, 'src', 'middleware', 'upload'));
 const sharpLib = require(path.join(root, 'node_modules', 'sharp'));
@@ -490,12 +679,14 @@ async function runBackendSuite() {
   });
 }
 
-runBackendSuite().then(() => {
-  console.log('\n' + (fail === 0
-    ? 'OK - ' + pass + ' pemeriksaan lulus'
-    : fail + ' dari ' + (pass + fail) + ' pemeriksaan GAGAL'));
-  process.exit(fail === 0 ? 0 : 1);
-}).catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+runBackendSuite()
+  .then(runDimensionSuite)
+  .then(() => {
+    console.log('\n' + (fail === 0
+      ? 'OK - ' + pass + ' pemeriksaan lulus'
+      : fail + ' dari ' + (pass + fail) + ' pemeriksaan GAGAL'));
+    process.exit(fail === 0 ? 0 : 1);
+  }).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
