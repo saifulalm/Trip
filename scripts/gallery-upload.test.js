@@ -149,17 +149,16 @@ async function postMultipart(base, url, fields, files) {
 (async () => {
   console.log('\n== Endpoint unggah galeri (server uji terisolasi) ==');
 
-  // Basis data uji berisi satu admin dan satu destinasi.
-  const data = seed.buildSeed();
-  db.reset(data);
-  const adminUser = data.users[0];
-  const dest = data.destinations[0];
-  const destId = dest.id;
-
-  // PENJAGA ISOLASI: pastikan file basis data yang kita tulis BUKAN file
-  // produksi. Kalau `test-db` gagal menyetel env, `db.reset()` akan
-  // menimpa `data/db.json` produksi — test ini harus gagal cepat, bukan
-  // merusak data asli.
+  // PENJAGA ISOLASI — WAJIB SEBELUM `db.reset()` apa pun.
+  //
+  // Kalau assertion ini diletakkan SETELAH `db.reset()`, penulisan ke
+  // `data/db.json` produksi sudah terjadi saat penjaga masih "menilai".
+  // Uji negatif (env isolation sengaja dimatikan) membuktikan hal itu:
+  // suite melempar AssertionError TAPI file produksi sudah tertimpa.
+  //
+  // Urutannya: UJI DULU → baru menulis. Penjaga di `src/db.js` (yang
+  // menolak `db.reset()` ke folder produksi) adalah jaring pengaman
+  // lapis kedua; penjaga di sini yang menolak lebih awal & paling eksplisit.
   const prodDb = path.join(root, 'data', 'db.json');
   assert.ok(
     db.DB_FILE !== prodDb,
@@ -169,6 +168,17 @@ async function postMultipart(base, url, fields, files) {
     path.resolve(testDb.DATA_DIR).indexOf(path.resolve(root, 'data')) !== 0,
     'ISOLASI GAGAL: folder data uji berada di dalam folder data produksi'
   );
+  assert.ok(
+    db.isProductionDataDir(path.dirname(db.DB_FILE)) === false,
+    'ISOLASI GAGAL: folder data uji berada di dalam folder data produksi'
+  );
+
+  // Basis data uji berisi satu admin dan satu destinasi.
+  const data = seed.buildSeed();
+  db.reset(data);
+  const adminUser = data.users[0];
+  const dest = data.destinations[0];
+  const destId = dest.id;
 
   const app = buildTestApp(adminUser.id);
   const srv = await startServer(app);
