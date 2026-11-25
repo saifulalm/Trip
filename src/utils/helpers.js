@@ -126,11 +126,19 @@ function isPhone(value) {
   return /^(\+?62|0)\d{7,13}$/.test(digits);
 }
 
+/**
+ * Status pembayaran booking.
+ *
+ * Setelah migrasi ke iPaymu, status "menunggu verifikasi admin" (khas
+ * transfer manual + bukti transfer) tidak lagi dipakai. Transaksi iPaymu
+ * hanya berstatus: belum dibuat → pending → paid / failed.
+ */
 const PAYMENT_STATUS = {
   unpaid: { label: 'Belum Bayar', tone: 'pending' },
-  waiting_confirmation: { label: 'Menunggu Verifikasi', tone: 'pending' },
+  pending: { label: 'Menunggu Pembayaran', tone: 'pending' },
   paid: { label: 'Lunas', tone: 'confirmed' },
   rejected: { label: 'Ditolak', tone: 'cancelled' },
+  failed: { label: 'Gagal', tone: 'cancelled' },
   expired: { label: 'Kedaluwarsa', tone: 'cancelled' }
 };
 
@@ -153,6 +161,30 @@ function tomorrowISO() {
   return d.toISOString().slice(0, 10);
 }
 
+
+/**
+ * Baca nilai checkbox boolean dari body form.
+ *
+ * MASALAH: pola "hidden off + checkbox on" (dipakai seluruh form admin agar
+ * nilai tetap terkirim saat checkbox tidak dicentang) membuat field yang sama
+ * muncul DUA KALI. Parser form urlencoded/multipart lalu mengubahnya menjadi
+ * array: ["off", "on"]. Akibatnya perbandingan `value === 'on'` selalu false
+ * — checkbox yang DITENCENTANG justru tersimpan sebagai false.
+ *
+ * Solusi: helper ini memeriksa seluruh nilai yang terkirim dan mengembalikan
+ * true bila salah satunya bernilai "on" (atau "true"/"1"/"yes").
+ *
+ * @param {string|string[]|undefined} value nilai dari body
+ * @returns {boolean} true bila checkbox tercentang
+ */
+function isChecked(value) {
+  if (value === undefined || value === null) return false;
+  const list = Array.isArray(value) ? value : [value];
+  return list.some((v) => {
+    const s = String(v).trim().toLowerCase();
+    return s === 'on' || s === 'true' || s === '1' || s === 'yes';
+  });
+}
 module.exports = {
   formatRupiah,
   formatDateLong,
@@ -173,5 +205,6 @@ module.exports = {
   paymentStatusLabel,
   paymentStatusTone,
   starRating,
-  tomorrowISO
+  tomorrowISO,
+  isChecked
 };

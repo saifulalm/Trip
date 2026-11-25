@@ -1,0 +1,381 @@
+<%
+/**
+ * Halaman "Connect Social Media" - hub integrasi kanal.
+ *
+ * Struktur:
+ *  1. Hero status   - ringkasan kondisi Postiz + aksi utama
+ *  2. Setup         - konfigurasi URL API + API Key (langkah 1)
+ *  3. Platform      - kartu per platform, dengan kanal terhubung & aksi
+ *  4. Profil publik - tautan yang tampil di footer situs & SEO
+ */
+const postizOk = postiz.enabled && postiz.reachable;
+const hasKey = postiz.hasKey;
+%>
+
+<div class="admin-head">
+  <div>
+    <h1>Connect Social Media</h1>
+    <p>Hubungkan akun media sosial lalu terbitkan konten ke banyak kanal sekaligus dari satu tempat.</p>
+  </div>
+  <div class="admin-head__actions">
+    <a href="/admin/social/tulis" class="btn-a btn-a--primary btn-a--sm">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-pen"/></svg></span>Tulis &amp; Publikasikan
+    </a>
+    <a href="/admin/social/riwayat" class="btn-a btn-a--ghost btn-a--sm">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-calendar"/></svg></span>Riwayat
+    </a>
+  </div>
+</div>
+
+<%# Notifikasi hasil percobaan menghubungkan kanal (dibaca dari session) %>
+<% if (socialNotice) { %>
+  <% const noticeType = (socialNotice.type === 'error' || socialNotice.type === 'success') ? socialNotice.type : 'info'; %>
+  <div class="flash flash--<%= noticeType %>" style="margin-bottom:1.1rem">
+    <%= socialNotice.message %>
+  </div>
+<% } %>
+
+<%# ============ 1. Hero status ============ %>
+<section class="a-so-hero <%= !postiz.enabled ? 'is-offline' : (postizOk ? '' : 'is-broken') %>">
+  <div class="a-so-hero__lead">
+    <span class="a-so-hero__eyebrow">
+      <span class="a-badge-dot <%= postizOk ? 'is-on' : '' %>"></span>
+      Status Integrasi
+    </span>
+    <h2 class="a-so-hero__title">
+      <% if (!postiz.enabled) { %>
+        Postiz belum dikonfigurasi
+      <% } else if (postizOk) { %>
+        <%= connectedCount %> kanal terhubung
+      <% } else { %>
+        Postiz tidak dapat dihubungi
+      <% } %>
+    </h2>
+    <p class="a-so-hero__desc">
+      <% if (!postiz.enabled) { %>
+        Postiz adalah scheduler media sosial open-source (AGPL-3.0) yang menjadi tulang punggung
+        integrasi ini. Isi <strong>URL API</strong> dan <strong>API Key</strong> di bawah, lalu tekan
+        <strong>Uji Koneksi</strong> untuk memastikan alamat dan kuncinya benar sebelum menyimpan.
+      <% } else if (!postizOk) { %>
+        Konfigurasi tersimpan di <code><%= postiz.baseUrl %></code>, tetapi server Postiz tidak
+        menjawab. Periksa: (1) instance Postiz masih berjalan, (2) URL API benar,
+        (3) API Key belum berubah atau dicabut.
+      <% } else { %>
+        Terhubung ke <code><%= postiz.baseUrl %></code><% if (postiz.organization && postiz.organization.name) { %> &middot;
+        workspace <strong><%= postiz.organization.name %></strong><% } %>.
+        Pilih kanal di bawah, tekan <strong>Hubungkan</strong>, lalu setujui permintaan di halaman
+        provider yang terbuka. Kanal baru muncul setelah menekan <strong>Segarkan</strong>.
+      <% } %>
+    </p>
+
+    <div class="a-so-stats">
+      <span class="a-so-stat"><strong><%= platforms.length %></strong> platform didukung</span>
+      <span class="a-so-stat"><strong><%= connectedCount %></strong> kanal terhubung</span>
+      <span class="a-so-stat"><strong><%= profileLinks.length %></strong> tautan profil publik</span>
+      <% if (postiz.enabled) { %>
+        <span class="a-so-stat"><strong><%= hasKey ? 'Ada' : 'Kosong' %></strong> API Key</span>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="a-so-hero__actions">
+    <% if (postiz.enabled) { %>
+      <button type="button" class="btn-a btn-a--ghost" id="socialRefresh">
+        <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-external"/></svg></span>Segarkan Status
+      </button>
+    <% } %>
+    <a href="#so-setup" class="btn-a btn-a--primary">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-settings"/></svg></span>
+      <%= postiz.enabled ? 'Ubah Konfigurasi' : 'Atur Postiz' %>
+    </a>
+    <% if (postiz.enabled) { %>
+      <button type="button" class="btn-a btn-a--ghost" id="socialDiagnose">Jalankan Diagnostik</button>
+    <% } %>
+  </div>
+</section>
+
+<div id="socialDiagnoseBox" hidden
+     style="margin:-0.6rem 0 1.4rem;padding:0.85rem 1rem;border-radius:var(--a-radius-md);border:1px solid var(--a-line);background:var(--a-surface-2);font-size:0.85rem;line-height:1.55;color:var(--a-soft)"></div>
+
+<%# ============ 2. Setup / konfigurasi Postiz ============ %>
+<section class="a-so-setup" id="so-setup">
+  <div class="a-so-setup__head">
+    <span class="a-so-setup__step">1</span>
+    <h2>Konfigurasi Postiz</h2>
+    <span style="flex:1 1 auto"></span>
+    <% if (!postiz.enabled) { %>
+      <span class="badge badge--pending">Belum dikonfigurasi</span>
+    <% } else if (postiz.reachable) { %>
+      <span class="badge badge--confirmed">Terhubung</span>
+    <% } else { %>
+      <span class="badge badge--cancelled">Tidak dapat dihubungi</span>
+    <% } %>
+  </div>
+
+  <div class="a-so-setup__body">
+    <% if (postiz.error) { %>
+      <div class="flash flash--error" style="margin-bottom:1rem"><%= postiz.error %></div>
+    <% } %>
+
+    <ol class="a-so-steps">
+      <li data-n="1">
+        <span>
+          Jalankan instance Postiz Anda (self-hosted di <code>localhost:4200</code> atau domain sendiri).
+          Salin <strong>API Key</strong> dari <strong>Postiz &rarr; Settings &rarr; Public API</strong>.
+        </span>
+      </li>
+      <li data-n="2">
+        <span>
+          Tempel URL API &amp; API Key di bawah lalu tekan <strong>Uji Koneksi</strong>.
+          Header <code>Authorization</code> Postiz memakai API key <strong>tanpa</strong> awalan
+          <code>Bearer</code> - kode sudah otomatis mengirimkannya dengan benar.
+        </span>
+      </li>
+      <li data-n="3">
+        <span>
+          Setelah tersimpan, tekan <strong>Hubungkan</strong> pada platform yang diinginkan,
+          setujui permintaan di halaman provider, lalu tekan <strong>Segarkan</strong>.
+        </span>
+      </li>
+    </ol>
+
+    <form action="/admin/social/postiz" method="post" class="a-form">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="a-form-grid">
+        <div class="a-field">
+          <label for="postizBaseUrl">URL API Postiz</label>
+          <input type="text" id="postizBaseUrl" name="postizBaseUrl" value="<%= postiz.baseUrl %>"
+                 placeholder="https://postiz.domainanda.com" autocomplete="off">
+          <span class="help">
+            Boleh hanya domain - suffix <code>/api/public/v1</code> ditambahkan otomatis.
+            Untuk Postiz Cloud (<code>api.postiz.com</code>) suffix-nya <code>/public/v1</code>.
+          </span>
+        </div>
+        <div class="a-field">
+          <label for="postizApiKey">API Key</label>
+          <input type="password" id="postizApiKey" name="postizApiKey" value=""
+                 placeholder="<%= hasKey ? 'Tersimpan - ketik untuk mengganti' : 'Tempel API Key dari Postiz' %>"
+                 autocomplete="new-password">
+          <span class="help">Dikosongkan berarti API Key yang tersimpan tidak diubah.</span>
+        </div>
+      </div>
+      <div class="form-actions" style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center">
+        <button type="submit" class="btn-a btn-a--primary">Simpan Konfigurasi</button>
+        <button type="submit" formaction="/admin/social/test" class="btn-a btn-a--ghost">Uji Koneksi</button>
+        <% if (postiz.enabled) { %>
+          <label class="a-so-clear">
+            <input type="checkbox" name="postizClear" value="1">
+            Hapus konfigurasi
+          </label>
+        <% } %>
+      </div>
+    </form>
+  </div>
+</section>
+
+<%# ============ 3. Kartu platform ============ %>
+<section class="panel" style="margin-bottom:1.4rem">
+  <div class="panel__head">
+    <h2>Platform yang Didukung</h2>
+    <span class="help">
+      Kanal publish dil enlistar di sini. Tautan profil dipakai di footer situs &amp; SEO.
+    </span>
+  </div>
+
+  <% if (!postiz.enabled) { %>
+    <div class="a-so-empty" style="margin:0 1.2rem 1.2rem">
+      <span class="a-so-empty__icon"><svg viewBox="0 0 22 22"><use href="#i-share"/></svg></span>
+      <strong>Kanal belum bisa dihubungkan</strong>
+      <p>
+        Modul ini butuh instance Postiz yang berjalan. Isi URL API &amp; API Key pada
+        Langkah 1 di atas - setelah itu tombol "Hubungkan" aktif untuk setiap platform.
+      </p>
+      <a href="#so-setup" class="btn-a btn-a--primary btn-a--sm">Ke pengaturan Postiz</a>
+    </div>
+  <% } %>
+
+  <div class="a-so-platforms" style="padding:0 1.2rem 1.2rem">
+    <% platforms.forEach(function (p) { %>
+      <article class="a-so-card <%= p.connected ? 'is-connected' : '' %> <%= highlightKey === p.key ? 'is-highlight' : '' %>" id="platform-<%= p.key %>">
+        <div class="a-so-card__top">
+          <span class="a-so-card__logo" style="--brand: <%= p.color %>"><%= p.glyph %></span>
+          <span class="a-so-card__id">
+            <span class="a-so-card__name"><%= p.label %></span>
+            <span class="a-so-card__handle">
+              <% if (p.handle) { %>@<%= p.handle %><% } else { %><%= p.desc %><% } %>
+            </span>
+          </span>
+          <% if (p.connected) { %>
+            <span class="a-badge-dot is-on" title="Ada kanal terhubung"></span>
+          <% } %>
+        </div>
+
+        <div>
+          <% if (p.connected) { %>
+            <span class="badge badge--confirmed">Terhubung &middot; <%= p.channels.length %> kanal</span>
+          <% } else { %>
+            <span class="badge badge--pending">Belum terhubung</span>
+          <% } %>
+        </div>
+
+        <div class="a-so-card__desc">
+          <%= p.desc %>
+          <% if (p.note) { %>
+            <p class="a-so-card__note"><%= p.note %></p>
+          <% } %>
+        </div>
+
+        <% if (p.channels && p.channels.length) { %>
+          <div class="a-so-channels">
+            <% p.channels.forEach(function (c) { %>
+              <div class="a-so-channel <%= c.disabled ? 'is-disabled' : '' %>">
+                <% if (c.picture) { %>
+                  <img class="a-so-channel__avatar" src="<%= c.picture %>" alt="" loading="lazy">
+                <% } else { %>
+                  <span class="a-so-channel__avatar" style="--brand: <%= p.color %>"><%= p.glyph %></span>
+                <% } %>
+                <span class="a-so-channel__body">
+                  <span class="a-so-channel__name"><%= c.name || c.profile || c.id %></span>
+                  <span class="a-so-channel__profile">
+                    <%= c.profile || c.id %><%= c.disabled ? ' &middot; nonaktif' : '' %>
+                  </span>
+                </span>
+                <form action="/admin/social/kanal/<%= c.id %>/hapus" method="post"
+                      onsubmit="return confirm('Putuskan kanal ini? Post terjadwal untuk kanal tersebut juga akan dihapus di Postiz.')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="a-so-channel__del" title="Putuskan kanal" aria-label="Putuskan kanal">&#10005;</button>
+                </form>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+
+        <div class="a-so-card__foot">
+          <% if (p.oauth) { %>
+            <a href="/admin/social/hubungkan/<%= p.key %>" class="btn-a btn-a--primary btn-a--sm">
+              <%= p.connected ? 'Tambah Kanal' : 'Hubungkan' %>
+            </a>
+          <% } else { %>
+            <span class="help" style="margin:0">Hubungkan lewat antarmuka Postiz</span>
+          <% } %>
+          <% if (p.profileUrl) { %>
+            <a href="<%= p.profileUrl %>" target="_blank" rel="noopener" class="btn-a btn-a--ghost btn-a--sm">Buka &#8599;</a>
+          <% } %>
+        </div>
+      </article>
+    <% }) %>
+  </div>
+</section>
+
+<%# ============ 4. Tautan profil publik ============ %>
+<section class="panel">
+  <div class="panel__head">
+    <h2>Tautan Profil Publik</h2>
+    <span class="help">
+      Tautan ini tampil di footer situs publik dan menjadi data terstruktur
+      <code>sameAs</code> untuk mesin pencari.
+    </span>
+  </div>
+
+  <form action="/admin/social/profil" method="post" class="a-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="a-form-grid">
+      <% platforms.forEach(function (p) { %>
+        <div class="a-field">
+          <label for="soc-<%= p.slug %>"><%= p.label %></label>
+          <input type="text" id="soc-<%= p.slug %>" name="<%= p.slug %>"
+                 value="<%= settings[p.slug] || '' %>"
+                 placeholder="<%= p.urlPattern.replace('https://', '').replace('{handle}', 'username') %>">
+        </div>
+      <% }) %>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn-a btn-a--primary">Simpan Tautan Profil</button>
+    </div>
+  </form>
+
+  <% if (profileLinks.length) { %>
+    <div class="a-divider"></div>
+    <div class="a-so-links" style="padding:0 1.2rem 1.2rem">
+      <% profileLinks.forEach(function (l) { %>
+        <div class="a-so-link">
+          <span class="a-so-link__logo" style="--brand: <%= l.color %>"><%= l.glyph %></span>
+          <span class="a-so-link__body">
+            <span class="a-so-link__name"><%= l.label %></span>
+            <span class="a-so-link__url"><%= l.url %></span>
+          </span>
+          <a href="<%= l.url %>" target="_blank" rel="noopener" class="btn-a btn-a--ghost btn-a--sm">Buka &#8599;</a>
+        </div>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="a-empty-state">
+      <strong>Belum ada tautan profil</strong>
+      <p class="help">Isi URL di atas agar tautan sosial muncul di footer situs.</p>
+    </div>
+  <% } %>
+</section>
+
+<script>
+  /* Segarkan status koneksi Postiz tanpa kehilangan posisi halaman. */
+  (function () {
+    var btn = document.getElementById('socialRefresh');
+    if (btn) {
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        var old = btn.innerHTML;
+        btn.textContent = 'Memuat...';
+        fetch('/admin/social/status', { headers: { 'Accept': 'application/json' } })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            if (d && d.ok) {
+              /* Status sudah mutakhir di server; muat ulang agar kartu platform
+                 menampilkan status "Terhubung" yang baru. */
+              window.location.reload();
+              return;
+            }
+            btn.disabled = false;
+            btn.innerHTML = old;
+            if (d && d.error) window.alert(d.error);
+          })
+          .catch(function () {
+            btn.disabled = false;
+            btn.innerHTML = old;
+          });
+      });
+    }
+
+    /* Diagnostik: pecah kegagalan koneksi jadi penyebab yang bisa ditindaklanjuti. */
+    var diag = document.getElementById('socialDiagnose');
+    var box = document.getElementById('socialDiagnoseBox');
+    if (diag && box) {
+      diag.addEventListener('click', function () {
+        diag.disabled = true;
+        box.hidden = false;
+        box.textContent = 'Menjalankan diagnostik...';
+        fetch('/admin/social/diagnostik', { headers: { 'Accept': 'application/json' } })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            diag.disabled = false;
+            if (!d) { box.textContent = 'Tidak ada respons dari server.'; return; }
+            var head = d.ok
+              ? '<strong style="color:var(--a-green)">Semua siap.</strong>'
+              : '<strong style="color:var(--a-red)">Perlu tindakan:</strong>';
+            var lines = [];
+            lines.push('<div>' + head + ' Tahap: ' + (d.step || '-') + '</div>');
+            if (d.message) lines.push('<div style="margin-top:.4rem">' + d.message + '</div>');
+            if (d.hint) lines.push('<div style="margin-top:.35rem">' + d.hint + '</div>');
+            if (d.baseUrl) lines.push('<div style="margin-top:.35rem">Base URL: <code>' + d.baseUrl + '</code></div>');
+            if (d.channelCount !== undefined) {
+              lines.push('<div style="margin-top:.35rem">Kanal terdaftar: <strong>' + d.channelCount + '</strong></div>');
+            }
+            box.innerHTML = lines.join('');
+          })
+          .catch(function () {
+            diag.disabled = false;
+            box.textContent = 'Gagal menghubungi endpoint diagnostik.';
+          });
+      });
+    }
+  })();
+</script>

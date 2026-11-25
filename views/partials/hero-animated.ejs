@@ -1,0 +1,145 @@
+<%
+/**
+ * Hero Section interaktif — video sinematik pulau + pencarian cepat.
+ *
+ * Parameter include (semua opsional, ada nilai bawaan):
+ *   heroVideoUrl      URL video mp4  (default /media/hero-islands.mp4)
+ *   heroPosterUrl     URL poster     (default /img/hero-island-poster.jpg)
+ *   heroVideoEnabled  true/false — matikan video (hemat bandwidth)
+ *   heroSearchAction  URL endpoint   (default /cari-trip)
+ *   heroDestinations  array destiny  untuk datalist & chip populer
+ *
+ * CATATAN: variabel lokal memakai awalan "h_" agar tidak bentrok dengan
+ * parameter include (variable shadowing → TDZ error di EJS).
+ */
+const h_videoEnabled = (typeof heroVideoEnabled !== 'undefined' && heroVideoEnabled !== null) ? heroVideoEnabled : true;
+const h_videoUrl = (typeof heroVideoUrl !== 'undefined' && heroVideoUrl) ? heroVideoUrl : '/media/hero-islands.mp4';
+const h_posterUrl = (typeof heroPosterUrl !== 'undefined' && heroPosterUrl) ? heroPosterUrl : '/img/hero-island-poster.jpg';
+const h_searchAction = (typeof heroSearchAction !== 'undefined' && heroSearchAction) ? heroSearchAction : '/cari-trip';
+const h_destinations = (typeof heroDestinations !== 'undefined' && heroDestinations) ? heroDestinations : [];
+const h_title = (settings && settings.heroTitle) ? settings.heroTitle : 'Pulau-pulau Indonesia,\ndibuat enak dikunjungi.';
+const h_subtitle = (settings && settings.heroSubtitle) ? settings.heroSubtitle : 'Dari Sabesi hingga Ora — kami susun perjalanan bahari yang nyaman, aman, dan mendukung warga lokal.';
+/* Tanggal minimum = besok, agar tidak ada permintaan tanggal lampau. */
+const h_minDate = (() => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+})();
+/* Nilai lama dari query (dipakai saat form disubmit ulang / hasil search). */
+const h_qDest = (typeof query !== 'undefined' && query && query.destinasi) ? query.destinasi : '';
+const h_qDate = (typeof query !== 'undefined' && query && query.tanggal) ? query.tanggal : '';
+%>
+
+<section class="hero hero--animated" id="hero" data-hero>
+  <!-- ===== Latar: poster statis + video overlay ===== -->
+  <div class="hero-video" data-hero-media aria-hidden="true">
+    <img class="hero-video__poster" data-hero-poster src="<%= h_posterUrl %>"
+         alt="" width="1600" height="900" fetchpriority="high" decoding="async">
+    <% if (h_videoEnabled) { %>
+      <video class="hero-video__el" data-hero-video
+             poster="<%= h_posterUrl %>"
+             src="<%= h_videoUrl %>"
+             muted loop autoplay playsinline preload="auto"
+             disablepictureinpicture disableremoteplayback></video>
+    <% } %>
+    <!-- Overlay gelap agar headline & CTA tetap terbaca -->
+    <div class="hero-video__overlay"></div>
+    <div class="hero-video__grain"></div>
+  </div>
+
+  <div class="container hero--animated__inner">
+    <div class="hero--animated__content" data-hero-content>
+      <span class="hero__badge hero--animated__badge">
+        <span class="hero--animated__badge-dot" aria-hidden="true"></span>
+        Wisata bahari pilihan · Sejak 2019
+      </span>
+
+      <h1 class="hero--animated__title"><%= h_title %></h1>
+
+      <p class="hero__sub hero--animated__sub"><%= h_subtitle %></p>
+
+      <!-- ===== Form pencarian cepat: destinasi + tanggal ===== -->
+      <form class="hero-search" action="<%= h_searchAction %>" method="get" data-hero-search>
+        <div class="hero-search__field hero-search__field--dest">
+          <label for="hero-dest">Destinasi pulau</label>
+          <div class="hero-search__control">
+            <span class="hero-search__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 21s7-5.2 7-11a7 7 0 1 0-14 0c0 5.8 7 11 7 11Z"></path>
+                <circle cx="12" cy="10" r="2.6"></circle>
+              </svg>
+            </span>
+            <input id="hero-dest" name="destinasi" type="text" list="hero-dest-list"
+                   placeholder="Sabesi, Weh, Misool…" autocomplete="off"
+                   value="<%= h_qDest %>">
+            <datalist id="hero-dest-list">
+              <% h_destinations.forEach(function (d) { %>
+                <option value="<%= d.name %>"></option>
+              <% }) %>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="hero-search__field hero-search__field--date">
+          <label for="hero-date">Rencana keberangkatan</label>
+          <div class="hero-search__control">
+            <span class="hero-search__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3.5" y="5" width="17" height="15" rx="2.5"></rect>
+                <path d="M3.5 10h17M8 3.5v3M16 3.5v3"></path>
+              </svg>
+            </span>
+            <input id="hero-date" name="tanggal" type="date" min="<%= h_minDate %>"
+                   value="<%= h_qDate %>">
+          </div>
+        </div>
+
+        <button class="hero-search__submit btn btn--sunset" type="submit">
+          <span>Cari Trip</span>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h13M13 6l6 6-6 6"></path>
+          </svg>
+        </button>
+      </form>
+
+      <% if (h_destinations.length) { %>
+        <div class="hero-chips" aria-label="Destinasi populer">
+          <span class="hero-chips__label">Populer:</span>
+          <% h_destinations.slice(0, 5).forEach(function (d) { %>
+            <a class="hero-chips__item" href="/destinasi/<%= d.slug %>"><%= d.name.replace(/^Pulau\s+/, '') %></a>
+          <% }) %>
+        </div>
+      <% } %>
+
+      <div class="hero__actions hero--animated__actions">
+        <a href="/paket" class="btn btn--sunset">Lihat Paket Wisata →</a>
+        <a href="/destinasi" class="btn btn--ghost">Jelajahi Destinasi</a>
+      </div>
+
+      <div class="hero__stats hero--animated__stats">
+        <div class="hero__stat"><strong data-count="<%= allDestinations.length %>" data-suffix="+">0+</strong><span>Destinasi pulau</span></div>
+        <div class="hero__stat"><strong data-count="4900" data-suffix="+">0+</strong><span>Wisatawan terlayani</span></div>
+        <div class="hero__stat"><strong data-count="4.9" data-decimals="1" data-suffix="★">0★</strong><span>Rating kepuasan</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Kontrol audio pojok kanan bawah ===== -->
+  <button class="hero-audio" type="button" data-hero-audio aria-pressed="false" aria-label="Aktifkan suara ambient">
+    <span class="hero-audio__icon" data-hero-audio-icon aria-hidden="true">
+      <!-- Ikon volume-off (default: video mulai muted) -->
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 5 6.5 9H3v6h3.5L11 19V5Z"></path>
+        <path d="m16 9 5 6M21 9l-5 6"></path>
+      </svg>
+    </span>
+    <span class="hero-audio__bars" aria-hidden="true"><i></i><i></i><i></i></span>
+    <span class="hero-audio__text" data-hero-audio-text>Suara</span>
+  </button>
+
+  <!-- Indikator scroll -->
+  <a class="hero-scroll" href="#sorotan-pulau" aria-label="Gulir ke bawah">
+    <span class="hero-scroll__mouse" aria-hidden="true"><i></i></span>
+    <span class="hero-scroll__label">Jelajahi</span>
+  </a>
+</section>

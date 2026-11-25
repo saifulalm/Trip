@@ -7,8 +7,17 @@ const db = require('../db');
 const { flash } = require('../middleware/context');
 const { requireCustomer, customerLoginLimiter, clearCustomerLoginAttempts } = require('../middleware/customerAuth');
 const { isEmail, isPhone } = require('../utils/helpers');
+const geo = require('../services/geo');
+const trip = require('../services/trip');
 
 const router = express.Router();
+
+/**
+ * Radius check-in yang masih dianggap "di titik kumpul" (meter).
+ * Nilai longgar karena titik kumpul berada di dermaga/pelabuhan yang
+ * biasanya tidak persis sama dengan titik tengah pulau.
+ */
+const CHECKIN_RADIUS_M = 5000;
 
 /* ============ Register ============ */
 router.get('/daftar', (req, res) => {
@@ -113,10 +122,151 @@ router.get('/akun', requireCustomer, (req, res) => {
     .filter((b) => b.customerId === req.customer.id)
     .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 
+  // Riwayat ulasan milik pelanggan ini (untuk KPI & status reviewed).
+  const myReviews = (data.reviews || []).filter(
+    (r) => bookings.some((b) => b.code === r.bookingCode)
+  );
+
+  // Ringkasan KPI dasbor.
+  const summary = trip.dashboardSummary(bookings, myReviews);
+
+  // Dekorasi tiap booking: destinasi, jarak, tahap progress, label status.
+  const cards = bookings.map((b) => {
+    const destination = trip.resolveDestination(data, b);
+    const distance = trip.distanceToDestination(b, destination);
+    return {
+      booking: b,
+      destination,
+      distance,
+      distanceLabel: distance === null ? null : geo.formatDistanceShort(distance),
+      steps: trip.progressSteps(b),
+      reviewed: myReviews.some((r) => r.bookingCode === b.code)
+    };
+  });
+
+  // Booking terdekat yang akan datang (untuk banner "perjalanan berikutnya").
+  const nextCard = cards.find(
+    (c) =>
+      c.booking.departureDate &&
+      c.booking.departureDate >= new Date().toISOString().slice(0, 10) &&
+      c.booking.status !== 'cancelled'
+  ) || null;
+
+  // Rekomendasi trip: paket published yang belum pernah dipesan.
+  const bookedSlugs = new Set(bookings.map((b) => b.packageSlug));
+  const recommendations = (data.packages || [])
+    .filter((p) => p.status === 'published' && !bookedSlugs.has(p.slug))
+    .slice(0, 3);
+
   res.render('pages/account', {
     title: 'Akun Saya',
     layout: 'layouts/public',
-    bookings
+    bookings,
+    cards,
+    summary,
+    nextCard,
+    myReviews,
+    recommendations
+  });
+});
+
+/* ============ Lokasi Saya (live position) ============ */
+/**
+ * Halaman "Lokasi Saya" — menampilkan posisi pelanggan saat ini
+ * (bila izin lokasi diberikan), posisi check-in terakhir, dan titik
+ * kumpul (/meeting point) destinasi sebagai konteks.
+ *
+ * Permission location SELALU diminta di sisi klien (browser). Server
+ * hanya merender kerangka + titik acuan; koordinat live TIDAK pernah
+ * dikirim ke server kecuali pelanggan menekan tombol check-in atau
+ * tombol "Simpan posisi" yang memang mengirim koordinat via POST.
+ */
+router.get('/akun/lokasi', requireCustomer, (req, res) => {
+  const data = db.read();
+  const bookings = (data.bookings || [])
+    .filter((b) => b.customerId === req.customer.id)
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+  // Booking dengan check-in terakhir (paling baru). Jarak ke titik kumpul
+  // HARUS dihitung terhadap destinasi booking YANG SAMA — kalau tidak,
+  // koordinat Sabesi dibandingkan dengan titik kumpul Weh dan hasilnya
+  // menyesatkan (ribuan km).
+  const withCheckIn = bookings.find((b) => b.checkIn) || null;
+  const today = new Date().toISOString().slice(0, 10);
+  const activeBooking =
+    bookings.find(
+      (b) =>
+        b.departureDate >= today && b.status !== 'cancelled'
+    ) || bookings[0] || null;
+
+  const destination = trip.resolveDestination(data, activeBooking);
+  const lastCheckIn = withCheckIn ? withCheckIn.checkIn : null;
+  const lastCheckInDestination = withCheckIn
+    ? trip.resolveDestination(data, withCheckIn)
+    : null;
+
+  // Jarak dihitung ke destinasi booking yang MEMILIKI check-in tersebut.
+  const distanceTarget = withCheckIn ? lastCheckInDestination : destination;
+  const distance =
+    lastCheckIn && distanceTarget && geo.isValidLatLng(distanceTarget.lat, distanceTarget.lng)
+      ? geo.haversineMeters(lastCheckIn.lat, lastCheckIn.lng, distanceTarget.lat, distanceTarget.lng)
+      : null;
+
+  // Riwayat titik check-in (maksimal 20 terakhir) untuk garis jejak.
+  const history = [];
+  bookings.forEach((b) => {
+    if (b.checkIn) {
+      history.push({
+        code: b.code,
+        packageName: b.packageName,
+        lat: b.checkIn.lat,
+        lng: b.checkIn.lng,
+        at: b.checkIn.at,
+        accuracy: b.checkIn.accuracy
+      });
+    }
+    (b.track || []).forEach((p) => {
+      if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+        history.push({
+          code: b.code,
+          packageName: b.packageName,
+          lat: p.lat,
+          lng: p.lng,
+          at: p.at,
+          accuracy: null,
+          label: p.label
+        });
+      }
+    });
+  });
+  history.sort((a, b) => String(a.at || '').localeCompare(String(b.at || '')));
+
+  res.render('pages/account-location', {
+    title: 'Lokasi Saya',
+    layout: 'layouts/public',
+    bookings,
+    destination,
+    activeBooking,
+    lastCheckIn,
+    // Destinasi acuan untuk tampilan = destinasi booking yang memiliki
+    // check-in (bila ada), supaya titik kumpul di peta sesuai dengan
+    // koordinat check-in yang ditampilkan.
+    checkInDestination: lastCheckInDestination,
+    distance,
+    distanceLabel: Number.isFinite(distance) ? geo.formatDistance(distance) : null,
+    history: history.slice(-20),
+    mapData: JSON.stringify({
+      // Titik kumpul yang ditampilkan memakai booking yang sama dengan check-in
+      // bila ada. Kalau tidak, pakai destinasi booking aktif.
+      dest: (() => {
+        const d = lastCheckInDestination || destination;
+        return d && geo.isValidLatLng(d.lat, d.lng)
+          ? { lat: d.lat, lng: d.lng, name: d.name }
+          : null;
+      })(),
+      checkIn: lastCheckIn && geo.isValidLatLng(lastCheckIn.lat, lastCheckIn.lng) ? lastCheckIn : null,
+      track: history.map((h) => ({ label: h.code, lat: h.lat, lng: h.lng, at: h.at }))
+    })
   });
 });
 
@@ -210,12 +360,17 @@ router.get('/akun/booking/:id', requireCustomer, (req, res) => {
     return res.redirect('/akun');
   }
 
-  const destination = (data.destinations || []).find((d) => d.slug === booking.packageSlug);
+  // Resolusi destinasi yang BENAR: booking.packageSlug → paket →
+  // destinationSlug → destinations[]. Kode lama langsung membandingkan
+  // packageSlug dengan d.slug sehingga peta selalu kosong.
+  const destination = trip.resolveDestination(data, booking);
   const canCheckIn =
     (booking.status === 'confirmed' || booking.status === 'pending') && !booking.checkIn;
   const canReview =
     booking.status === 'completed' &&
     !(data.reviews || []).some((r) => r.bookingCode === booking.code);
+  const distance = trip.distanceToDestination(booking, destination);
+  const steps = trip.progressSteps(booking);
 
   res.render('pages/account-booking', {
     title: `Booking ${booking.code}`,
@@ -224,9 +379,17 @@ router.get('/akun/booking/:id', requireCustomer, (req, res) => {
     destination,
     canCheckIn,
     canReview,
+    distance,
+    distanceLabel: distance === null ? null : geo.formatDistance(distance),
+    checkinRadius: CHECKIN_RADIUS_M,
+    steps,
     mapData: JSON.stringify({
-      dest: destination && destination.lat ? { lat: destination.lat, lng: destination.lng, name: destination.name } : null,
-      checkIn: booking.checkIn || null,
+      dest: destination && geo.isValidLatLng(destination.lat, destination.lng)
+        ? { lat: destination.lat, lng: destination.lng, name: destination.name }
+        : null,
+      checkIn: booking.checkIn && geo.isValidLatLng(booking.checkIn.lat, booking.checkIn.lng)
+        ? booking.checkIn
+        : null,
       track: booking.track || []
     })
   });
@@ -253,18 +416,94 @@ router.post('/akun/booking/:id/checkin', requireCustomer, (req, res) => {
   const lat = parseFloat(req.body.lat);
   const lng = parseFloat(req.body.lng);
   const accuracy = parseFloat(req.body.accuracy) || null;
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-    flash('error', 'Koordinat GPS tidak valid.', req);
+  if (!geo.isValidLatLng(lat, lng)) {
+    flash('error', 'Koordinat GPS tidak valid. Pastikan GPS perangkat aktif lalu coba lagi.', req);
     return res.redirect(`/akun/booking/${booking.id}`);
   }
 
-  booking.checkIn = { lat, lng, accuracy, at: new Date().toISOString() };
+  // Hitung jarak ke titik kumpul saat check-in. Jarak jauh TIDAK
+  // memblokir check-in (perangkat bisa salah akurasi / titik kumpul
+  // berada di dermaga), tetapi dicatat sebagai peringatan agar admin
+  // bisa memverifikasi secara manual.
+  const destination = trip.resolveDestination(data, booking);
+  const distance = trip.distanceToDestination({ checkIn: { lat, lng } }, destination);
+
+  booking.checkIn = {
+    lat,
+    lng,
+    accuracy,
+    at: new Date().toISOString(),
+    distanceToDestination: distance === null ? null : Math.round(distance),
+    source: 'gps'
+  };
   booking.track = booking.track || [];
-  booking.track.push({ label: `Check-in ${booking.name}`, lat, lng, at: booking.checkIn.at });
+  booking.track.push({
+    label: `Check-in ${booking.name}`,
+    lat,
+    lng,
+    at: booking.checkIn.at
+  });
   db.write(data);
 
-  flash('success', 'Check-in berhasil! Koordinat keberangkatan Anda tercatat.', req);
+  if (distance !== null && distance > CHECKIN_RADIUS_M) {
+    flash(
+      'info',
+      `Check-in tercatat, tetapi jarak Anda dari titik kumpul ${destination.name} sekitar ${geo.formatDistance(distance)}. Tim kami akan memverifikasi secara manual.`,
+      req
+    );
+  } else {
+    flash('success', 'Check-in berhasil! Koordinat keberangkatan Anda tercatat.', req);
+  }
   res.redirect(`/akun/booking/${booking.id}`);
+});
+
+/* ============ Perbarui lokasi terakhir (live position) ============ */
+/**
+ * Menyimpan koordinat posisi terkini pelanggan sebagai "posisi terakhir".
+ * Ini murni sukarela — dipakai supaya pelanggan bisa melihat posisi
+ * terakhirnya di halaman "Lokasi Saya" tanpa perlu check-in ulang.
+ *
+ * Catatan privasi: koordinat disimpan per booking milik pelanggan itu
+ * saja, tidak pernah diekspos ke pelanggan lain.
+ */
+router.post('/akun/lokasi/simpan', requireCustomer, (req, res) => {
+  const data = db.read();
+  const lat = parseFloat(req.body.lat);
+  const lng = parseFloat(req.body.lng);
+  const accuracy = parseFloat(req.body.accuracy) || null;
+
+  if (!geo.isValidLatLng(lat, lng)) {
+    flash('error', 'Koordinat lokasi tidak valid.', req);
+    return res.redirect('/akun/lokasi');
+  }
+
+  // Simpan pada booking aktif (upcoming) milik pelanggan; kalau tidak
+  // ada, pakai booking terakhir. Bila sama sekali tidak ada booking,
+  // buat entri "posisi terakhir" di level pelanggan.
+  const bookings = (data.bookings || []).filter((b) => b.customerId === req.customer.id);
+  const today = new Date().toISOString().slice(0, 10);
+  const target =
+    bookings.find((b) => b.departureDate >= today && b.status !== 'cancelled') ||
+    bookings[0] ||
+    null;
+
+  const point = { lat, lng, accuracy, at: new Date().toISOString() };
+
+  if (target) {
+    target.lastPosition = point;
+    db.write(data);
+  } else {
+    const customer = (data.customers || []).find((c) => c.id === req.customer.id);
+    if (!customer) {
+      flash('error', 'Akun tidak ditemukan.', req);
+      return res.redirect('/akun/lokasi');
+    }
+    customer.lastPosition = point;
+    db.write(data);
+  }
+
+  flash('success', 'Posisi terakhir tersimpan.', req);
+  res.redirect('/akun/lokasi');
 });
 
 /* ============ Ulasan (setelah trip selesai) ============ */

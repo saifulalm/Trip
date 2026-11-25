@@ -1,0 +1,194 @@
+<div style="margin-bottom:1rem">
+  <a href="/admin" class="btn-a btn-a--ghost btn-a--sm">← Kembali ke dashboard</a>
+</div>
+
+<% if (!enabled) { %>
+  <section class="panel">
+    <div class="panel__head"><h2>Fitur Dimatikan</h2></div>
+    <p style="color:var(--a-soft); font-size:0.9rem; margin:0">
+      Berbagi lokasi langsung sedang dinonaktifkan oleh admin. Aktifkan kembali di
+      <a href="/admin/pengaturan">Pengaturan</a> bila perlu.
+    </p>
+  </section>
+<% } else { %>
+  <div class="panel-grid">
+    <!-- ============ Peta ============ -->
+    <section class="panel">
+      <div class="panel__head">
+        <h2>Peta Partisipan</h2>
+        <span class="a-chip" id="presenceStatus">Menyambung…</span>
+      </div>
+
+      <div id="syl-map" class="syl-map syl-map--admin" role="img" aria-label="Peta lokasi langsung partisipan"></div>
+      <script id="map-data" type="application/json"><%- mapData %></script>
+
+      <p style="color:var(--a-soft); font-size:0.85rem; margin-top:0.8rem">
+        Titik <strong style="color:var(--a-sidebar-ink,#2f9fb0)">biru</strong> = anggota tim,
+        <strong style="color:#a78bfa">ungu</strong> = pelanggan. Posisi basi (&gt; <%= ttlLabel %>)
+        otomatis hilang dari peta.
+      </p>
+    </section>
+
+    <!-- ============ Daftar ============ -->
+    <section class="panel">
+      <div class="panel__head">
+        <h2>Partisipan Online</h2>
+        <span class="a-chip"><%= peers.length %> orang</span>
+      </div>
+
+      <% if (myPosition) { %>
+        <div class="a-hint-box" style="margin-bottom:0.9rem">
+          📍 <strong>Posisi Anda saat ini</strong>:
+          <%= Number(myPosition.lat).toFixed(5) %>, <%= Number(myPosition.lng).toFixed(5) %>
+          <% if (myPosition.accuracy) { %>· ± <%= Math.round(myPosition.accuracy) %> m<% } %>
+          <br><span style="opacity:0.8">Bagikan lokasi Anda agar pelanggan dapat menemukan Anda.</span>
+        </div>
+      <% } else { %>
+        <div class="a-hint-box" style="margin-bottom:0.9rem">
+          ℹ️ Anda belum membagikan lokasi. Tekan <strong>"Bagikan Lokasi Saya"</strong> di bawah
+          agar pelanggan bisa melihat posisi Anda.
+        </div>
+      <% } %>
+
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:0.9rem">
+        <button type="button" class="btn-a btn-a--primary" id="presenceShareBtn">📡 Bagikan Lokasi Saya</button>
+        <button type="button" class="btn-a btn-a--ghost" id="presenceRefreshBtn">⟳ Muat Ulang</button>
+        <button type="button" class="btn-a btn-a--danger" id="presenceStopBtn" hidden>⏹ Berhenti</button>
+      </div>
+
+      <p class="a-hint-box" id="presenceNote" role="status" aria-live="polite" hidden></p>
+
+      <% if (peers.length === 0) { %>
+        <div class="a-empty-state">
+          <strong>Belum ada yang online</strong>
+          <p>Minta pelanggan membuka halaman "Lokasi Saya" dan menekan tombol berbagi lokasi.</p>
+        </div>
+      <% } else { %>
+        <ul class="a-list" id="presenceList">
+          <% peers.forEach(function (p) { %>
+            <li>
+              <span style="flex:1; min-width:0">
+                <strong><%= p.displayName %></strong>
+                <span class="a-chip" style="margin-left:0.4rem"><%= p.role === 'admin' ? 'Tim' : 'Pelanggan' %></span>
+                <br>
+                <span style="opacity:0.75; font-size:0.82rem">
+                  <%= Number(p.lat).toFixed(5) %>, <%= Number(p.lng).toFixed(5) %>
+                  <% if (p.accuracy) { %>· ± <%= Math.round(p.accuracy) %> m<% } %>
+                  <% if (p.distanceLabel) { %>· dari Anda: <%= p.distanceLabel %><% } %>
+                </span>
+                <% if (p.phone) { %>
+                  <br><span style="opacity:0.75; font-size:0.82rem">
+                    📞 <a href="https://wa.me/<%= String(p.phone).replace(/[^0-9]/g, '') %>" target="_blank" rel="noopener"><%= p.phone %></a>
+                  </span>
+                <% } %>
+              </span>
+              <span style="opacity:0.7; font-size:0.78rem; white-space:nowrap"><%= formatDateShort(p.at) %></span>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+  </div>
+<% } %>
+
+<script src="/js/presence.js"></script>
+<script src="/js/location-permission.js"></script>
+<script>
+(function () {
+  var btn = document.getElementById('presenceShareBtn');
+  var stopBtn = document.getElementById('presenceStopBtn');
+  var refreshBtn = document.getElementById('presenceRefreshBtn');
+  var note = document.getElementById('presenceNote');
+  var statusEl = document.getElementById('presenceStatus');
+  var listEl = document.getElementById('presenceList');
+  if (!btn) return;
+
+  var LP = window.LocationPermission;
+  var P = window.SylPresence;
+
+  function showNote(text, kind) {
+    if (!note) return;
+    note.hidden = false;
+    note.textContent = text;
+    note.style.borderLeftColor = kind === 'warn' ? 'var(--a-red,#d64545)' : 'var(--a-green,#2e9e63)';
+  }
+
+  function renderPeers(peers) {
+    if (!listEl) return;
+    var rows = peers.map(function (p) {
+      var roleLabel = p.role === 'admin' ? 'Tim' : 'Pelanggan';
+      var dist = typeof p.distance === 'number' ? ' · dari Anda: ' + P.formatDistance(p.distance) : '';
+      return '<li><span style="flex:1;min-width:0"><strong>' + (p.name || '-') + '</strong>' +
+        '<span class="a-chip" style="margin-left:0.4rem">' + roleLabel + '</span><br>' +
+        '<span style="opacity:0.75;font-size:0.82rem">' +
+        p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + dist +
+        (p.stale ? ' · <em>offline — data terakhir</em>' : '') +
+        '</span></span></li>';
+    }).join('');
+    listEl.innerHTML = rows;
+  }
+
+  function syncStatus(s) {
+    if (statusEl) {
+      statusEl.textContent = s.online ? '● Online' : '○ Offline';
+    }
+    if (stopBtn) stopBtn.hidden = !s.sharing;
+    if (s.peers && window.SylMap && window.SylMap.setPeers) {
+      window.SylMap.setPeers(s.peers);
+    }
+    if (s.self && s.self.lat !== null && s.self.lat !== undefined
+      && window.SylMap && window.SylMap.setLive) {
+      window.SylMap.setLive(s.self.lat, s.self.lng, s.self.accuracy);
+    }
+    if (!s.online && s.lastError) showNote(s.lastError, 'warn');
+  }
+
+  // Mulai modul presence (state awal + SSE).
+  if (P) {
+    P.init({ csrf: '<%= csrfToken %>' });
+    P.on(function (s) {
+      syncStatus(s);
+      renderPeers(s.peers);
+    });
+  }
+
+  btn.addEventListener('click', function () {
+    if (!LP || !LP.request) {
+      showNote('Modul izin lokasi gagal dimuat. Muat ulang halaman.', 'warn');
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Membaca GPS…';
+    LP.request(
+      function (pos) {
+        btn.disabled = false;
+        btn.textContent = '📡 Bagikan Lokasi Saya';
+        if (P) {
+          P.share();
+          P.on(function () {});
+          P.refresh();
+        }
+        showNote('Lokasi Anda sedang dibagikan. Pelanggan dapat melihat posisi Anda di peta.', 'ok');
+      },
+      function (code, message) {
+        btn.disabled = false;
+        btn.textContent = '📡 Bagikan Lokasi Saya';
+        showNote(message, 'warn');
+      }
+    );
+  });
+
+  if (stopBtn) {
+    stopBtn.addEventListener('click', function () {
+      if (P) P.stop();
+      showNote('Berhenti membagikan lokasi.', 'ok');
+    });
+  }
+
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', function () {
+      if (P) P.refresh();
+    });
+  }
+})();
+</script>

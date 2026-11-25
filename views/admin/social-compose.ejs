@@ -1,0 +1,275 @@
+<%
+/**
+ * Composer "Tulis & Publikasikan".
+ *
+ * Struktur dua kolom (responsive jadi satu kolom di <=1080px):
+ *  - Sisi kiri  : pemilih kanal tujuan + field wajib per platform
+ *  - Sisi kanan : isi konten, tautan, jenis post, media, dan aksi terbit
+ *
+ * Semua metadata platform (warna merek, batas panjang, field wajib)
+ * sudah disiapkan di route supaya view tidak perlu lookup ulang.
+ *
+ * CATATAN HTML: form unggah media TIDAK boleh diletakkan di dalam form
+ * utama (nested form itu invalid dan browser akan mematahkannya).
+ * Solusinya: elemen <form id="soMediaUpload"> diletakkan DI LUAR form
+ * utama, lalu field berkas & tombolnya memakai atribut HTML5 `form=`
+ * yang mengaitkannya ke form tersebut.
+ */
+const mediaList = (typeof media !== 'undefined' && media) ? media : [];
+const pickedMedia = (typeof selectedMedia !== 'undefined' && selectedMedia) ? selectedMedia : [];
+%>
+
+<div class="admin-head">
+  <div>
+    <h1>Tulis &amp; Publikasikan</h1>
+    <p>Buat satu konten lalu terbitkan ke banyak kanal sekaligus, jadwalkan, atau simpan sebagai draf.</p>
+  </div>
+  <div class="admin-head__actions">
+    <a href="/admin/social" class="btn-a btn-a--ghost btn-a--sm">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-share"/></svg></span>Kanal
+    </a>
+    <a href="/admin/social/riwayat" class="btn-a btn-a--ghost btn-a--sm">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-calendar"/></svg></span>Riwayat
+    </a>
+  </div>
+</div>
+
+<% if (error) { %>
+  <div class="flash flash--error" style="margin-bottom:1.2rem"><%= error %></div>
+<% } %>
+
+<% if (!integrations.length) { %>
+  <div class="a-so-empty">
+    <span class="a-so-empty__icon"><svg viewBox="0 0 22 22"><use href="#i-share"/></svg></span>
+    <strong>Belum ada kanal terhubung</strong>
+    <p>
+      <% if (!configured) { %>
+        Postiz belum dikonfigurasi. Isi URL API &amp; API Key terlebih dahulu, lalu hubungkan akun.
+      <% } else { %>
+        Instance Postiz tidak dapat dihubungi. Periksa konfigurasi pada halaman
+        <a href="/admin/social">Connect Social Media</a>.
+      <% } %>
+    </p>
+    <a href="/admin/social" class="btn-a btn-a--primary btn-a--sm">Ke pengaturan kanal</a>
+  </div>
+<% } else { %>
+  <form action="/admin/social/tulis" method="post" class="a-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+    <div class="a-so-composer">
+      <!-- ============ Sisi kiri: kanal tujuan ============ -->
+      <aside class="a-so-composer__side">
+        <section class="panel">
+          <div class="panel__head">
+            <h2>1. Pilih Kanal Tujuan</h2>
+          </div>
+          <div style="padding:0 1.1rem 1.1rem">
+            <div class="a-so-pick">
+              <% integrations.forEach(function (it) { %>
+                <label class="a-so-pick__item" data-max="<%= it.maxLength || '' %>">
+                  <input type="checkbox" name="channels" value="<%= it.id %>">
+                  <% if (it.picture) { %>
+                    <img class="a-so-pick__logo" src="<%= it.picture %>" alt="" loading="lazy">
+                  <% } else { %>
+                    <span class="a-so-pick__logo" style="--brand: <%= it.color %>"><%= it.glyph %></span>
+                  <% } %>
+                  <span class="a-so-pick__body">
+                    <span class="a-so-pick__name"><%= it.name %></span>
+                    <span class="a-so-pick__meta">
+                      <%= it.platformLabel %><%= it.profile ? ' · ' + it.profile : '' %>
+                    </span>
+                  </span>
+                  <% if (it.maxLength) { %>
+                    <span class="a-so-pick__limit"><%= it.maxLength %></span>
+                  <% } %>
+                </label>
+              <% }) %>
+            </div>
+            <p class="help" style="margin-top:0.8rem">
+              Bisa memilih beberapa kanal sekaligus - isi konten sama dikirim ke semuanya.
+              <% if (integrations.some(function (i) { return i.disabled; })) { %>
+                Kanal nonaktif akan ditolak oleh Postiz saat mengirim.
+              <% } %>
+            </p>
+          </div>
+        </section>
+
+        <%# Field wajib per platform (Pinterest board, Reddit subreddit) %>
+        <%
+        const needsList = [];
+        integrations.forEach(function (it) {
+          if (it.requires && !needsList.some(function (n) { return n.key === it.requires.key; })) {
+            needsList.push(it.requires);
+          }
+        });
+        %>
+        <% if (needsList.length) { %>
+          <section class="panel">
+            <div class="panel__head">
+              <h2>2. Field Wajib Platform</h2>
+            </div>
+            <div style="padding:0 1.1rem 1.1rem;display:grid;gap:0.6rem">
+              <% needsList.forEach(function (n) { %>
+                <div class="a-so-required">
+                  <span class="a-so-required__label"><%= n.label %></span>
+                  <input type="text" name="req_<%= n.key %>" placeholder="<%= n.hint %>" autocomplete="off">
+                  <span class="help">Posts tanpa nilai ini akan ditolak Postiz (HTTP 400).</span>
+                </div>
+              <% }) %>
+            </div>
+          </section>
+        <% } %>
+      </aside>
+
+      <!-- ============ Sisi kanan: isi & terbit ============ -->
+      <div class="a-so-composer__main">
+        <section class="panel">
+          <div class="panel__head">
+            <h2><%= needsList.length ? '3' : '2' %>. Tulis Konten</h2>
+          </div>
+          <div style="padding:0 1.1rem 1.1rem">
+            <div class="a-field">
+              <label for="content">Isi post</label>
+              <textarea id="content" name="content" rows="8" required
+                        placeholder="Tulis caption Anda di sini..."><%= defaults.content || '' %></textarea>
+              <div class="a-so-counter">
+                <span class="a-so-counter__bar"><span class="a-so-counter__fill" id="soCounterFill"></span></span>
+                <span class="a-so-counter__num" id="soCounterNum">0</span>
+              </div>
+              <span class="help">
+                Batas mengikuti kanal terpilih (paling ketat ikut dihitung). Tautan ditulis di kolom
+                <strong>Tautan</strong> bila perlu.
+              </span>
+            </div>
+
+            <div class="a-form-grid" style="margin-top:1rem">
+              <div class="a-field">
+                <label for="link">Tautan (opsional)</label>
+                <input type="url" id="link" name="link" placeholder="https://jalanjalanenak.com/paket">
+              </div>
+              <div class="a-field">
+                <label for="postType">Jenis Post</label>
+                <select id="postType" name="postType">
+                  <option value="post">Post biasa</option>
+                  <option value="story">Story</option>
+                </select>
+                <span class="help">Story hanya relevan untuk Instagram &amp; Facebook.</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <%# Media: unggah ke Postiz lalu pilih yang mau dipakai %>
+        <section class="panel">
+          <div class="panel__head">
+            <h2>Media (opsional)</h2>
+            <span class="help">Foto membuat jangkauan lebih luas di Instagram, Facebook &amp; TikTok.</span>
+          </div>
+          <div style="padding:0 1.1rem 1.1rem">
+            <% if (mediaList.length) { %>
+              <div class="a-so-links" style="margin-bottom:0.9rem">
+                <% mediaList.forEach(function (m, i) { %>
+                  <label class="a-so-link" style="cursor:pointer">
+                    <input type="checkbox" name="media" value="<%= i %>"
+                           <%= pickedMedia.indexOf(i) !== -1 ? 'checked' : '' %>
+                           style="width:17px;height:17px;accent-color:var(--accent)">
+                    <span class="a-so-link__body">
+                      <span class="a-so-link__name"><%= m.name || ('Media ' + (i + 1)) %></span>
+                      <span class="a-so-link__url">ID <%= m.id %></span>
+                    </span>
+                  </label>
+                <% }) %>
+              </div>
+            <% } %>
+
+            <div class="a-field">
+              <label for="mediaFile">Unggah gambar</label>
+              <input type="file" id="mediaFile" name="mediaFile" accept="image/*" form="soMediaUpload" required>
+              <span class="help">
+                JPG/PNG/WEBP, maksimal 5 MB. Gambar dikompresi ke rasio 1:1 lalu dikirim ke Postiz.
+              </span>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn-a btn-a--ghost btn-a--sm" form="soMediaUpload">Unggah ke Postiz</button>
+            </div>
+          </div>
+        </section>
+
+        <%# Aksi terbit %>
+        <section class="panel">
+          <div class="panel__head">
+            <h2><%= needsList.length ? '4' : '3' %>. Terbitkan</h2>
+          </div>
+          <div style="padding:0 1.1rem 1.1rem">
+            <div class="a-form-grid">
+              <div class="a-field">
+                <label for="mode">Mode</label>
+                <select id="mode" name="mode">
+                  <option value="now">Terbitkan sekarang</option>
+                  <option value="schedule">Jadwalkan</option>
+                  <option value="draft">Simpan sebagai draf</option>
+                </select>
+              </div>
+              <div class="a-field">
+                <label for="publishAt">Waktu terbit (untuk mode jadwal)</label>
+                <input type="datetime-local" id="publishAt" name="publishAt">
+                <span class="help">Abaikan bila mode "Terbitkan sekarang" atau "Draf".</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="a-so-actions">
+          <span class="a-so-actions__hint">Postiz membatasi 90 permintaan publish per jam.</span>
+          <span class="a-so-actions__spacer"></span>
+          <a href="/admin/social" class="btn-a btn-a--ghost btn-a--sm">Batal</a>
+          <button type="submit" class="btn-a btn-a--primary">Kirim ke Postiz</button>
+        </div>
+      </div>
+    </div>
+  </form>
+
+  <%# Form unggah media (terpisah dari form utama, lihat catatan HTML di atas) %>
+  <form id="soMediaUpload" action="/admin/social/unggah" method="post" enctype="multipart/form-data" hidden>
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  </form>
+<% } %>
+
+<script>
+  /* Penghitung karakter: batas = kanal terpilih yang paling ketat. */
+  (function () {
+    var area = document.getElementById('content');
+    var fill = document.getElementById('soCounterFill');
+    var num = document.getElementById('soCounterNum');
+    if (!area || !fill || !num) return;
+
+    /* Batas cadangan bila kanal tidak punya nilai maxLength. */
+    var DEFAULT_MAX = 2200;
+
+    function selectedMax() {
+      var limits = [];
+      var boxes = document.querySelectorAll('input[name="channels"]:checked');
+      for (var i = 0; i < boxes.length; i++) {
+        var item = boxes[i].closest('.a-so-pick__item');
+        var max = item ? parseInt(item.getAttribute('data-max') || '', 10) : NaN;
+        if (!isNaN(max) && max > 0) limits.push(max);
+      }
+      return limits.length ? Math.min.apply(null, limits) : DEFAULT_MAX;
+    }
+
+    function update() {
+      var len = area.value.length;
+      var max = selectedMax();
+      var ratio = Math.min(1, len / max);
+      num.textContent = len + ' / ' + max;
+      fill.style.width = (ratio * 100) + '%';
+      fill.className = 'a-so-counter__fill' + (len > max ? ' is-over' : (ratio > 0.85 ? ' is-warn' : ''));
+      num.parentNode.className = 'a-so-counter' + (len > max ? ' is-over' : '');
+    }
+
+    area.addEventListener('input', update);
+    var boxes = document.querySelectorAll('input[name="channels"]');
+    for (var i = 0; i < boxes.length; i++) boxes[i].addEventListener('change', update);
+    update();
+  })();
+</script>

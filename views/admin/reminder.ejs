@@ -1,0 +1,107 @@
+<div class="admin-head">
+  <div>
+    <h1>Pengingat WhatsApp</h1>
+    <p>Pesan pengingat otomatis ke pelanggan: konfirmasi booking, pengingat bayar, dan info keberangkatan.</p>
+  </div>
+  <div class="admin-head__actions">
+    <% if (!ready) { %><span class="badge badge--cancelled">WhatsApp belum terhubung</span><% } %>
+    <% if (quiet) { %><span class="badge badge--pending">Jam tenang (<%= quietLabel %>)</span><% } %>
+    <form action="/admin/marketing/pengingat/jalankan" method="post" style="display:inline">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button type="submit" class="btn-a btn-a--sunset btn-a--sm" <%= !ready || quiet ? 'disabled' : '' %>>▶ Jalankan Sekarang</button>
+    </form>
+  </div>
+</div>
+
+<% if (!ready) { %>
+  <div class="flash flash--error" style="margin-bottom:1.2rem">
+    WhatsApp belum terhubung. <a href="/admin/marketing/whatsapp">Hubungkan perangkat dulu</a> sebelum mengirim pengingat.
+  </div>
+<% } %>
+<% if (quiet) { %>
+  <div class="flash flash--info" style="margin-bottom:1.2rem">
+    Sedang jam tenang (<%= quietLabel %>). Pengingat otomatis &amp; tombol kirim akan ditunda sampai jam sibuk.
+  </div>
+<% } %>
+
+<div class="panel" style="margin-bottom:1.4rem">
+  <div class="panel__head">
+    <h2>Pengingat yang Siap Dikirim (<%= due.length %>)</h2>
+  </div>
+  <% if (!due.length) { %>
+    <p style="color:var(--a-soft); font-size:0.9rem; padding:0 1rem 1rem">
+      Tidak ada pengingat yang jatuh tempo saat ini. Pengingat otomatis berjalan setiap 30 menit.
+    </p>
+  <% } else { %>
+    <div class="a-table-wrap">
+      <table class="a-table">
+        <thead><tr><th>Aturan</th><th>Booking</th><th>Penerima</th><th>Isi Pesan</th></tr></thead>
+        <tbody>
+          <% due.forEach((d) => { %>
+            <tr>
+              <td><span class="badge badge--pending"><%= d.label %></span></td>
+              <td><small><strong><%= d.booking.code %></strong><br><%= d.booking.packageName %></small></td>
+              <td><small><%= d.booking.name %><br><%= d.booking.phone %></small></td>
+              <td><small style="white-space:pre-wrap"><%= d.text %></small></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>
+
+<div class="panel" style="margin-bottom:1.4rem">
+  <div class="panel__head"><h2>Aturan Pengingat</h2></div>
+  <div class="a-table-wrap">
+    <table class="a-table">
+      <thead><tr><th>Aturan</th><th>Kapan dikirim</th><th>Contoh isi</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Konfirmasi booking</strong></td>
+          <td><small>15 menit setelah booking dibuat</small></td>
+          <td><small style="white-space:pre-wrap"><%= templates.bookingCreated %></small></td>
+        </tr>
+        <tr>
+          <td><strong>Pengingat pembayaran</strong></td>
+          <td><small>H+1 setelah booking, selama belum lunas</small></td>
+          <td><small style="white-space:pre-wrap"><%= templates.paymentReminder %></small></td>
+        </tr>
+        <tr>
+          <td><strong>Pengingat keberangkatan</strong></td>
+          <td><small>3 hari sebelum tanggal berangkat, sudah lunas</small></td>
+          <td><small style="white-space:pre-wrap"><%= templates.departureReminder %></small></td>
+        </tr>
+        <tr>
+          <td><strong>Booking terkonfirmasi</strong></td>
+          <td><small>Saat admin mengubah status jadi "terkonfirmasi"</small></td>
+          <td><small style="white-space:pre-wrap"><%= templates.confirmed %></small></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="help" style="margin-top:0.8rem">
+    Placeholder yang bisa dipakai: <code>{{nama}}</code>, <code>{{kode}}</code>, <code>{{namaPaket}}</code>,
+    <code>{{tanggal}}</code>, <code>{{rekening}}</code>, <code>{{atasNama}}</code>, <code>{{detail}}</code>.
+    Template dapat diubah di <a href="/admin/pengaturan">Pengaturan</a>.
+  </p>
+</div>
+
+<div class="panel">
+  <div class="panel__head"><h2>Riwayat Pengingat Terkirim</h2></div>
+  <div class="a-table-wrap">
+    <table class="a-table">
+      <thead><tr><th>Waktu</th><th>Aturan</th><th>Nomor</th></tr></thead>
+      <tbody>
+        <% history.forEach((h) => { %>
+          <tr>
+            <td><small><%= formatDateShort(h.sentAt) %></small></td>
+            <td><small><%= h.rule %></small></td>
+            <td><small><%= h.phone %></small></td>
+          </tr>
+        <% }) %>
+        <% if (!history.length) { %><tr><td colspan="3" style="text-align:center; padding:1.6rem">Belum ada pengingat yang terkirim.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+</div>

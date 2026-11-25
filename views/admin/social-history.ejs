@@ -1,0 +1,107 @@
+<%
+/**
+ * Halaman "Riwayat Publikasi".
+ *
+ * Bentuk resmi respons Postiz (GET /posts):
+ * { id, content, settings, publishDate, releaseURL, state, error, integration }
+ *
+ * Nilai `state` yang sah: QUEUE | PUBLISHED | ERROR | DRAFT.
+ * Peta label & warna diambil dari social.postStateMeta() supaya satu
+ * sumber kebenaran untuk seluruh aplikasi.
+ */
+%>
+
+<div class="admin-head">
+  <div>
+    <h1>Riwayat Publikasi</h1>
+    <p>Daftar post yang sudah diterbitkan atau dijadwalkan melalui Postiz.</p>
+  </div>
+  <div class="admin-head__actions">
+    <a href="/admin/social" class="btn-a btn-a--ghost btn-a--sm">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-share"/></svg></span>Kanal
+    </a>
+    <a href="/admin/social/tulis" class="btn-a btn-a--primary btn-a--sm">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-pen"/></svg></span>Tulis Konten
+    </a>
+  </div>
+</div>
+
+<% if (error) { %>
+  <div class="flash flash--error" style="margin-bottom:1.2rem"><%= error %></div>
+<% } %>
+
+<section class="panel">
+  <div class="panel__head">
+    <h2>Post Terakhir</h2>
+    <span class="help">Rentang default: 7 hari ke belakang sampai 30 hari ke depan.</span>
+  </div>
+
+  <% if (!posts.length) { %>
+    <div class="a-so-empty" style="margin:1.2rem">
+      <span class="a-so-empty__icon"><svg viewBox="0 0 22 22"><use href="#i-calendar"/></svg></span>
+      <strong>Belum ada riwayat</strong>
+      <p>
+        <% if (error) { %>
+          Riwayat tidak dapat dimuat karena instance Postiz belum dapat dihubungi.
+        <% } else { %>
+          Post yang diterbitkan lewat menu Tulis &amp; Publikasikan akan muncul di sini.
+        <% } %>
+      </p>
+      <% if (!error) { %>
+        <a href="/admin/social/tulis" class="btn-a btn-a--primary btn-a--sm">Tulis konten pertama</a>
+      <% } %>
+    </div>
+  <% } else { %>
+    <div class="a-so-history" style="padding:0 1.2rem 1.2rem">
+      <% posts.forEach(function (p) {
+           const content = String(p.content || '');
+           const when = p.publishDate || p.date || p.createdAt || '';
+           const integration = p.integration || {};
+           const meta = social.postStateMeta(p.state || p.status);
+           const channelName = integration.name || integration.identifier || '';
+           const platform = social.getPlatformByIdentifier(integration.identifier);
+           const brandColor = platform ? platform.color : '#64748b';
+           const brandGlyph = platform ? platform.glyph : String(channelName || '?').slice(0, 2).toUpperCase();
+           const releaseUrl = p.releaseURL || '';
+      %>
+        <article class="a-so-post">
+          <span class="a-so-post__logo" style="--brand: <%= brandColor %>"><%= brandGlyph %></span>
+
+          <div class="a-so-post__body">
+            <p class="a-so-post__content"><%= content ? content.slice(0, 300) : 'Post tanpa teks' %></p>
+            <div class="a-so-post__meta">
+              <span class="badge badge--<%= meta.tone %>"><%= meta.label %></span>
+              <span><%= when ? formatDateShort(when) : 'Tanpa tanggal' %></span>
+              <% if (channelName) { %><span><%= channelName %></span><% } %>
+              <% if (releaseUrl) { %>
+                <a href="<%= releaseUrl %>" target="_blank" rel="noopener">Buka di platform &#8599;</a>
+              <% } %>
+            </div>
+            <% if (p.error) { %>
+              <p class="a-so-post__error"><%= p.error %></p>
+            <% } %>
+          </div>
+
+          <div class="a-so-post__side">
+            <div class="a-so-post__actions">
+              <% if (meta.key === 'draft' || meta.key === 'queued') { %>
+                <form action="/admin/social/riwayat/<%= p.id %>/status" method="post">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <input type="hidden" name="mode" value="<%= meta.key === 'draft' ? 'schedule' : 'draft' %>">
+                  <button type="submit" class="btn-a btn-a--ghost btn-a--sm">
+                    <%= meta.key === 'draft' ? 'Jadwalkan' : 'Jadikan Draf' %>
+                  </button>
+                </form>
+              <% } %>
+              <form action="/admin/social/riwayat/<%= p.id %>/hapus" method="post"
+                    onsubmit="return confirm('Hapus post ini dari Postiz?')">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="btn-a btn-a--ghost btn-a--sm">Hapus</button>
+              </form>
+            </div>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  <% } %>
+</section>

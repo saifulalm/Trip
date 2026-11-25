@@ -110,7 +110,7 @@ function travelAgency(settings) {
       streetAddress: settings.address,
       addressCountry: 'ID'
     },
-    sameAs: [settings.instagram, settings.facebook].filter(Boolean)
+    sameAs: require('./services/social').sameAsUrls(settings)
   };
   if (settings.logo) out.logo = settings.logo;
   return out;

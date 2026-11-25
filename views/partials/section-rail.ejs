@@ -1,0 +1,34 @@
+<%#
+  Rail navigasi section (sisi kanan) — khusus halaman beranda (onepage).
+
+  Menampilkan daftar section beranda sebagai titik navigasi. Section aktif
+  ditandai oleh scrollspy (public/js/onepage.js) lewat atribut
+  `data-section-nav` pada tiap tombol.
+
+  Parameter include (opsional):
+    sectionNavItems  array [{ id, label }] — daftar section beranda.
+                      Bila tidak diisi, rail tidak dirender sama sekali.
+
+  Catatan: variabel lokal memakai awalan "s_" agar tidak bentrok dengan
+  parameter include (variable shadowing → TDZ error di EJS).
+%>
+<%
+const s_items = (typeof sectionNavItems !== 'undefined' && Array.isArray(sectionNavItems)) ? sectionNavItems : [];
+%>
+<% if (s_items.length > 1) { %>
+<nav class="section-rail" aria-label="Navigasi section beranda" data-section-rail>
+  <ul class="section-rail__list">
+    <% s_items.forEach(function (it) { %>
+      <li class="section-rail__item">
+        <a class="section-rail__link"
+           href="#<%= it.id %>"
+           data-section-nav="<%= it.id %>"
+           aria-label="Ke bagian <%= it.label %>">
+          <span class="section-rail__dot" aria-hidden="true"></span>
+          <span class="section-rail__label"><%= it.label %></span>
+        </a>
+      </li>
+    <% }); %>
+  </ul>
+</nav>
+<% } %>

@@ -16,6 +16,15 @@ function verifyCsrf(req, res, next) {
   // Webhook payment gateway bersifat server-to-server tanpa sesi —
   // keamanannya dijamin verifikasi signature masing-masing gateway.
   if (req.path.startsWith('/payment/webhook/')) return next();
+  // Webhook OpenWA juga server-to-server (gateway → backend). Autentikasinya
+  // HMAC-SHA256 atas body mentah, bukan token sesi. Router webhook sudah
+  // memverifikasi signature sebelum sampai ke sini.
+  if (req.path.startsWith('/api/webhooks/openwa')) return next();
+  // Body multipart/form-data belum terurai pada tahap ini (multer berjalan
+  // di level route). Verifikasi CSRF-nya dilakukan setelah body terurai —
+  // lihat middleware/upload.js.
+  const contentType = String(req.headers['content-type'] || '');
+  if (contentType.startsWith('multipart/form-data')) return next();
   const token = (req.body && req.body._csrf) || req.headers['x-csrf-token'];
   if (!req.session || !safeEqual(token, req.session.csrf)) {
     return res.status(403).render('pages/error', {

@@ -2,10 +2,8 @@
 
 const express = require('express');
 const db = require('../db');
-const helpers = require('../utils/helpers');
-const { upload } = require('../multer');
 const { flash } = require('../middleware/context');
-const gateways = require('../payment/gateways');
+const ipaymu = require('../payment/ipaymu');
 
 const router = express.Router();
 
@@ -17,9 +15,10 @@ function findBooking(code) {
 
 const PAY_LABEL = {
   unpaid: 'Belum dibayar',
-  awaiting_review: 'Menunggu verifikasi admin',
+  pending: 'Menunggu pembayaran',
   paid: 'Lunas',
-  failed: 'Pembayaran gagal'
+  failed: 'Pembayaran gagal',
+  expired: 'Kedaluwarsa'
 };
 
 function payLabel(s) {
@@ -35,12 +34,11 @@ router.get('/pembayaran/:code', (req, res, next) => {
     booking,
     payLabel,
     payStatus: booking.paymentStatus || 'unpaid',
-    midtransOn: gateways.isMidtransConfigured(data.settings),
-    tripayOn: gateways.isTripayConfigured(data.settings)
+    ipaymuOn: ipaymu.isIpaymuConfigured(data.settings)
   });
 });
 
-/* Mulai pembayaran via gateway (Midtrans / Tripay). */
+/* Mulai pembayaran lewat iPaymu (Redirect Payment). */
 router.post('/pembayaran/:code/bayar', async (req, res, next) => {
   const { data, booking } = findBooking(req.params.code);
   if (!booking) return next();
@@ -48,21 +46,17 @@ router.post('/pembayaran/:code/bayar', async (req, res, next) => {
     flash('info', 'Booking ini sudah lunas.', req);
     return res.redirect(`/pembayaran/${booking.code}`);
   }
-  const method = String(req.body.method || '');
+  if (!ipaymu.isIpaymuConfigured(data.settings)) {
+    flash('error', 'Pembayaran online belum dikonfigurasi. Silakan hubungi kami untuk bantuan.', req);
+    return res.redirect(`/pembayaran/${booking.code}`);
+  }
+
   try {
-    let result;
-    if (method === 'midtrans' && gateways.isMidtransConfigured(data.settings)) {
-      result = await gateways.midtransCreate({ settings: data.settings, booking, req });
-    } else if (method === 'tripay' && gateways.isTripayConfigured(data.settings)) {
-      result = await gateways.tripayCreate({ settings: data.settings, booking, req });
-    } else {
-      flash('error', 'Metode pembayaran tidak dikenal atau belum dikonfigurasi.', req);
-      return res.redirect(`/pembayaran/${booking.code}`);
-    }
+    const result = await ipaymu.ipaymuCreate({ settings: data.settings, booking, req });
     booking.paymentMethod = result.gateway;
     booking.paymentRef = result.ref;
     booking.paymentUrl = result.url;
-    booking.paymentStatus = 'unpaid';
+    booking.paymentStatus = 'pending';
     db.write();
     res.redirect(result.url);
   } catch (err) {
@@ -71,55 +65,47 @@ router.post('/pembayaran/:code/bayar', async (req, res, next) => {
   }
 });
 
-/* Konfirmasi manual transfer: tandai "menunggu verifikasi" + opsional bukti. */
-router.post('/pembayaran/:code/manual', upload.single('proof'), (req, res, next) => {
-  const { data, booking } = findBooking(req.params.code);
-  if (!booking) return next();
-  booking.paymentMethod = 'manual';
-  booking.paymentStatus = 'awaiting_review';
-  booking.paymentNote = String(req.body.note || '').trim().slice(0, 300);
-  if (req.file) booking.proofImage = `/uploads/${req.file.filename}`;
-  db.write();
-  flash('success', `Terima kasih! Bukti transfer booking ${booking.code} diterima. Admin akan memverifikasi maksimal 1×24 jam.`, req);
-  res.redirect(`/pembayaran/${booking.code}`);
-});
-
-/* Webhook Midtrans (server-to-server). */
-router.post('/payment/webhook/midtrans', express.json(), (req, res) => {
+/* Webhook iPaymu (server-to-server). Signature diverifikasi dengan VA. */
+router.post('/payment/webhook/ipaymu', (req, res) => {
   const data = db.read();
-  const verdict = gateways.midtransVerify(req.body, data.settings);
-  if (!verdict.ok) return res.status(403).json({ ok: false, reason: verdict.reason });
-  const booking = (data.bookings || []).find((b) => b.code === verdict.orderId);
-  if (!booking) return res.status(404).json({ ok: false, reason: 'Order tidak ditemukan.' });
+  const signature = req.headers['x-signature'];
+  const verdict = ipaymu.ipaymuVerify(req.body, signature, data.settings);
+
+  // Selalu balas 200 agar iPaymu tidak mengulang notifikasi — kecuali bila
+  // signature memang salah (permintaan dari pihak lain, bukan iPaymu).
+  if (!verdict.ok) {
+    return res.status(403).json({ ok: false, reason: verdict.reason });
+  }
+
+  const orderId = verdict.orderId;
+  const booking = (data.bookings || []).find((b) => b.code === orderId);
+  if (!booking) {
+    return res.status(404).json({ ok: false, reason: 'Order tidak ditemukan.' });
+  }
+
+  // Idempoten: jangan proses ulang transaksi yang sudah lunas.
+  if (booking.paymentStatus === 'paid') {
+    return res.json({ ok: true, already: true });
+  }
+
   if (verdict.paid) {
     booking.paymentStatus = 'paid';
     booking.paidAt = new Date().toISOString();
+    booking.paymentMethod = 'ipaymu';
     if (booking.status === 'pending') booking.status = 'confirmed';
   } else {
     booking.paymentStatus = 'failed';
   }
-  booking.paymentGatewayRaw = { gateway: 'midtrans', status: verdict.raw && verdict.raw.transaction_status };
-  db.write();
-  res.json({ ok: true });
-});
 
-/* Webhook Tripay (server-to-server, butuh raw body untuk signature). */
-router.post('/payment/webhook/tripay', (req, res) => {
-  const rawBody = req.rawBody || '';
-  const data = db.read();
-  const verdict = gateways.tripayVerify(rawBody, data.settings);
-  if (!verdict.ok) return res.status(403).json({ ok: false, reason: verdict.reason });
-  const booking = (data.bookings || []).find((b) => b.code === verdict.orderId);
-  if (!booking) return res.status(404).json({ ok: false, reason: 'Order tidak ditemukan.' });
-  if (verdict.paid) {
-    booking.paymentStatus = 'paid';
-    booking.paidAt = new Date().toISOString();
-    if (booking.status === 'pending') booking.status = 'confirmed';
-  } else {
-    booking.paymentStatus = 'failed';
-  }
-  booking.paymentGatewayRaw = { gateway: 'tripay', status: verdict.raw && verdict.raw.status };
+  booking.paymentGatewayRaw = {
+    gateway: 'ipaymu',
+    status: verdict.raw && verdict.raw.status,
+    trxId: verdict.raw && verdict.raw.trx_id,
+    via: verdict.raw && verdict.raw.via,
+    channel: verdict.raw && verdict.raw.channel
+  };
   db.write();
+
   res.json({ ok: true });
 });
 

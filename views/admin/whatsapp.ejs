@@ -1,0 +1,246 @@
+<div class="admin-head">
+  <div>
+    <h1>WhatsApp</h1>
+    <p>Gateway WhatsApp open-source <strong>OpenWA</strong> (self-hosted). Hubungkan perangkat sekali, lalu blast &amp; pengingat jalan otomatis.</p>
+  </div>
+  <div class="admin-head__actions">
+    <span class="a-live is-connecting" data-rt-status data-state="connecting" role="status" aria-live="polite">
+      <span data-rt-status-text>Menyambung…</span>
+    </span>
+    <span class="a-device__badge <%= waState.status === 'ready' ? 'is-ready' : 'is-off' %>" data-rt-device>
+      <span class="ico"><svg viewBox="0 0 22 22" width="14" height="14"><use href="#i-device"/></svg></span>
+      <span data-rt-device-text><%= waState.status === 'ready' ? 'Terhubung' : 'Belum terhubung' %></span>
+    </span>
+    <a href="/admin/marketing/blast" class="btn-a btn-a--ghost btn-a--sm">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-broadcast"/></svg></span>
+      Blast
+    </a>
+    <a href="/admin/marketing/pengingat" class="btn-a btn-a--ghost btn-a--sm">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-bell"/></svg></span>
+      Pengingat
+    </a>
+  </div>
+</div>
+
+<!-- ===== Ringkasan KPI operasional ===== -->
+<div class="a-stat-grid" style="margin-bottom:1.4rem">
+  <div class="a-stat">
+    <span class="a-stat__label">
+      <svg viewBox="0 0 22 22"><use href="#i-device"/></svg>
+      Perangkat WhatsApp
+    </span>
+    <span class="a-stat__value" style="font-size:1.05rem; line-height:1.6">
+      <%= waState.pushName || (waState.status === 'ready' ? 'Terhubung' : 'Belum terhubung') %>
+    </span>
+    <span class="a-stat__hint"><%= waState.phone || waState.status %></span>
+  </div>
+  <div class="a-stat">
+    <span class="a-stat__label">
+      <svg viewBox="0 0 22 22"><use href="#i-broadcast"/></svg>
+      Job Menunggu
+    </span>
+    <span class="a-stat__value" data-rt-pending><%= workerStatus.pending %></span>
+    <span class="a-stat__hint">Worker blast <%= workerStatus.running ? 'aktif' : 'nonaktif' %></span>
+  </div>
+  <div class="a-stat">
+    <span class="a-stat__label">
+      <svg viewBox="0 0 22 22"><use href="#i-mail"/></svg>
+      Pesan Masuk
+    </span>
+    <span class="a-stat__value" data-rt-inbound><%= inbound.length %></span>
+    <span class="a-stat__hint">20 terbaru ditampilkan di bawah</span>
+  </div>
+  <div class="a-stat">
+    <span class="a-stat__label">
+      <svg viewBox="0 0 22 22"><use href="#i-clock"/></svg>
+      Jam Tenang
+    </span>
+    <span class="a-stat__value" style="font-size:1.05rem; line-height:1.6" data-rt-quiet>—</span>
+    <span class="a-stat__hint">Pengiriman otomatis ditunda saat jam tenang</span>
+  </div>
+</div>
+
+<% if (waState.lastError) { %>
+  <div class="flash flash--error" style="margin-bottom:1.2rem"><%= waState.lastError %></div>
+<% } %>
+
+<% if (!gatewayHealth || !gatewayHealth.ok) { %>
+  <div class="flash flash--error" style="margin-bottom:1.2rem">
+    Gateway OpenWA tidak dapat dihubungi di <code><%= gatewayConfig.baseUrl %></code>.
+    <%= gatewayHealth && gatewayHealth.error ? gatewayHealth.error : '' %>
+    Pastikan service OpenWA berjalan dan API Key benar (Pengaturan &rarr; WhatsApp).
+  </div>
+<% } %>
+
+<div class="panel-grid">
+  <!-- ============ Panel koneksi ============ -->
+  <section class="panel">
+    <div class="panel__head"><h2>1. Hubungkan Perangkat</h2></div>
+    <div style="padding:0 0 1rem">
+      <p class="help" style="margin-bottom:0.9rem">
+        Scan QR dengan WhatsApp di HP (<strong>Perangkat Tertaut</strong>). Alternatif: minta kode pairing 8 digit.
+        QR disajikan oleh gateway OpenWA di <code><%= gatewayConfig.baseUrl %></code> (session <code><%= gatewayConfig.sessionName %></code>) —
+        tidak ada token berbayar yang perlu dibeli.
+      </p>
+      <div id="waQrBox" style="text-align:center; margin-bottom:1rem">
+        <% if (waState.status === 'ready') { %>
+          <div style="font-size:2.4rem">✅</div>
+          <p style="font-size:0.9rem; color:var(--a-soft); margin:0.4rem 0 0">
+            Perangkat terhubung sebagai <strong><%= waState.pushName || 'tidak diketahui' %></strong>
+            <% if (waState.phone) { %> (<%= waState.phone %>)<% } %>
+          </p>
+        <% } else { %>
+          <p style="font-size:0.85rem; color:var(--a-soft)">Meminta QR…</p>
+        <% } %>
+      </div>
+
+      <button type="button" class="btn-a btn-a--ghost btn-a--block" id="waRefreshQr">🔄 Minta QR Baru</button>
+
+      <hr style="border-color:var(--a-line); margin:1.1rem 0">
+      <form action="/admin/marketing/whatsapp/pairing" method="post" class="a-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="a-field">
+          <label>Alternatif: Kode Pairing (nomor HP yang akan ditautkan)</label>
+          <input type="text" name="phone" placeholder="628123456789" inputmode="numeric">
+          <span class="help">Muncul kode 8 digit. Masukkan di WhatsApp → Perangkat Tertaut → Tautkan dengan nomor.</span>
+        </div>
+        <div class="form-actions"><button type="submit" class="btn-a btn-a--primary btn-a--block">Minta Kode Pairing</button></div>
+      </form>
+
+      <% if (waState.status === 'ready') { %>
+        <form action="/admin/marketing/whatsapp/logout" method="post" onsubmit="return confirm('Putuskan WhatsApp dan hapus sesi di gateway?')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn-a btn-a--danger btn-a--block"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-trash"/></svg></span>Putuskan &amp; Hapus Sesi</button>
+        </form>
+      <% } %>
+    </div>
+  </section>
+
+
+  <!-- ============ Panel test send ============ -->
+  <section class="panel">
+    <div class="panel__head"><h2>2. Uji Kirim</h2></div>
+    <div style="padding:0 0 1rem">
+      <p class="help" style="margin-bottom:0.9rem">
+        Kirim satu pesan uji ke nomor Anda sendiri untuk memastikan perangkat &amp; pesan berjalan normal.
+        Pengiriman uji juga ditolak saat jam tenang.
+      </p>
+      <form action="/admin/marketing/whatsapp/test" method="post" class="a-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="a-field">
+          <label>Nomor tujuan</label>
+          <input type="text" name="phone" placeholder="628123456789" inputmode="numeric" required>
+        </div>
+        <div class="a-field">
+          <label>Isi pesan</label>
+          <textarea name="message" rows="4" required>Halo! Ini pesan uji dari <%= settings.siteName %> 🌊</textarea>
+        </div>
+        <div class="form-actions"><button type="submit" class="btn-a btn-a--sunset btn-a--block">Kirim Pesan Uji</button></div>
+      </form>
+    </div>
+  </section>
+</div>
+
+<!-- ============ Panel status gateway ============ -->
+<div class="panel" style="margin-top:1.4rem">
+  <div class="panel__head"><h2>3. Status Pengiriman &amp; Gateway</h2></div>
+  <div class="a-table-wrap">
+    <table class="a-table">
+      <thead><tr><th>Komponen</th><th>Status</th><th>Keterangan</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Gateway OpenWA</td>
+          <td><span class="badge badge--<%= gatewayHealth && gatewayHealth.ok ? 'completed' : 'cancelled' %>"><%= gatewayHealth && gatewayHealth.ok ? 'aktif' : 'tidak aktif' %></span></td>
+          <td><small><%= gatewayConfig.baseUrl %></small></td>
+        </tr>
+        <tr>
+          <td>Session WhatsApp</td>
+          <td><span class="badge badge--<%= waState.status === 'ready' ? 'completed' : 'cancelled' %>"><%= waState.status %></span></td>
+          <td><small><%= waState.pushName ? waState.pushName + ' · ' + waState.phone : 'Belum terhubung' %></small></td>
+        </tr>
+        <tr>
+          <td>Webhook inbound</td>
+          <td><span class="badge badge--<%= gatewayConfig.webhookReady ? 'completed' : 'pending' %>"><%= gatewayConfig.webhookReady ? 'siap' : 'belum diatur' %></span></td>
+          <td><small><%= gatewayConfig.webhookUrl || 'Isi OPENWA_WEBHOOK_URL agar pesan masuk tercatat' %></small></td>
+        </tr>
+        <tr>
+          <td>Worker blast</td>
+          <td><span class="badge badge--<%= workerStatus.running ? 'completed' : 'pending' %>"><%= workerStatus.running ? 'aktif' : 'nonaktif' %></span></td>
+          <td><small><%= workerStatus.pending %> job menunggu antrean</small></td>
+        </tr>
+        <tr>
+          <td>Antrean blast</td>
+          <td>
+            <% if (!workerStatus.queued.length) { %>
+              <small>Tidak ada antrean</small>
+            <% } else { %>
+              <% workerStatus.queued.forEach((q) => { %>
+                <div><small><%= q.id %> — <%= q.status %> (<%= q.sent %>/<%= q.total %>)</small></div>
+              <% }) %>
+            <% } %>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============ Inbox ============ -->
+<div class="panel" style="margin-top:1.4rem">
+  <div class="panel__head"><h2>Pesan Masuk (20 terbaru)</h2></div>
+  <div class="a-table-wrap">
+    <table class="a-table">
+      <thead><tr><th>Waktu</th><th>Pengirim</th><th>Pesan</th></tr></thead>
+      <tbody>
+        <% inbound.forEach((m) => { %>
+          <tr>
+            <td><small><%= formatDateShort(m.createdAt) %></small></td>
+            <td><%= m.name %> <small style="color:var(--a-soft)"><%= m.phone %></small></td>
+            <td><small><%= m.text %></small></td>
+          </tr>
+        <% }) %>
+        <% if (!inbound.length) { %><tr><td colspan="3" style="text-align:center; padding:1.6rem">Belum ada pesan masuk.</td></tr><% } %>
+      </tbody>
+    </table>
+  </div>
+  <p class="help" style="margin-top:0.8rem">
+    Pelanggan yang balas <strong>"berhenti"</strong> otomatis ditandai opt-out dan tidak akan menerima blast lagi.
+    Pesan masuk diterima lewat webhook OpenWA (butuh <code>OPENWA_WEBHOOK_URL</code> &amp; <code>OPENWA_WEBHOOK_SECRET</code>).
+  </p>
+</div>
+
+<script>
+  (function () {
+    var box = document.getElementById('waQrBox');
+    var btn = document.getElementById('waRefreshQr');
+    if (!box) return;
+
+    function render(qr) {
+      if (!qr || qr.indexOf('data:image') !== 0) return;
+      box.innerHTML = '<img src="' + qr + '" alt="QR WhatsApp" style="width:280px;height:280px;border-radius:12px;background:#fff;padding:10px">' +
+        '<p style="font-size:0.8rem;color:var(--a-soft);margin-top:0.6rem">Pindai dari WhatsApp &rarr; Perangkat Tertaut</p>';
+    }
+
+    function poll() {
+      fetch('/admin/marketing/whatsapp/qr', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d && d.state && d.state.status === 'ready') {
+            box.innerHTML = '<div style="font-size:2.4rem">✅</div><p style="font-size:0.9rem;color:var(--a-soft);margin:0.4rem 0 0">Perangkat terhubung. Muat ulang halaman.</p>';
+            return;
+          }
+          if (d && d.ok) render(d.qr);
+          setTimeout(poll, 3000);
+        })
+        .catch(function () { setTimeout(poll, 6000); });
+    }
+
+    if (btn) {
+      btn.addEventListener('click', function () {
+        box.innerHTML = '<p style="font-size:0.85rem;color:var(--a-soft)">Meminta QR…</p>';
+        poll();
+      });
+    }
+    poll();
+  })();
+</script>

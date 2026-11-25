@@ -1,0 +1,516 @@
+<section class="portal-shell">
+  <div class="container">
+
+    <header class="portal-hero reveal">
+      <div>
+        <span class="portal-hero__eyebrow">Lokasi Saya</span>
+        <h1 class="portal-hero__title">📍 Posisi &amp; Jejak Perjalanan</h1>
+        <p class="portal-hero__sub">
+          Lihat posisi Anda saat ini, titik kumpul keberangkatan, dan riwayat check-in
+          Anda. Data lokasi hanya tersimpan di akun Anda sendiri.
+        </p>
+      </div>
+      <div class="portal-hero__actions">
+        <a href="/akun" class="btn btn--ghost btn--sm">← Kembali ke Dashboard</a>
+        <a href="/akun/profil" class="btn btn--ghost btn--sm">Profil</a>
+      </div>
+    </header>
+
+    <div class="portal-grid">
+      <!-- ============ Kolom utama ============ -->
+      <div class="portal-stack">
+
+        <!-- Panel izin & posisi live -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">Izin Lokasi</h2>
+              <p class="portal-panel__hint">Browser meminta izin hanya saat Anda menekan tombol di bawah.</p>
+            </div>
+          </div>
+
+          <div class="loc-bar">
+            <span class="loc-bar__status">
+              <span class="loc-dot" id="locDot" aria-hidden="true"></span>
+              <span id="locStatus">Memeriksa izin lokasi…</span>
+            </span>
+            <button type="button" class="btn btn--deep btn--sm" id="locRequestBtn">📍 Izinkan Lokasi</button>
+            <button type="button" class="btn btn--outline btn--sm" id="locRefreshBtn" hidden>⟳ Perbarui</button>
+          </div>
+
+          <p class="loc-note" id="locNote" role="status" aria-live="polite"></p>
+
+          <div class="loc-grid">
+            <div class="loc-cell">
+              <div class="loc-cell__label">Posisi Saat Ini</div>
+              <div class="loc-cell__value loc-cell__value--mono" id="locCurrent">—</div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Akurasi</div>
+              <div class="loc-cell__value" id="locAccuracy">—</div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Waktu Pembacaan</div>
+              <div class="loc-cell__value" id="locTime">—</div>
+            </div>
+          </div>
+
+          <form action="/akun/lokasi/simpan" method="post" id="locSaveForm" hidden>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="lat" id="locSaveLat">
+            <input type="hidden" name="lng" id="locSaveLng">
+            <input type="hidden" name="accuracy" id="locSaveAcc">
+          </form>
+          <div class="trip-card__foot" style="margin-top:0.9rem">
+            <button type="submit" form="locSaveForm" class="btn btn--outline btn--sm" id="locSaveBtn" hidden>
+              💾 Simpan sebagai Posisi Terakhir
+            </button>
+          </div>
+
+          <p class="loc-note" style="margin-top:0.9rem">
+            🔒 <strong>Privasi:</strong> koordinat yang disimpan hanya menempel pada booking Anda
+            dan tidak pernah dilihat pelanggan lain. Admin hanya dapat melihatnya pada
+            halaman detail booking untuk keperluan verifikasi check-in.
+          </p>
+        </section>
+
+        <!-- Peta -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">Peta Lokasi</h2>
+              <p class="portal-panel__hint">
+                <% if (destination) { %>
+                  Titik kumpul: <strong><%= destination.name %></strong> ·
+                  <%= destination.region || '' %>
+                <% } else { %>
+                  Belum ada titik kumpul yang bisa ditampilkan.
+                <% } %>
+              </p>
+            </div>
+          </div>
+
+          <% if (destination || lastCheckIn || history.length) { %>
+            <div id="syl-map" class="portal-map portal-map--tall" role="img" aria-label="Peta lokasi pelanggan"></div>
+            <script id="map-data" type="application/json"><%- mapData %></script>
+          <% } else { %>
+            <div class="portal-map__empty">
+              <div style="font-size:1.8rem">🗺️</div>
+              <strong>Belum ada data lokasi</strong>
+              <span>Tekan "Izinkan Lokasi" di atas untuk melihat posisi Anda pada peta,
+                atau lakukan check-in saat hari keberangkatan.</span>
+            </div>
+          <% } %>
+        </section>
+
+        <!-- ============ Berbagi lokasi langsung (presence) ============ -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">📡 Temukan Tim di Sekitar</h2>
+              <p class="portal-panel__hint">
+                Bagikan posisi Anda agar admin dan fellow traveler tahu di mana Anda berada.
+                Posisi hanya terlihat oleh tim dan pelanggan dengan booking yang sama.
+              </p>
+            </div>
+          </div>
+
+          <div class="loc-bar">
+            <span class="loc-bar__status">
+              <span class="loc-dot" id="presDot" aria-hidden="true"></span>
+              <span id="presStatus">Belum aktif</span>
+            </span>
+            <button type="button" class="btn btn--deep btn--sm" id="presShareBtn">📡 Bagikan Lokasi</button>
+            <button type="button" class="btn btn--outline btn--sm" id="presStopBtn" hidden>⏹ Berhenti</button>
+          </div>
+
+          <p class="loc-note" id="presNote" role="status" aria-live="polite"></p>
+
+          <div class="loc-grid" id="presSummary" hidden>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Status Koneksi</div>
+              <div class="loc-cell__value" id="presConn">—</div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Orang Terdekat</div>
+              <div class="loc-cell__value" id="presCount">—</div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Posisi Terkini</div>
+              <div class="loc-cell__value loc-cell__value--mono" id="presCoord">—</div>
+            </div>
+          </div>
+
+          <div id="presList" hidden style="margin-top:0.9rem">
+            <h3 style="font-size:0.92rem; margin:0 0 0.5rem">Di sekitar Anda</h3>
+            <ul class="loc-history" id="presPeerList"></ul>
+          </div>
+        </section>
+
+        <!-- Riwayat -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">Riwayat Check-in</h2>
+              <p class="portal-panel__hint">Jejak koordinat yang pernah tercatat pada booking Anda.</p>
+            </div>
+          </div>
+
+          <% if (history.length === 0) { %>
+            <div class="portal-empty">
+              <div class="portal-empty__icon">🧾</div>
+              <h3 class="portal-empty__title">Belum ada check-in</h3>
+              <p>Check-in GPS tersedia pada booking aktif saat hari keberangkatan.</p>
+              <a href="/akun" class="btn btn--outline btn--sm">Lihat Booking Saya</a>
+            </div>
+          <% } else { %>
+            <ul class="loc-history">
+              <% history.slice().reverse().forEach(function (h) { %>
+                <li>
+                  <span>
+                    <span class="loc-history__code"><%= h.code %></span><br>
+                    <span><%= h.packageName || '' %><%= h.label ? ' · ' + h.label : '' %></span>
+                  </span>
+                  <span class="loc-history__time">
+                    <%= h.at ? formatDateLong(h.at) : '-' %><br>
+                    <span class="loc-cell__value--mono" style="font-size:0.74rem">
+                      <%= Number(h.lat).toFixed(5) %>, <%= Number(h.lng).toFixed(5) %>
+                    </span>
+                  </span>
+                </li>
+              <% }); %>
+            </ul>
+          <% } %>
+        </section>
+      </div>
+
+      <!-- ============ Kolom samping ============ -->
+      <div class="portal-stack">
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <h2 class="portal-panel__title">Rujukan Perjalanan</h2>
+          </div>
+
+          <% if (activeBooking) { %>
+            <p class="portal-panel__hint" style="margin-bottom:0.7rem">
+              <%= activeBooking.code %> · <%= activeBooking.packageName %>
+            </p>
+          <% } %>
+
+          <% const meetPoint = checkInDestination || destination; %>
+          <div class="loc-grid" style="margin-top:0">
+            <div class="loc-cell">
+              <div class="loc-cell__label">Destinasi</div>
+              <div class="loc-cell__value"><%= meetPoint ? meetPoint.name : '—' %></div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Titik Kumpul</div>
+              <div class="loc-cell__value loc-cell__value--mono">
+                <% if (meetPoint && meetPoint.lat) { %>
+                  <%= Number(meetPoint.lat).toFixed(5) %>, <%= Number(meetPoint.lng).toFixed(5) %>
+                <% } else { %>—<% } %>
+              </div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Check-in Terakhir</div>
+              <div class="loc-cell__value">
+                <%= lastCheckIn ? formatDateLong(lastCheckIn.at) : 'Belum ada' %>
+              </div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Jarak ke Titik Kumpul</div>
+              <div class="loc-cell__value"><%= distanceLabel || '—' %></div>
+            </div>
+          </div>
+
+          <% if (meetPoint) { %>
+            <p class="loc-note" style="margin-top:0.9rem">
+              📌 <%= meetPoint.name %> — <%= meetPoint.region || '' %>.<br>
+              <%= meetPoint.gettingThere || '' %>
+            </p>
+            <div class="trip-card__foot" style="margin-top:0.8rem">
+              <a href="/destinasi/<%= meetPoint.slug %>" class="btn btn--outline btn--sm">Info Destinasi →</a>
+              <% if (activeBooking) { %>
+                <a href="/akun/booking/<%= activeBooking.id %>" class="btn btn--deep btn--sm">Detail Booking</a>
+              <% } %>
+            </div>
+          <% } %>
+        </section>
+
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <h2 class="portal-panel__title">Booking Anda</h2>
+          </div>
+          <% if (bookings.length === 0) { %>
+            <p class="portal-panel__hint">Belum ada booking aktif.</p>
+          <% } else { %>
+            <ul class="loc-history">
+              <% bookings.forEach(function (b) { %>
+                <li>
+                  <span>
+                    <span class="loc-history__code"><%= b.code %></span><br>
+                    <span><%= b.packageName %></span>
+                  </span>
+                  <span class="loc-history__time">
+                    <%= formatDateShort(b.departureDate) %><br>
+                    <span class="badge badge--<%= bookingStatusTone(b.status) %>"><%= bookingStatusLabel(b.status) %></span>
+                  </span>
+                </li>
+              <% }); %>
+            </ul>
+          <% } %>
+        </section>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="/js/location-permission.js"></script>
+<script src="/js/presence.js"></script>
+<script>
+(function () {
+  /* ============ Berbagi lokasi langsung (presence) ============ */
+  var shareBtn = document.getElementById('presShareBtn');
+  var stopBtn = document.getElementById('presStopBtn');
+  var dot = document.getElementById('presDot');
+  var statusEl = document.getElementById('presStatus');
+  var noteEl = document.getElementById('presNote');
+  var summary = document.getElementById('presSummary');
+  var connEl = document.getElementById('presConn');
+  var countEl = document.getElementById('presCount');
+  var coordEl = document.getElementById('presCoord');
+  var listWrap = document.getElementById('presList');
+  var peerList = document.getElementById('presPeerList');
+
+  var LP = window.LocationPermission;
+  var P = window.SylPresence;
+  if (!shareBtn || !P) return;
+
+  function setDot(state) {
+    if (!dot) return;
+    dot.className = 'loc-dot';
+    if (state === 'granted') dot.classList.add('loc-dot--granted');
+    else if (state === 'denied') dot.classList.add('loc-dot--denied');
+    else if (state === 'busy') dot.classList.add('loc-dot--busy');
+    else dot.classList.add('loc-dot--pending');
+  }
+
+  function setNote(text, kind) {
+    if (!noteEl) return;
+    noteEl.textContent = text || '';
+    noteEl.className = 'loc-note' + (kind ? ' loc-note--' + kind : '');
+  }
+
+  function renderPeers(peers) {
+    if (!peerList) return;
+    if (!peers || !peers.length) {
+      peerList.innerHTML = '<li><span>Belum ada tim atau fellow traveler yang '
+        + 'sedang membagikan lokasi di sekitar Anda.</span></li>';
+      return;
+    }
+    peerList.innerHTML = peers.map(function (p) {
+      var roleLabel = p.role === 'admin' ? '🧭 Tim' : '👤 Fellow traveler';
+      var dist = typeof p.distance === 'number' ? ' · ' + P.formatDistance(p.distance) : '';
+      var stale = p.stale ? ' · <em>offline (data terakhir)</em>' : '';
+      return '<li><span><span class="loc-history__code">' + roleLabel + '</span><br>'
+        + '<span>' + (p.name || '-') + '</span></span>'
+        + '<span class="loc-history__time">' + dist + stale + '<br>'
+        + '<span class="loc-cell__value--mono" style="font-size:0.74rem">'
+        + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + '</span></span></li>';
+    }).join('');
+  }
+
+  function applyState(s) {
+    if (summary) summary.hidden = false;
+    if (listWrap) listWrap.hidden = false;
+    if (connEl) connEl.textContent = s.online ? 'Online' : 'Offline (data terakhir)';
+    if (countEl) countEl.textContent = (s.peers || []).length + ' orang';
+    if (coordEl) {
+      coordEl.textContent = (s.self && s.self.lat !== null && s.self.lat !== undefined)
+        ? s.self.lat.toFixed(5) + ', ' + s.self.lng.toFixed(5)
+        : '—';
+    }
+    if (statusEl) {
+      statusEl.textContent = s.online
+        ? (s.sharing ? 'Berbagi lokasi' : 'Terhubung')
+        : 'Offline — memakai data terakhir';
+    }
+    setDot(s.online ? 'granted' : 'pending');
+    if (stopBtn) stopBtn.hidden = !s.sharing;
+    if (!s.online && s.lastError) setNote(s.lastError, 'warn');
+    renderPeers(s.peers);
+    if (window.SylMap && window.SylMap.setPeers) {
+      window.SylMap.setPeers(s.peers);
+    }
+  }
+
+  P.init({ csrf: '<%= csrfToken %>' });
+  P.on(applyState);
+
+  shareBtn.addEventListener('click', function () {
+    if (!LP || !LP.request) {
+      setNote('Modul izin lokasi gagal dimuat. Muat ulang halaman.', 'warn');
+      return;
+    }
+    shareBtn.disabled = true;
+    shareBtn.textContent = 'Membaca GPS…';
+    setDot('busy');
+    LP.request(
+      function (pos) {
+        shareBtn.disabled = false;
+        shareBtn.textContent = '📡 Bagikan Lokasi';
+        P.share();
+        setDot('granted');
+        setNote('Posisi Anda dibagikan. Tim dapat melihat lokasi Anda secara langsung.', 'ok');
+      },
+      function (code, message) {
+        shareBtn.disabled = false;
+        shareBtn.textContent = '📡 Bagikan Lokasi';
+        setDot(code === 'denied' ? 'denied' : 'pending');
+        setNote(message, 'warn');
+      }
+    );
+  });
+
+  if (stopBtn) {
+    stopBtn.addEventListener('click', function () {
+      P.stop();
+      setNote('Berhenti membagikan lokasi.', 'ok');
+    });
+  }
+})();
+</script>
+<script>
+(function () {
+  var dot = document.getElementById('locDot');
+  var statusEl = document.getElementById('locStatus');
+  var noteEl = document.getElementById('locNote');
+  var reqBtn = document.getElementById('locRequestBtn');
+  var refreshBtn = document.getElementById('locRefreshBtn');
+  var saveBtn = document.getElementById('locSaveBtn');
+  var curEl = document.getElementById('locCurrent');
+  var accEl = document.getElementById('locAccuracy');
+  var timeEl = document.getElementById('locTime');
+  var saveForm = document.getElementById('locSaveForm');
+  if (!dot || !statusEl || !noteEl || !reqBtn) return;
+
+  var LP = window.LocationPermission;
+  var lastPoint = null;
+
+  function setDot(state) {
+    dot.className = 'loc-dot';
+    if (state === 'granted') dot.classList.add('loc-dot--granted');
+    else if (state === 'denied') dot.classList.add('loc-dot--denied');
+    else if (state === 'prompt' || state === 'unknown') dot.classList.add('loc-dot--pending');
+    else if (state === 'busy') dot.classList.add('loc-dot--busy');
+  }
+
+  function setNote(text, kind) {
+    noteEl.textContent = text || '';
+    noteEl.className = 'loc-note' + (kind ? ' loc-note--' + kind : '');
+  }
+
+  function fmtCoord(p) {
+    return p.lat.toFixed(5) + ', ' + p.lng.toFixed(5);
+  }
+
+  function renderPoint(p) {
+    lastPoint = p;
+    curEl.textContent = fmtCoord(p);
+    accEl.textContent = p.accuracy ? '± ' + Math.round(p.accuracy) + ' m' : '—';
+    timeEl.textContent = new Date(p.at).toLocaleTimeString('id-ID', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+    document.getElementById('locSaveLat').value = p.lat;
+    document.getElementById('locSaveLng').value = p.lng;
+    document.getElementById('locSaveAcc').value = p.accuracy || '';
+    saveForm.hidden = false;
+    saveBtn.hidden = false;
+    refreshBtn.hidden = false;
+    // Sinkronkan marker posisi live ke peta. Peta (Leaflet) dimuat setelah
+    // script ini, jadi tunggu window 'load' bila SylMap belum tersedia.
+    paintLive(p);
+  }
+
+  function paintLive(p) {
+    if (window.SylMap && window.SylMap.setLive) {
+      window.SylMap.setLive(p.lat, p.lng, p.accuracy);
+      return;
+    }
+    window.addEventListener('load', function () {
+      if (window.SylMap && window.SylMap.setLive) window.SylMap.setLive(p.lat, p.lng, p.accuracy);
+    }, { once: true });
+  }
+
+  function applyState(state, message) {
+    setDot(state);
+    if (state === 'granted') {
+      statusEl.textContent = 'Izin lokasi diberikan';
+      if (!lastPoint) setNote(LP.MESSAGES.success + ' Tekan "Perbarui" untuk membaca posisi terkini.', 'ok');
+    } else if (state === 'denied') {
+      statusEl.textContent = 'Izin lokasi ditolak';
+      reqBtn.hidden = true;
+      setNote(LP.MESSAGES.denied, 'warn');
+    } else if (state === 'unsupported') {
+      statusEl.textContent = 'GPS tidak didukung';
+      reqBtn.hidden = true;
+      setNote(LP.MESSAGES.unsupported, 'warn');
+    } else if (state === 'insecure') {
+      statusEl.textContent = 'Koneksi tidak aman (http)';
+      reqBtn.hidden = true;
+      setNote(LP.MESSAGES.insecure, 'warn');
+    } else {
+      statusEl.textContent = 'Izin lokasi belum diberikan';
+      reqBtn.hidden = false;
+      setNote(LP.MESSAGES.prompt);
+    }
+    if (message && state !== 'granted') setNote(message, 'warn');
+  }
+
+  function readPosition() {
+    setDot('busy');
+    statusEl.textContent = 'Membaca lokasi…';
+    setNote('');
+    LP.request(
+      function (p) {
+        setDot('granted');
+        statusEl.textContent = 'Izin lokasi diberikan';
+        renderPoint(p);
+        setNote(LP.MESSAGES.success + ' Posisi Anda ditampilkan di peta.', 'ok');
+      },
+      function (code, message) {
+        setDot(code === 'denied' ? 'denied' : 'pending');
+        statusEl.textContent =
+          code === 'denied' ? 'Izin lokasi ditolak' :
+          code === 'unsupported' ? 'GPS tidak didukung' :
+          code === 'insecure' ? 'Koneksi tidak aman (http)' :
+          'Lokasi tidak terbaca';
+        if (code === 'denied') reqBtn.hidden = true;
+        setNote(message, 'warn');
+      }
+    );
+  }
+
+  // Cek status awal tanpa memicu dialog peramban.
+  if (LP.getState) {
+    LP.getState().then(function (st) {
+      applyState(st.state, '');
+      // Bila izin sudah diberikan, langsung baca posisi (tanpa dialog).
+      if (st.state === 'granted') readPosition();
+    });
+  } else {
+    applyState('unknown', '');
+  }
+
+  reqBtn.addEventListener('click', readPosition);
+  if (refreshBtn) refreshBtn.addEventListener('click', readPosition);
+
+  // Pantau perubahan izin dari pengaturan browser.
+  if (LP.watch) {
+    LP.watch(function (state) {
+      applyState(state, '');
+      if (state === 'granted') readPosition();
+    });
+  }
+})();
+</script>

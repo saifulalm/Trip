@@ -4,13 +4,35 @@ const crypto = require('crypto');
 const db = require('../db');
 const helpers = require('../utils/helpers');
 const seo = require('../seo');
+const themeService = require('../services/theme');
+const brandService = require('../services/brand');
+const onepageService = require('../services/onepage');
 
 /** Menyediakan data global (settings, flash, csrf) untuk semua template. */
 function context(req, res, next) {
   const data = db.read() || {};
   res.locals.settings = data.settings || {};
+
+  // Brand: nama aktif + wordmark (tanpa suffix domain).
+  res.locals.brandName = brandService.brandName(res.locals.settings);
+  res.locals.brandWordmark = brandService.brandWordmark(res.locals.settings);
+  const bp = brandService.brandParts(res.locals.settings);
+  res.locals.brandHead = bp.head;
+  res.locals.brandTail = bp.tail;
+  res.locals.brandAccentFrom = bp.accentFrom;
+
+  // Tema: mode terang/gelap + warna aksen yang bisa diatur admin.
+  const theme = themeService.resolveTheme(res.locals.settings);
+  res.locals.theme = theme;
+  res.locals.themeMode = theme.mode;
+  res.locals.themeStyle = themeService.themeStyle(theme);
+
   const uid = req.session && req.session.userId;
   res.locals.currentUser = uid ? (data.users || []).find((u) => u.id === uid) || null : null;
+
+  // Pelanggan default-nya null supaya template publik aman dirender
+  // meskipun middleware customer belum sempat berjalan (mis. halaman error).
+  if (typeof res.locals.currentCustomer === 'undefined') res.locals.currentCustomer = null;
 
   res.locals.formatRupiah = helpers.formatRupiah;
   res.locals.formatDateLong = helpers.formatDateLong;
@@ -31,6 +53,20 @@ function context(req, res, next) {
   res.locals.canonicalBase = baseSettings;
 
   res.locals.currentPath = req.path;
+  // Onepage (halaman beranda): daftar section untuk nav anchor & rail.
+  res.locals.onepageNavSections = onepageService.navSections();
+  res.locals.onepageRailSections = onepageService.railSections();
+  // Mode onepage aktif hanya di beranda — halaman lain tetap nav route biasa.
+  res.locals.isOnepage = req.path === '/';
+  // Tautan profil media sosial untuk footer situs publik.
+  // Disumberkan dari registry platform (src/services/social.js) agar
+  // daftar tautan di footer dan structured data SEO selalu konsisten.
+  res.locals.socialProfileLinks = require('../services/social').profileLinks(res.locals.settings);
+  // Path relatif terhadap /admin untuk template admin (menandai menu aktif).
+  // req.path di level app sudah memuat prefix /admin.
+  res.locals.adminPath = req.path.startsWith('/admin')
+    ? (req.path.slice('/admin'.length) || '/')
+    : req.path;
   res.locals.query = req.query || {};
   res.locals.year = new Date().getFullYear();
 

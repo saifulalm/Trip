@@ -7,6 +7,7 @@ const db = require('../db');
 const helpers = require('../utils/helpers');
 const { flash } = require('../middleware/context');
 const seo = require('../seo');
+const brandService = require('../services/brand');
 
 const router = express.Router();
 
@@ -148,6 +149,22 @@ router.get('/paket/:slug', (req, res, next) => {
   });
 });
 
+router.get('/presentsi', (req, res) => {
+  try {
+    const data = db.read();
+    const s = data.settings || {};
+    res.render('pages/cinematic-demo', {
+      title: 'Cinematic Motion Presentation · Seayoulatertrip',
+      settings: s,
+      brandName: s.siteName || 'Seayoulatertrip',
+      year: new Date().getFullYear()
+    });
+  } catch (err) {
+    console.error('presentsi route error:', err);
+    res.status(500).send('Error: ' + err.message);
+  }
+});
+
 /* Form booking pribadi (bukan klien) */
 router.post('/paket/:slug/booking', (req, res, next) => {
   const data = db.read();
@@ -168,7 +185,9 @@ router.post('/paket/:slug/booking', (req, res, next) => {
     return res.redirect(`/paket/${pkg.slug}#booking`);
   }
 
-  const code = `JJE-${String(Date.now()).slice(-6)}`;
+  // Kode booking memakai prefix brand (mis. "SYL-240501") supaya konsisten
+  // dengan booking yang dibuat lewat seed & migrasi brand.
+  const code = brandService.bookingCode();
   const booking = {
     id: db.uid('bkg'),
     code,
