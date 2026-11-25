@@ -1,0 +1,56 @@
+<%
+/**
+ * Widget unggah galeri (banyak berkas sekaligus).
+ *
+ * Parameter:
+ *   - name    : nama field pada form (wajib)
+ *   - current : array URL galeri lama (opsional)
+ *   - label   : teks label
+ *   - hint    : keterangan TAMBAHAN (opsional)
+ *   - max     : jumlah maksimal berkas (default 8)
+ *
+ * Slot ini selalu 'gallery' — dipaketkan sebagai data-slot="gallery" supaya
+ * widget memakai spesifikasi slot yang tepat.
+ *
+ * Hint rasio/format/batas ukuran SELALU diambil dari spesifikasi slot
+ * (window.SylUploadSpec) oleh admin-gallery-widget.js, supaya tidak pernah
+ * menyimpang dari batas yang dipakai server.
+ */
+const g_name = typeof name !== 'undefined' ? name : 'galleryFiles';
+const g_current = Array.isArray(current) ? current : [];
+const g_label = typeof label !== 'undefined' ? label : 'Galeri Foto';
+const g_max = typeof max !== 'undefined' ? max : 8;
+const g_extra_hint = typeof hint !== 'undefined' && hint ? hint : '';
+%>
+<div class="gal-upload" data-gal-upload data-max-files="<%= g_max %>" data-slot="gallery">
+  <label class="gal-upload__label"><%= g_label %></label>
+
+  <% if (g_current.length) { %>
+    <div class="gal-upload__existing">
+      <span class="gal-upload__hint"><%= g_current.length %> foto tersimpan. Hapus centang untuk membuang foto.</span>
+      <div class="gal-upload__grid">
+        <% g_current.forEach(function (u, i) { %>
+          <figure class="gal-upload__item">
+            <img src="<%= u %>" alt="Galeri foto <%= i + 1 %>" loading="lazy">
+            <label class="gal-upload__check">
+              <input type="checkbox" name="removeGallery" value="<%= u %>">
+              <span>Hapus</span>
+            </label>
+          </figure>
+        <% }); %>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="img-upload__drop gal-upload__drop" data-gal-drop tabindex="0" role="button">
+    <strong>Klik atau seret foto ke sini</strong>
+    <%# Hint diisi dari spesifikasi slot oleh admin-gallery-widget.js. %>
+    <div class="img-upload__hint" data-gal-hint data-extra-hint="<%= g_extra_hint %>"></div>
+    <div class="img-upload__filename" data-gal-filename></div>
+    <div class="img-upload__meta" data-gal-meta></div>
+    <div class="img-upload__warning" data-gal-warning hidden
+         style="margin-top:0.4rem;font-size:0.78rem;line-height:1.45;color:#b26a00"></div>
+  </div>
+  <input type="file" id="<%= g_name %>" name="<%= g_name %>" multiple
+         accept="image/jpeg,image/png,image/webp" hidden data-gal-input>
+</div>

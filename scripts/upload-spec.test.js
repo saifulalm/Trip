@@ -679,8 +679,230 @@ async function runBackendSuite() {
   });
 }
 
+// -- Perilaku widget upload di browser sungguhan -------------------
+console.log('\n== Widget upload (browser) ==');
+
+/**
+ * Uji perilaku widget `.img-upload` di Chromium (puppeteer).
+ *
+ * Yang dibuktikan:
+ *  1. `readDimensions` benar-benar dipanggil SEBELUM validasi,
+ *  2. `file.width`/`file.height` terisi dari hasil baca dimensi,
+ *  3. gambar di bawah `minShortSide` ditolak dengan pesan jelas,
+ *  4. rasio menyimpang hanya PERINGATAN (tidak membatalkan berkas),
+ *  5. kegagalan `readDimensions` menampilkan error — bukan diam-diam
+ *     melanjutkan validasi tanpa dimensi.
+ */
+async function runWidgetSuite() {
+  const fs = require('fs');
+  const puppeteer = require(path.join(root, 'node_modules', 'puppeteer'));
+
+  const MARKUP = [
+    '<!doctype html><html><body>',
+    '<div class="img-upload" data-slot="card">',
+    '  <div class="img-upload__row">',
+    '    <div class="img-upload__preview img-upload__preview--empty" data-preview-box></div>',
+    '    <div class="img-upload__body">',
+    '      <input type="file" id="imageFile" name="imageFile">',
+    '      <div class="img-upload__drop" data-drop tabindex="0">',
+    '        <div class="img-upload__hint" data-hint data-extra-hint="Rasio 16:10 (contoh 1280x800) - JPG, PNG, WEBP atau GIF - maksimal 5 MB"></div>',
+    '        <div class="img-upload__filename" data-filename></div>',
+    '        <div class="img-upload__meta" data-meta></div>',
+    '        <div class="img-upload__warning" data-warning hidden></div>',
+    '      </div>',
+    '      <div class="img-upload__actions">',
+    '        <button type="button" data-clear hidden>Hapus pilihan</button>',
+    '      </div>',
+    '    </div>',
+    '  </div>',
+    '</div>',
+    '</body></html>'
+  ].join('\n');
+
+  let browser = null;
+  try {
+    browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+  } catch (err) {
+    await ta('widget upload (browser) — browser tidak bisa dijalankan', () => {
+      throw new Error('puppeteer gagal start: ' + err.message);
+    });
+    return;
+  }
+
+  try {
+    const page = await browser.newPage();
+
+    // Stub createImageBitmap: dimensi dikendalikan test.
+    await page.setContent(MARKUP);
+    await page.evaluate(() => {
+      window.__calls = [];
+      window.__dims = { width: 1280, height: 800 };
+      window.__dimsShouldFail = false;
+      window.createImageBitmap = function () {
+        window.__calls.push('readDimensions');
+        if (window.__dimsShouldFail) return Promise.reject(new Error('decode gagal'));
+        return Promise.resolve(window.__dims);
+      };
+      // FileReader sederhana untuk pratinjau.
+      window.FileReader = function () {
+        this.onload = null;
+        this.readAsDataURL = function () {
+          if (this.onload) this.onload({ target: { result: 'data:,' } });
+        };
+      };
+    });
+
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-spec.js') });
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'admin-upload.js') });
+
+    /** Pilih file pada input dan tunggu widget selesai memprosesnya. */
+    async function pilihFile(overrides) {
+      await page.evaluate((ov) => {
+        const input = document.querySelector('input[type="file"]');
+        // File asli + DataTransfer supaya input.files jadi FileList sungguhan.
+        const file = new File([new Uint8Array(1024)], (ov && ov.name) || 'foto.png', {
+          type: (ov && ov.type) || 'image/png'
+        });
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        input.dispatchEvent(new Event('change'));
+      }, overrides);
+      // Tunggu promise di dalam applyFile selesai.
+      await new Promise((r) => setTimeout(r, 150));
+    }
+
+    await ta('hint widget diisi dari spesifikasi slot (batas lama dibuang)', async () => {
+      const hint = await page.$eval('[data-hint]', (el) => el.textContent);
+      assert.ok(/2 MB/.test(hint), 'hint tidak menyebut batas slot: ' + hint);
+      assert.ok(!/5 MB/.test(hint), 'hint masih menyebut batas lama: ' + hint);
+    });
+
+    await ta('readDimensions dipanggil sebelum validasi', async () => {
+      await page.evaluate(() => { window.__calls = []; });
+      await pilihFile({});
+      const calls = await page.evaluate(() => window.__calls);
+      assert.ok(calls.indexOf('readDimensions') > -1, 'readDimensions tidak dipanggil');
+    });
+
+    await ta('file.width dan file.height terisi dari hasil baca dimensi', async () => {
+      const dims = await page.evaluate(() => {
+        const input = document.querySelector('input[type="file"]');
+        return { w: input.files[0].width, h: input.files[0].height };
+      });
+      assert.strictEqual(dims.w, 1280);
+      assert.strictEqual(dims.h, 800);
+    });
+
+    await ta('gambar di bawah minShortSide ditolak dengan pesan resolusi', async () => {
+      await page.evaluate(() => { window.__dims = { width: 100, height: 100 }; });
+      await pilihFile({});
+      const txt = await page.$eval('[data-filename]', (el) => el.textContent);
+      assert.ok(/800/.test(txt), 'pesan tidak menyebut batas dimensi: ' + txt);
+      const isError = await page.$eval('[data-drop]', (el) => el.classList.contains('is-error'));
+      assert.ok(isError, 'drop tidak ditandai error');
+    });
+
+    await ta('rasio menyimpang hanya PERINGATAN, berkas tidak dibatalkan', async () => {
+      await page.evaluate(() => { window.__dims = { width: 1000, height: 1000 }; });
+      await pilihFile({});
+      const warn = await page.$eval('[data-warning]', (el) => ({
+        hidden: el.hidden,
+        text: el.textContent
+      }));
+      assert.ok(!warn.hidden, 'peringatan rasio tidak tampil');
+      assert.ok(/rasio/i.test(warn.text), 'teks peringatan kurang jelas: ' + warn.text);
+      const isError = await page.$eval('[data-drop]', (el) => el.classList.contains('is-error'));
+      assert.ok(!isError, 'peringatan rasio tidak boleh membatalkan berkas');
+      const name = await page.$eval('[data-filename]', (el) => el.textContent);
+      assert.strictEqual(name, 'foto.png');
+    });
+
+    await ta('gagal baca dimensi menampilkan error jelas (tidak lanjut diam-diam)', async () => {
+      await page.evaluate(() => { window.__dimsShouldFail = true; });
+      await pilihFile({});
+      const txt = await page.$eval('[data-filename]', (el) => el.textContent);
+      assert.ok(/dimensi/i.test(txt), 'tidak ada pesan error dimensi: ' + txt);
+      const isError = await page.$eval('[data-drop]', (el) => el.classList.contains('is-error'));
+      assert.ok(isError, 'drop tidak ditandai error');
+    });
+  } finally {
+    await browser.close();
+  }
+}
+
+// -- Partial admin harus menyebut slot yang benar --------------------
+console.log('\n== Partial admin ==');
+
+/**
+ * Baca file partial admin sebagai teks biasa.
+ * @param {string} relPath jalur relatif dari root repo
+ * @returns {string} isi file
+ */
+function readPartial(relPath) {
+  const fs = require('fs');
+  return fs.readFileSync(path.join(root, relPath), 'utf8');
+}
+
+t('image-upload.ejs tidak lagi hardcode data-max-size', () => {
+  const src = readPartial(path.join('views', 'admin', 'partials', 'image-upload.ejs'));
+  assert.ok(!/data-max-size="5242880"/.test(src), 'data-max-size masih di-hardcode');
+  assert.ok(/data-slot=/.test(src), 'harus ada data-slot');
+});
+
+t('gallery-upload.ejs memakai slot gallery', () => {
+  const src = readPartial(path.join('views', 'admin', 'partials', 'gallery-upload.ejs'));
+  assert.ok(/data-slot="gallery"/.test(src), 'gallery-upload harus data-slot="gallery"');
+  assert.ok(!/data-max-size="5242880"/.test(src), 'data-max-size masih di-hardcode');
+});
+
+t('form artikel memakai slot article, form OG memakai slot og', () => {
+  const art = readPartial(path.join('views', 'admin', 'article-form.ejs'));
+  assert.ok(/ratio:\s*'article'/.test(art), 'artikel harus ratio article');
+
+  const seo = readPartial(path.join('views', 'admin', 'seo.ejs'));
+  assert.ok(/ratio:\s*'og'/.test(seo), 'SEO harus ratio og');
+});
+
+t('widget upload memakai SylUploadSpec, bukan konstanta hardcode', () => {
+  const upload = readPartial(path.join('public', 'js', 'admin-upload.js'));
+  assert.ok(/SylUploadSpec/.test(upload), 'admin-upload.js harus memakai SylUploadSpec');
+  assert.ok(!/const MAX_SIZE = 5 \* 1024 \* 1024/.test(upload), 'MAX_SIZE hardcode masih ada');
+
+  const gallery = readPartial(path.join('public', 'js', 'admin-gallery-widget.js'));
+  assert.ok(/SylUploadSpec/.test(gallery), 'admin-gallery-widget.js harus memakai SylUploadSpec');
+  assert.ok(
+    !/const MAX_SIZE = 5 \* 1024 \* 1024/.test(gallery),
+    'MAX_SIZE hardcode masih ada di widget galeri'
+  );
+});
+
+t('widget upload membaca dimensi SEBELUM validasi (readDimensions lalu validate)', () => {
+  const upload = readPartial(path.join('public', 'js', 'admin-upload.js'));
+  const dimIdx = upload.indexOf('readDimensions');
+  const valIdx = upload.indexOf('SPEC.validate');
+  assert.ok(dimIdx > -1, 'admin-upload.js harus memanggil readDimensions');
+  assert.ok(valIdx > -1, 'admin-upload.js harus memanggil validate');
+  assert.ok(dimIdx < valIdx, 'readDimensions harus dipanggil sebelum validate');
+  assert.ok(/file\.width\s*=/.test(upload), 'harus mengisi file.width dari hasil baca dimensi');
+  assert.ok(/file\.height\s*=/.test(upload), 'harus mengisi file.height dari hasil baca dimensi');
+});
+
+t('widget galeri juga membaca dimensi sebelum validasi', () => {
+  const gallery = readPartial(path.join('public', 'js', 'admin-gallery-widget.js'));
+  const dimIdx = gallery.indexOf('readDimensions');
+  const valIdx = gallery.indexOf('SPEC.validate');
+  assert.ok(dimIdx > -1, 'admin-gallery-widget.js harus memanggil readDimensions');
+  assert.ok(valIdx > -1, 'admin-gallery-widget.js harus memanggil SPEC.validate');
+  assert.ok(dimIdx < valIdx, 'readDimensions harus dipanggil sebelum validate');
+});
+
 runBackendSuite()
   .then(runDimensionSuite)
+  .then(runWidgetSuite)
   .then(() => {
     console.log('\n' + (fail === 0
       ? 'OK - ' + pass + ' pemeriksaan lulus'
