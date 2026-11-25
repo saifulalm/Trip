@@ -58,11 +58,20 @@ const MAX_TTL_MIN = 120;
 /** Batas jarak pencarian "orang terdekat" yang ditampilkan ke klien (meter). */
 const NEARBY_RADIUS_M = 50000;
 
+/**
+ * Versi skema berkas presence.
+ *
+ * v1: hanya `entries` (posisi live dengan TTL).
+ * v2: `entries` + `lastSeen` (posisi terakhir yang diketahui, persisten).
+ */
+const SCHEMA_VERSION = 2;
+
 const bus = new EventEmitter();
 // Hindari warning EventEmitter MaxListeners (banyak tab admin terbuka).
 bus.setMaxListeners(200);
 
 let entries = Object.create(null);
+let lastSeenMap = Object.create(null);
 let loaded = false;
 
 /* ------------------------------------------------------------------ */
@@ -77,6 +86,13 @@ function ensureDir() {
 /**
  * Baca berkas presence dari disk (hanya sekali per proses).
  * Failur apa pun tidak boleh menggagalkan boot server — fallback ke data kosong.
+ *
+ * Dua bagian data yang dibaca:
+ *  - `entries`  → posisi live (dihapus oleh TTL).
+ *  - `lastSeen` → posisi terakhir yang diketahui (persisten, tanpa TTL).
+ *
+ * Berkas versi lama (v1, hanya `entries`) tetap bisa dibaca — `lastSeen`
+ * dianggap kosong.
  */
 function load() {
   if (loaded) return entries;
@@ -85,9 +101,11 @@ function load() {
     if (fs.existsSync(FILE)) {
       const raw = JSON.parse(fs.readFileSync(FILE, 'utf8'));
       entries = (raw && raw.entries && typeof raw.entries === 'object') ? raw.entries : Object.create(null);
+      lastSeenMap = (raw && raw.lastSeen && typeof raw.lastSeen === 'object') ? raw.lastSeen : Object.create(null);
     }
   } catch (err) {
     entries = Object.create(null);
+    lastSeenMap = Object.create(null);
   }
   return entries;
 }
@@ -100,7 +118,11 @@ function load() {
 function persist() {
   ensureDir();
   try {
-    fs.writeFileSync(TMP_FILE, JSON.stringify({ version: 1, entries }, null, 2), 'utf8');
+    fs.writeFileSync(
+      TMP_FILE,
+      JSON.stringify({ version: SCHEMA_VERSION, entries, lastSeen: lastSeenMap }, null, 2),
+      'utf8'
+    );
     fs.renameSync(TMP_FILE, FILE);
   } catch (err) {
     // Presence bukan data kritis — kegagalan menulis tidak boleh mematikan
@@ -194,6 +216,26 @@ function upsert(p, settings) {
     at: now
   };
   entries[key] = entry;
+
+  // Simpan juga sebagai "titik terakhir yang diketahui".
+  //
+  // Alasan penyimpanan terpisah: entri live dihapus oleh TTL, tapi lastSeen
+  // tidak — supaya posisi terakhir tetap bisa dilihat. Untuk kasus darurat
+  // (pengguna hilang berjam-jam), admin masih bisa melihat di mana posisinya
+  // terakhir kali tercatat.
+  const prevSeen = lastSeenMap[key] || {};
+  lastSeenMap[key] = {
+    role: p.role,
+    refId: p.refId,
+    name: entry.name || prevSeen.name || '',
+    label: entry.label || prevSeen.label || '',
+    lat: entry.lat,
+    lng: entry.lng,
+    accuracy: entry.accuracy,
+    at: now,
+    source: 'live'
+  };
+
   sweep(ttlMs(settings));
   persist();
   bus.emit('change', { type: 'upsert', entry });
@@ -209,6 +251,60 @@ function upsert(p, settings) {
 function get(role, refId) {
   load();
   return entries[keyOf(role, refId)] || null;
+}
+
+/**
+ * Ambil titik terakhir yang diketahui untuk satu peserta.
+ *
+ * Tidak dipengaruhi TTL — justru tujuannya: menjawab "di mana dia terakhir
+ * terlihat" walaupun sudah offline berjam-jam.
+ *
+ * @param {string} role 'admin' atau 'customer'
+ * @param {string} refId id peserta
+ * @returns {object|null} entri last-seen dengan `ageMin`, atau null
+ */
+function lastSeen(role, refId) {
+  load();
+  const e = lastSeenMap[keyOf(role, refId)];
+  if (!e || !geo.isValidLatLng(e.lat, e.lng)) return null;
+  const at = e.at ? new Date(e.at).getTime() : 0;
+  const ageMin = at ? Math.max(0, Math.round((Date.now() - at) / 60000)) : null;
+  return { ...e, ageMin };
+}
+
+/**
+ * Semua titik terakhir yang diketahui (untuk admin).
+ * @returns {object[]} daftar entri last-seen, terbaru dulu
+ */
+function lastSeenAll() {
+  load();
+  const out = [];
+  Object.keys(lastSeenMap).forEach((k) => {
+    const e = lastSeenMap[k];
+    if (!e || !geo.isValidLatLng(e.lat, e.lng)) return;
+    const at = e.at ? new Date(e.at).getTime() : 0;
+    out.push({
+      ...e,
+      ageMin: at ? Math.max(0, Math.round((Date.now() - at) / 60000)) : null
+    });
+  });
+  return out.sort((a, b) => String(b.at || '').localeCompare(String(a.at || '')));
+}
+
+/** Kosongkan seluruh data presence (dipakai pengujian). */
+function reset() {
+  try {
+    fs.writeFileSync(
+      FILE,
+      JSON.stringify({ version: SCHEMA_VERSION, entries: {}, lastSeen: {} }, null, 2),
+      'utf8'
+    );
+    entries = Object.create(null);
+    lastSeenMap = Object.create(null);
+    loaded = true;
+  } catch (err) {
+    // abaikan — presence bukan data kritis
+  }
 }
 
 /**
@@ -328,12 +424,16 @@ module.exports = {
   MIN_TTL_MIN,
   MAX_TTL_MIN,
   NEARBY_RADIUS_M,
+  SCHEMA_VERSION,
   FILE,
   keyOf,
   ttlMs,
   isEnabled,
   upsert,
   get,
+  lastSeen,
+  lastSeenAll,
+  reset,
   remove,
   list,
   peersOf,

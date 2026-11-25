@@ -212,6 +212,69 @@ test('berkas presence terpisah dari db.json', () => {
   assert.notStrictEqual(TMP_FILE, require('../src/db').DB_FILE, 'harus berbeda dari db.json');
 });
 
+console.log('\n=== lastSeen ===');
+
+test('lastSeen menyimpan titik terakhir setelah entri live dihapus TTL', () => {
+  const SVC = loadWith(TMP_FILE);
+  SVC.upsert({
+    role: 'customer', refId: 'cus_last', name: 'Budi',
+    lat: -0.47, lng: 130.75, accuracy: 12
+  }, { presenceEnabled: true, presenceTtlMin: 60 });
+
+  // Paksa entri live jadi basi. `upsert()` selalu mengisi `at` dengan waktu
+  // sekarang, jadi tidak ada cara menyuntik waktu lama lewat API — tulis
+  // langsung ke berkas lalu muat ulang modul.
+  const raw = JSON.parse(fs.readFileSync(TMP_FILE, 'utf8'));
+  const key = 'customer:cus_last';
+  const live = raw.entries[key];
+  live.at = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  fs.writeFileSync(TMP_FILE, JSON.stringify(raw, null, 2), 'utf8');
+
+  const SVC2 = loadWith(TMP_FILE);
+  // Upsert dengan TTL 1 menit → sweep membuang entri live yang sudah basi.
+  SVC2.upsert({ role: 'admin', refId: 'usr_x', name: 'X', lat: 1, lng: 2 },
+    { presenceEnabled: true, presenceTtlMin: 1 });
+
+  const seen = SVC2.lastSeen('customer', 'cus_last');
+  assert.ok(seen, 'lastSeen harus tetap ada walau live sudah basi');
+  assert.strictEqual(Number(seen.lat).toFixed(2), (-0.47).toFixed(2));
+  assert.strictEqual(seen.source, 'live');
+});
+
+test('lastSeen punya ageMin yang bertambah seiring waktu', () => {
+  const SVC = loadWith(TMP_FILE);
+  SVC.upsert({
+    role: 'customer', refId: 'cus_age', name: 'Sari',
+    lat: -0.5, lng: 130.8
+  }, { presenceEnabled: true, presenceTtlMin: 60 });
+
+  const seen = SVC.lastSeen('customer', 'cus_age');
+  assert.ok(seen, 'lastSeen harus ada');
+  assert.ok(typeof seen.ageMin === 'number', 'ageMin harus angka');
+  assert.ok(seen.ageMin >= 0, 'ageMin tidak boleh negatif');
+});
+
+test('lastSeenAll mengembalikan daftar untuk admin', () => {
+  const SVC = loadWith(TMP_FILE);
+  SVC.upsert({ role: 'customer', refId: 'cus_a', name: 'A', lat: 1, lng: 2 },
+    { presenceEnabled: true, presenceTtlMin: 60 });
+  SVC.upsert({ role: 'customer', refId: 'cus_b', name: 'B', lat: 3, lng: 4 },
+    { presenceEnabled: true, presenceTtlMin: 60 });
+
+  const all = SVC.lastSeenAll();
+  assert.ok(Array.isArray(all));
+  assert.ok(all.length >= 2, 'harus ada minimal 2 entri');
+});
+
+test('presence.json memakai schema versi 2', () => {
+  const SVC = loadWith(TMP_FILE);
+  SVC.upsert({ role: 'customer', refId: 'cus_v', name: 'V', lat: 1, lng: 2 },
+    { presenceEnabled: true, presenceTtlMin: 60 });
+  const raw = JSON.parse(fs.readFileSync(TMP_FILE, 'utf8'));
+  assert.strictEqual(raw.version, 2);
+  assert.ok(raw.lastSeen, 'field lastSeen harus ada');
+});
+
 cleanup();
 delete process.env.PRESENCE_FILE;
 
