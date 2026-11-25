@@ -16,6 +16,7 @@
 const db = require('../db');
 const wa = require('./wa');
 const realtime = require('./realtime');
+const gateway = require('./wa-gateway');
 
 const MAX_CONSECUTIVE_FAIL = 5; // berhenti bila 5 pesan gagal beruntun
 const POLL_INTERVAL_MS = 5000; // jeda polling antrean
@@ -135,6 +136,17 @@ async function runJob(job, now) {
     return 'waiting';
   }
 
+  // Circuit breaker: kalau gateway dicurigai mati, jangan coba setiap
+  // target satu per satu (tiap percobaan menunggu timeout). Job ditunda
+  // (bukan dibatalkan) dan dilanjutkan otomatis saat gateway pulih.
+  if (gateway.isCircuitOpen()) {
+    job.status = 'queued';
+    job.pausedReason = 'Gateway WhatsApp tidak merespons — menunggu gateway pulih';
+    db.write();
+    publishProgress(job, 'waiting-circuit');
+    return 'waiting';
+  }
+
   // Tunggu kanal WhatsApp siap (perangkat WhatsApp Web terhubung).
   if (!wa.canSend()) {
     job.status = 'queued';
@@ -176,8 +188,12 @@ async function runJob(job, now) {
       if (res.status === 'sent') {
         job.sent += 1;
         consecutiveFail = 0;
+        // Kirim berhasil → gateway sehat, tutup circuit bila sedang terbuka.
+        gateway.recordSuccess();
         job.results.push({ phone: target.phone, name: target.name, status: 'sent' });
       } else {
+        // Cabang skipped = opt-out / frequency cap, BUKAN kegagalan jaringan.
+        // Jadi tidak boleh dihitung sebagai kegagalan gateway.
         job.skipped += 1;
         job.results.push({
           phone: target.phone,
@@ -189,6 +205,8 @@ async function runJob(job, now) {
     } catch (err) {
       job.failed += 1;
       consecutiveFail += 1;
+      // Gagal kirim (timeout / gateway mati) → catat ke circuit breaker.
+      gateway.recordFailure(err);
       job.results.push({
         phone: target.phone,
         name: target.name,
@@ -205,6 +223,10 @@ async function runJob(job, now) {
     publishProgress(job, 'sent');
 
     if (consecutiveFail >= MAX_CONSECUTIVE_FAIL) {
+      // Auto-abort: 5 pesan gagal beruntun dalam satu job → job dihentikan.
+      // BEDA dengan circuit breaker: circuit = "gateway dicurigai mati →
+      // tunggu pulih (job tetap queued, resume otomatis)", sedangkan
+      // auto-abort = "job ini dihentikan".
       job.status = 'aborted';
       job.error = `Dihentikan otomatis: ${MAX_CONSECUTIVE_FAIL} pesan gagal beruntun.`;
       job.finishedAt = new Date().toISOString();
@@ -213,8 +235,12 @@ async function runJob(job, now) {
       return 'aborted';
     }
 
-    // Jeda antar pesan (rate-limit) + jeda tambahan bila gagal.
-    await sleep(wa.MIN_DELAY_MS + (consecutiveFail > 0 ? 3000 : 0));
+    // Jeda antar pesan (rate-limit) dengan backoff eksponensial.
+    // Gateway yang lambat akan memperlambat pengiriman, bukan sebaliknya.
+    const backoff = consecutiveFail > 0
+      ? Math.min(30000, 3000 * Math.pow(2, consecutiveFail - 1))
+      : 0;
+    await sleep(wa.MIN_DELAY_MS + backoff);
   }
 
   job.status = 'done';

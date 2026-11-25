@@ -195,6 +195,73 @@ db.reset({
     assert.ok(sent.length > 0);
   });
 
+  // ---- Circuit breaker ----
+  // CATATAN PENTING: blok ini harus berada DI AKHIR file. State circuit
+  // hidup di modul `wa-gateway` (singleton CommonJS), jadi `recordFailure`
+  // mencemari state modul. Tiap test memanggil `resetCircuit()` di awal.
+
+  console.log('\n== Circuit breaker ==');
+  const gateway = require(path.join(root, 'src', 'services', 'wa-gateway'));
+
+  t('gateway membuka circuit setelah beberapa kegagalan berturut-turut', () => {
+    gateway.resetCircuit();
+    assert.strictEqual(gateway.isCircuitOpen(), false, 'circuit harus tertutup di awal');
+    for (let i = 0; i < gateway.CIRCUIT_THRESHOLD; i += 1) {
+      gateway.recordFailure(new Error('timeout'));
+    }
+    assert.strictEqual(gateway.isCircuitOpen(), true, 'circuit harus terbuka');
+  });
+
+  t('recordSuccess menutup circuit', () => {
+    gateway.resetCircuit();
+    for (let i = 0; i < gateway.CIRCUIT_THRESHOLD; i += 1) {
+      gateway.recordFailure(new Error('timeout'));
+    }
+    assert.strictEqual(gateway.isCircuitOpen(), true, 'circuit harus terbuka');
+    gateway.recordSuccess();
+    assert.strictEqual(gateway.isCircuitOpen(), false, 'circuit harus tertutup lagi');
+  });
+
+  t('circuit menutup otomatis setelah masa pending', () => {
+    gateway.resetCircuit();
+    for (let i = 0; i < gateway.CIRCUIT_THRESHOLD; i += 1) {
+      gateway.recordFailure(new Error('timeout'));
+    }
+    assert.strictEqual(gateway.isCircuitOpen(), true, 'circuit harus terbuka');
+    // Majukan waktu cooldown supaya circuit dianggap sudah dingin.
+    gateway.setCircuitOpenedAt(Date.now() - gateway.CIRCUIT_COOLDOWN_MS - 1000);
+    assert.strictEqual(gateway.isCircuitOpen(), false, 'circuit harus dingin setelah cooldown');
+  });
+
+  console.log('\n== Worker berhenti saat circuit terbuka ==');
+  // Isolasi: jam tenang dimatikan supaya penundaan job pasti karena circuit,
+  // bukan karena jam tenang (pengujian memakai jam mesin, bukan jam tetap).
+  const dCircuit = db.read();
+  dCircuit.settings.waQuietStart = 0;
+  dCircuit.settings.waQuietEnd = 0;
+  // Kosongkan log pengiriman harian agar frequency cap tidak mengaburkan
+  // alasan penundaan job.
+  dCircuit.whatsappSendLogs = [];
+  db.write();
+  gateway.resetCircuit();
+  for (let i = 0; i < gateway.CIRCUIT_THRESHOLD; i += 1) {
+    gateway.recordFailure(new Error('timeout'));
+  }
+  sent.length = 0;
+  const jobCircuit = wa.createBroadcastJob({ templateBody: 'Hi {{nama}}', segment: 'all', dryRun: false });
+  const rCircuit = await worker.processJob(jobCircuit);
+  t('worker tidak mengirim saat circuit terbuka dan menandai alasannya', () => {
+    assert.strictEqual(rCircuit, 'waiting');
+    assert.strictEqual(sent.length, 0, 'tidak boleh ada pesan terkirim');
+    const j = db.read().broadcasts.find((x) => x.id === jobCircuit.id);
+    assert.strictEqual(j.status, 'queued');
+    assert.ok(
+      j.pausedReason && /gateway/i.test(j.pausedReason),
+      'pausedReason harus menyebut gateway, dapat: ' + j.pausedReason
+    );
+  });
+  gateway.resetCircuit();
+
   // ---- Kembalikan db.json asli ----
 
   console.log(`\n${pass} lulus, ${fail} gagal.`);

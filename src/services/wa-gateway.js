@@ -575,6 +575,75 @@ async function deleteWebhook(sessionId, webhookId, settings) {
 /* ------------------------------------------------------------------ */
 
 /**
+ * Circuit breaker — melindungi proses utama dari gateway yang mati.
+ *
+ * Gateway OpenWA adalah layanan terpisah (self-hosted). Kalau ia mati atau
+ * timeout berulang, worker blast akan mencoba mengirim ke setiap target satu
+ * per satu — masing-masing menunggu timeout. Itu membakar waktu, membanjiri
+ * log, dan job tidak pernah selesai dengan alasan yang jelas.
+ *
+ * Setelah CIRCUIT_THRESHOLD kegagalan berturut-turut, circuit dibuka: pemanggil
+ * melihat isCircuitOpen() === true dan berhenti mencoba sampai
+ * CIRCUIT_COOLDOWN_MS lewat. Setelah itu circuit otomatis ditutup lagi dan
+ * pengiriman dilanjutkan.
+ */
+const CIRCUIT_THRESHOLD = 5;
+const CIRCUIT_COOLDOWN_MS = 120000;
+
+let consecutiveFailures = 0;
+let circuitOpenedAt = 0;
+
+/**
+ * Apakah circuit sedang terputus (gateway dicurigai mati)?
+ * @returns {boolean} true bila circuit terbuka
+ */
+function isCircuitOpen() {
+  if (!circuitOpenedAt) return false;
+  if (Date.now() - circuitOpenedAt >= CIRCUIT_COOLDOWN_MS) {
+    // Sudah dingin — tutup circuit dan izinkan percobaan lagi.
+    circuitOpenedAt = 0;
+    consecutiveFailures = 0;
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Catat satu kegagalan pengiriman.
+ * @param {Error} err error yang terjadi
+ */
+function recordFailure(err) {
+  consecutiveFailures += 1;
+  if (consecutiveFailures >= CIRCUIT_THRESHOLD && !circuitOpenedAt) {
+    circuitOpenedAt = Date.now();
+    console.warn(
+      '[openwa] Circuit dibuka setelah ' + CIRCUIT_THRESHOLD +
+      ' kegagalan berturut-turut: ' + ((err && err.message) || err)
+    );
+  }
+}
+
+/** Catat keberhasilan — circuit ditutup dan penghitung direset. */
+function recordSuccess() {
+  consecutiveFailures = 0;
+  circuitOpenedAt = 0;
+}
+
+/** Tutup circuit paksa dan reset penghitung. */
+function resetCircuit() {
+  consecutiveFailures = 0;
+  circuitOpenedAt = 0;
+}
+
+/**
+ * Set waktu circuit dibuka (dipakai pengujian).
+ * @param {number} ms timestamp dalam milidetik
+ */
+function setCircuitOpenedAt(ms) {
+  circuitOpenedAt = ms;
+}
+
+/**
  * Cache status session terakhir.
  *
  * `wa-worker` dan `wa-reminder` memanggil `canSend()` untuk setiap pesan.
@@ -966,5 +1035,12 @@ module.exports = {
   isReady,
   healthCheck,
   startPolling,
-  stopPolling
+  stopPolling,
+  isCircuitOpen,
+  recordFailure,
+  recordSuccess,
+  resetCircuit,
+  setCircuitOpenedAt,
+  CIRCUIT_THRESHOLD,
+  CIRCUIT_COOLDOWN_MS
 };
