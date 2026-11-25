@@ -15,7 +15,7 @@ function createMarketingRouter() {
     res.render('admin/contacts', {
       title: 'Kontak Marketing',
       contacts: data.contacts || [],
-      waActive: wa.isActive(data.settings),
+      waActive: wa.isReady(),
       quietHour: wa.isQuietHour(),
       maxPerRun: wa.MAX_PER_RUN,
       marketable: wa.marketableContacts().length
@@ -77,7 +77,7 @@ function createMarketingRouter() {
     const data = db.read();
     res.render('admin/blast', {
       title: 'Blast WhatsApp',
-      waActive: wa.isActive(data.settings),
+      waActive: wa.isReady(),
       quietHour: wa.isQuietHour(),
       maxPerRun: wa.MAX_PER_RUN,
       minDelay: wa.MIN_DELAY_MS,
