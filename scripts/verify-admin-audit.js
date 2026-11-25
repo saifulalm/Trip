@@ -23,17 +23,53 @@ const fs = require('fs');
 const path = require('path');
 
 const BASE = 'http://localhost:' + (process.env.PORT || 4110);
-const UPLOAD_DIR = path.join(__dirname, '..', 'public', 'uploads');
-// Basis data yang dibaca skrip ini. Kalau `SABESI_DATA_DIR` diisi (mis. saat
-// dijalankan lewat `scripts/run-e2e.js`), yang dibaca adalah folder data uji
-// — bukan `data/db.json` produksi. Tanpa ini, skrip yang membaca & menulis
-// settings lewat HTTP bisa membaca nilai yang salah (server uji menulis ke
-// folder uji, skrip membaca folder produksi) → hasil audit palsu.
-const DB = process.env.SABESI_DATA_DIR
-  ? path.join(process.env.SABESI_DATA_DIR, 'db.json')
-  : path.join(__dirname, '..', 'data', 'db.json');
+
+/*
+ * ISOLASI DATA — WAJIB.
+ *
+ * Skrip ini mengubah settings & berkas logo lewat HTTP sungguhan. Kalau
+ * dijalankan tanpa `SABESI_DATA_DIR`, ia akan menulis ke `data/db.json`
+ * produksi DAN ke `public/uploads` repo asli — termasuk MENGHAPUS berkas
+ * logo lama (route admin menghapus logo saat diganti), sedangkan blok
+ * pemulihan di bawah hanya memulihkan nilai `settings.logo`, bukan
+ * berkasnya. Akibatnya logo situs hilang permanen.
+ *
+ * Karena itu skrip menolak jalan tanpa folder data uji. Jalankan lewat
+ * `scripts/run-e2e.js` (yang sudah menyediakan folder uji per target) atau
+ * manual: `SABESI_DATA_DIR=C:/path/ke/folder/uji PORT=41xx node scripts/verify-admin-audit.js`.
+ */
+if (!process.env.SABESI_DATA_DIR) {
+  console.error(
+    'Ditolak: skrip ini mengubah data sungguhan, jadi wajib memakai folder uji.\n' +
+    'Set SABESI_DATA_DIR ke folder data uji, contoh:\n' +
+    '  SABESI_DATA_DIR=C:/Users/Saiful/AppData/Local/Temp/audit-data PORT=4110 node scripts/verify-admin-audit.js\n' +
+    'Atau pakai runner: node scripts/run-e2e.js admin-audit'
+  );
+  process.exit(1);
+}
+
+// Folder data uji (wajib, sudah dijaga di atas).
+const DB = path.join(process.env.SABESI_DATA_DIR, 'db.json');
+
+// Folder unggahan. Server mengunggah ke `public/uploads` repo (lihat
+// `src/services/image.js`), jadi skrip TIDAK boleh menulis ke sana saat
+// mode uji. Backup & pemulihan berkas logo memakai folder ini —
+// kembalikan ke repo hanya bila pemanggil menyatakannya secara eksplisit
+// lewat `SABESI_UPLOAD_DIR`. Tanpa itu, skrip bekerja di salinan repo
+// (cara `run-e2e.js` menyiapkan workspace uji) dan repo asli tak tersentuh.
+const UPLOAD_DIR = process.env.SABESI_UPLOAD_DIR
+  ? path.resolve(process.env.SABESI_UPLOAD_DIR)
+  : path.join(__dirname, '..', 'public', 'uploads');
 
 let cookie = '';
+
+// Cadangan berkas logo — dipakai untuk memulihkan aset setelah uji.
+let logoBackupRestore = null;
+
+// Daftar berkas unggahan yang ADA SEBELUM uji. Berkas baru yang muncul
+// selama uji (mis. logo uji 1x1) dibersihkan di akhir supaya repo tak
+// meninggalkan berkas yatim.
+let uploadsBefore = [];
 
 /** Simpan cookie session dari respons. */
 function saveCookie(res) {
@@ -69,6 +105,40 @@ function png() {
 /** Daftar berkas di folder uploads. */
 function listUploads() {
   return fs.existsSync(UPLOAD_DIR) ? fs.readdirSync(UPLOAD_DIR).filter((f) => !f.endsWith('.gitkeep')) : [];
+}
+
+/**
+ * Backup berkas logo (jika ada) supaya bisa dikembalikan setelah uji.
+ *
+ * Route admin MENGHAPUS berkas logo lama saat logo baru diunggah
+ * (`src/routes/admin.routes.js:1277-1280` → `removeUploadByUrl`). Kalau
+ * berkas lama tak dicadangkan, aset situs hilang permanen — nilai
+ * `settings.logo` saja tidak cukup untuk memulihkannya.
+ *
+ * @param {string} url URL publik logo (mis. '/uploads/logo-123.png')
+ * @returns {{file: string|null, data: Buffer|null}} hasil backup
+ */
+function backupUploadFile(url) {
+  const file = url && String(url).startsWith('/uploads/') ? String(url).split('/').pop() : null;
+  if (!file) return { file: null, data: null };
+  const full = path.join(UPLOAD_DIR, file);
+  if (!fs.existsSync(full)) return { file, data: null };
+  return { file, data: fs.readFileSync(full) };
+}
+
+/**
+ * Kembalikan berkas logo hasil backup.
+ * @param {{file: string|null, data: Buffer|null}} backup hasil backup
+ */
+function restoreUploadFile(backup) {
+  if (!backup || !backup.file || !backup.data) return;
+  const full = path.join(UPLOAD_DIR, backup.file);
+  try {
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, backup.data);
+  } catch (err) {
+    console.error('Gagal memulihkan berkas logo:', err.message);
+  }
 }
 
 /** Baca data dari database (hanya baca). */
@@ -126,6 +196,12 @@ const flag = (v) => (v ? 'on' : '');
 
   // Simpan nilai awal supaya bisa dipulihkan di akhir.
   const original = Object.assign({}, settings());
+
+  // Seluruh uji + pemulihan berada dalam try/finally. Kegagalan di tengah
+  // uji TIDAK boleh meninggalkan data uji dalam keadaan setengah jadi:
+  // berkas logo yang sudah dihapus route admin wajib dikembalikan, dan
+  // nilai settings awal wajib dikembalikan.
+  try {
 
   /* ---------------------------------------------------------------- */
   /* 1. Batas jumlah berkas multipart                                  */
@@ -224,6 +300,13 @@ const flag = (v) => (v ? 'on' : '');
     const before = settings().logo;
     const beforeFile = before && before.startsWith('/uploads/') ? before.split('/').pop() : null;
     const filesBefore = listUploads();
+    uploadsBefore = filesBefore;
+
+    // Cadangkan berkas logo lama SEBELUM diunggah yang baru: route admin
+    // menghapus berkas lama saat logo baru disimpan, jadi tanpa cadangan
+    // aset situs hilang permanen (nilai settings saja tidak cukup untuk memulihkannya).
+    const logoBackup = backupUploadFile(before);
+    logoBackupRestore = logoBackup;
 
     const gp = await req('/admin/pengaturan');
     const gt = csrf(await gp.text());
@@ -305,37 +388,57 @@ const flag = (v) => (v ? 'on' : '');
 
   /* ---------------------------------------------------------------- */
   /* Pulihkan nilai awal settings                                        */
-  /* ---------------------------------------------------------------- */
-  {
-    await sendSettings('site', {
-      siteName: original.siteName || '',
-      tagline: original.tagline || '',
-      heroTitle: original.heroTitle || '',
-      heroSubtitle: original.heroSubtitle || '',
-      whatsapp: original.whatsapp || '',
-      email: original.email || '',
-      phone: original.phone || '',
-      address: original.address || '',
-      instagram: original.instagram || '',
-      facebook: original.facebook || '',
-      about: original.about || '',
-      waFloatEnabled: flag(original.waFloatEnabled !== false),
-      waFloatMessage: original.waFloatMessage || ''
-    });
-    await sendSettings('gateway', {
-      ipaymuVa: original.ipaymuVa || '',
-      ipaymuApiKey: original.ipaymuApiKey || '',
-      ipaymuProduction: flag(original.ipaymuProduction)
-    });
-    await sendSettings('wa', {
-      waDefaultTemplate: original.waDefaultTemplate || ''
-    });
+    /* ---------------------------------------------------------------- */
+    {
+      await sendSettings('site', {
+        siteName: original.siteName || '',
+        tagline: original.tagline || '',
+        heroTitle: original.heroTitle || '',
+        heroSubtitle: original.heroSubtitle || '',
+        whatsapp: original.whatsapp || '',
+        email: original.email || '',
+        phone: original.phone || '',
+        address: original.address || '',
+        instagram: original.instagram || '',
+        facebook: original.facebook || '',
+        about: original.about || '',
+        waFloatEnabled: flag(original.waFloatEnabled !== false),
+        waFloatMessage: original.waFloatMessage || ''
+      });
+      await sendSettings('gateway', {
+        ipaymuVa: original.ipaymuVa || '',
+        ipaymuApiKey: original.ipaymuApiKey || '',
+        ipaymuProduction: flag(original.ipaymuProduction)
+      });
+      await sendSettings('wa', {
+        waDefaultTemplate: original.waDefaultTemplate || ''
+      });
 
-    await sendSettings('theme', {
-      themeMode: original.themeMode || 'light',
-      themeAccent: original.themeAccent || '#166b7a'
-    });
-    console.log('\nsettings awal dipulihkan.');
+      await sendSettings('theme', {
+        themeMode: original.themeMode || 'light',
+        themeAccent: original.themeAccent || '#166b7a'
+      });
+      console.log('\nsettings awal dipulihkan.');
+      }
+
+  } finally {
+    // Kembalikan berkas logo asli kalau sempat terhapus saat uji. Nilai
+    // `settings.logo` saja tidak cukup — berkasnya ikut terhapus oleh
+    // route admin saat logo baru diunggah.
+    restoreUploadFile(logoBackupRestore);
+
+    // Bersihkan berkas unggahan yang dibuat selama uji (mis. logo uji).
+    // Tanpa ini, setiap menjalankan audit meninggalkan berkas yatim di
+    // `public/uploads`.
+    try {
+      const now = listUploads();
+      now.filter((f) => !uploadsBefore.includes(f)).forEach((f) => {
+        const full = path.join(UPLOAD_DIR, f);
+        if (fs.existsSync(full)) fs.unlinkSync(full);
+      });
+    } catch (err) {
+      console.error('Gagal membersihkan berkas unggahan uji:', err.message);
+    }
   }
 
   console.log('\n--- RINGKASAN ---');

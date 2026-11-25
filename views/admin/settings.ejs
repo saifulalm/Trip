@@ -188,13 +188,13 @@
       <p class="help" style="margin-bottom:0.8rem">Batas pengiriman: menjaga supaya blast tidak dianggap spam oleh WhatsApp.</p>
       <div class="a-field">
         <label>Maks pesan per kontak per hari</label>
-        <input type="number" name="frequencyCap" min="1" max="50" value="<%= item.frequencyCap === undefined ? 3 : item.frequencyCap %>">
-        <span class="help">Setelah batas ini tercapai, pesan untuk kontak yang sama ditunda sampai hari berikutnya. Default 3.</span>
+        <input type="number" name="frequencyCap" min="<%= limits.frequencyCap.min %>" max="<%= limits.frequencyCap.max %>" value="<%= item.frequencyCap === undefined ? limits.frequencyCap.def : item.frequencyCap %>">
+        <span class="help">Setelah batas ini tercapai, pesan untuk kontak yang sama ditunda sampai hari berikutnya. Default <%= limits.frequencyCap.def %>.</span>
       </div>
       <div class="a-field">
         <label>Maks pesan total per hari</label>
-        <input type="number" name="globalDailyLimit" min="10" max="500" step="10" value="<%= item.globalDailyLimit === undefined ? 100 : item.globalDailyLimit %>">
-        <span class="help">Batas keseluruhan pesan yang boleh dikirim dalam satu hari. Default 100. Maksimal 500 — log harian hanya menyimpan 500 entri terakhir, jadi batas di atas itu tidak akan pernah terpicu.</span>
+        <input type="number" name="globalDailyLimit" min="<%= limits.globalDailyLimit.min %>" max="<%= limits.globalDailyLimit.max %>" step="10" value="<%= item.globalDailyLimit === undefined ? limits.globalDailyLimit.def : item.globalDailyLimit %>">
+        <span class="help">Batas keseluruhan pesan yang boleh dikirim dalam satu hari. Default <%= limits.globalDailyLimit.def %>. Maksimal <%= limits.globalDailyLimit.max %> — log harian hanya menyimpan <%= limits.globalDailyLimit.max %> entri terakhir, jadi batas di atas itu tidak akan pernah terpicu.</span>
       </div>
       <div class="form-actions"><button type="submit" class="btn-a btn-a--sunset">Simpan Pengaturan WA</button></div>
           </form>
@@ -219,8 +219,8 @@
           <div class="a-field"><label>Webhook secret</label><input type="password" name="openwaWebhookSecret" value="<%= item.openwaWebhookSecret || '' %>"><span class="help">Minimal 16 karakter. Dipakai untuk HMAC-SHA256 atas body webhook. Kosongkan berarti pertahankan yang lama.</span></div>
           <div class="a-field">
             <label>Timeout gateway (milidetik)</label>
-            <input type="number" name="openwaTimeoutMs" min="3000" max="120000" step="500" value="<%= item.openwaTimeoutMs === undefined ? 20000 : item.openwaTimeoutMs %>">
-            <span class="help">Batas waktu menunggu jawaban gateway sebelum dianggap gagal. Default 20000 ms (20 detik).</span>
+            <input type="number" name="openwaTimeoutMs" min="<%= limits.openwaTimeoutMs.min %>" max="<%= limits.openwaTimeoutMs.max %>" step="500" value="<%= item.openwaTimeoutMs === undefined ? limits.openwaTimeoutMs.def : item.openwaTimeoutMs %>">
+            <span class="help">Batas waktu menunggu jawaban gateway sebelum dianggap gagal. Default <%= limits.openwaTimeoutMs.def %> ms (20 detik).</span>
           </div>
           <div class="a-field">
             <label style="display:flex; align-items:center; gap:0.5rem">

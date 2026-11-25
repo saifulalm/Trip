@@ -456,6 +456,122 @@ async function t(name, fn) {
     });
   });
 
+  // ── Opt-in wajib ditegakkan di jalur pengingat (I4) ─────────────────
+  // Jalur blast (`wa.deliverTo`) mewajibkan `optIn`. Jalur pengingat harus
+  // sama: kontak yang belum opt-in tidak boleh menerima pesan apa pun.
+  console.log('\n== Opt-in wajib berlaku untuk pengingat otomatis ==');
+  sentNow.length = 0;
+  {
+    const d = db.read();
+    d.settings.waQuietStart = 0;
+    d.settings.waQuietEnd = 0;
+    d.settings.frequencyCap = 50;
+    d.settings.globalDailyLimit = 100;
+    d.waReminders = [];
+    d.whatsappSendLogs = [];
+    d.bookings = [
+      {
+        id: 'o1', code: 'JJE-201', name: 'Sari', phone: '628222222222',
+        packageSlug: 'p1', packageName: 'Paket Sabesi',
+        departureDate: new Date(nowMs + 3 * dayMs).toISOString().slice(0, 10),
+        status: 'confirmed', paymentStatus: 'paid',
+        createdAt: new Date(nowMs - 2 * dayMs).toISOString()
+      }
+    ];
+    // optIn=false → tidak boleh menerima pengingat.
+    d.contacts = [
+      { id: 'c9', name: 'Sari', phone: '628222222222', optIn: false, optOut: false, waNotify: true }
+    ];
+    db.write();
+  }
+  const resOptIn = await reminder.runReminders(JAM_10);
+  await t('pengingat DITOLAK saat kontak belum opt-in', () => {
+    assert.strictEqual(sentNow.length, 0,
+      'tidak boleh ada pesan terkirim, dapat ' + sentNow.length);
+    assert.strictEqual(resOptIn.sent, 0);
+  });
+  await t('pengingat yang ditolak karena opt-in menjelaskan alasannya', () => {
+    const skipped = (resOptIn.details || []).filter((x) => x.status === 'skipped');
+    assert.ok(skipped.length >= 1, 'harus ada detail skipped');
+    assert.ok(/tidak mengizinkan/i.test(skipped[0].reason || ''),
+      'alasan harus menyebut tidak mengizinkan, dapat: ' + skipped[0].reason);
+  });
+
+  // ── Prioritas timeout: settings (panel admin) menang atas env (I3) ──
+  console.log('\n== Prioritas timeout settings vs env ==');
+  await t('settings menang atas env untuk timeout', () => {
+    const lama = process.env.OPENWA_TIMEOUT_MS;
+    process.env.OPENWA_TIMEOUT_MS = '45000';
+    try {
+      assert.strictEqual(gateway.resolveTimeoutMs({ openwaTimeoutMs: 20000 }), 20000,
+        'nilai di panel admin harus menang atas env');
+    } finally {
+      if (lama === undefined) delete process.env.OPENWA_TIMEOUT_MS;
+      else process.env.OPENWA_TIMEOUT_MS = lama;
+    }
+  });
+  await t('env dipakai sebagai cadangan saat key timeout tak ada di settings', () => {
+    const lama = process.env.OPENWA_TIMEOUT_MS;
+    process.env.OPENWA_TIMEOUT_MS = '45000';
+    try {
+      assert.strictEqual(gateway.resolveTimeoutMs({}), 45000);
+      assert.strictEqual(gateway.resolveTimeoutMs({ openwaTimeoutMs: '' }), 45000);
+    } finally {
+      if (lama === undefined) delete process.env.OPENWA_TIMEOUT_MS;
+      else process.env.OPENWA_TIMEOUT_MS = lama;
+    }
+  });
+  await t('timeout dari env tetap dijepit ke rentang aman', () => {
+    const lama = process.env.OPENWA_TIMEOUT_MS;
+    try {
+      process.env.OPENWA_TIMEOUT_MS = '999999999';
+      assert.strictEqual(gateway.resolveTimeoutMs({}), gateway.MAX_TIMEOUT_MS);
+      process.env.OPENWA_TIMEOUT_MS = '10';
+      assert.strictEqual(gateway.resolveTimeoutMs({}), gateway.MIN_TIMEOUT_MS);
+    } finally {
+      if (lama === undefined) delete process.env.OPENWA_TIMEOUT_MS;
+      else process.env.OPENWA_TIMEOUT_MS = lama;
+    }
+  });
+
+  // ── Status gateway tetap segar tanpa memblokir render (I2) ──────────
+  console.log('\n== Status gateway segar & render tak terblokir ==');
+  await t('ensureStateFresh memakai cache yang masih segar tanpa network call', async () => {
+    // Cache baru saja diperbarui oleh mock → harus dipakai apa adanya.
+    const state = await gateway.ensureStateFresh({}, 30000);
+    assert.ok(state && typeof state === 'object', 'harus mengembalikan objek state');
+    assert.strictEqual(state.status, 'ready',
+      'cache yang segar harus dipakai apa adanya, dapat: ' + state.status);
+  });
+  await t('gateway tak terkonfigurasi → status dipaksa disconnected', async () => {
+    // Tanpa API key, gateway memang tak bisa contacted sama sekali. Env
+    // dikosongkan sementara supaya guard "belum terkonfigurasi" benar-benar
+    // dijalankan (bukan(network call yang gagal).
+    const lamaApi = process.env.OPENWA_API_KEY;
+    const lamaUrl = process.env.OPENWA_BASE_URL;
+    delete process.env.OPENWA_API_KEY;
+    delete process.env.OPENWA_BASE_URL;
+    try {
+      // Paksa cache basi supaya guard dijalankan.
+      const state = await gateway.ensureStateFresh({}, 0);
+      assert.ok(state && typeof state === 'object', 'harus mengembalikan objek state');
+      assert.strictEqual(state.status, 'disconnected',
+        'gateway tak terkonfigurasi → status disconnected, dapat: ' + state.status);
+    } finally {
+      if (lamaApi !== undefined) process.env.OPENWA_API_KEY = lamaApi;
+      if (lamaUrl !== undefined) process.env.OPENWA_BASE_URL = lamaUrl;
+    }
+  });
+  await t('ensureStateFresh tak melempar walau gateway gagal contacted', async () => {
+    // Base URL tak reachable → refresh harus gagal, tapi render tak boleh
+    // ikut gagal. Status terakhir yang dipakai.
+    const state = await gateway.ensureStateFresh({
+      openwaBaseUrl: 'http://127.0.0.1:1',
+      openwaApiKey: 'kunci-uji'
+    }, 0);
+    assert.ok(state && typeof state === 'object', 'harus mengembalikan objek state');
+  });
+
   // ── Batas harian efektif = retensi log harian ─────────────────────
   // Kalau `globalDailyLimit` boleh lebih besar daripada jumlah entri log
   // yang disimpan, batasnya tidak akan pernah terpicu (efektif ~500).

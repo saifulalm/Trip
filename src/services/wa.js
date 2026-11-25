@@ -37,9 +37,10 @@ const FREQUENCY_CAP_PER_CONTACT_PER_DAY = 3; // max 3 pesan per kontak per hari
 // Nilainya tidak boleh lebih besar dari LOG_RETENTION_PER_DAY: log kirim
 // harian hanya menyimpan 500 entri terakhir, jadi batas yang lebih besar
 // dari 500 tidak akan pernah terpicu (efektif jadi 500 saja).
-const MAX_GLOBAL_DAILY_LIMIT = 500;
-// Retensi log kirim harian (jumlah entri yang disimpan per hari).
+// Keduanya diturunkan dari SATU sumber (LOG_RETENTION_PER_DAY) supaya
+// tidak bisa melenceng satu dari yang lain.
 const LOG_RETENTION_PER_DAY = 500;
+const MAX_GLOBAL_DAILY_LIMIT = LOG_RETENTION_PER_DAY;
 const QUIET_START = 21; // jangan kirim antara 21.00–08.00 (waktu server)
 const QUIET_END = 8;
 

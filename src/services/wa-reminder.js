@@ -13,7 +13,9 @@
  *  4. Booking dikonfirmasi           → detail trip & ucapan
  *
  * Aturan penting:
- *  - hanya dikirim ke nomor yang sudah opt-in promo,
+ *  - hanya dikirim ke nomor yang sudah opt-in promo (izin di cek ULANG
+ *    saat pengiriman, sama seperti jalur blast di `wa.js`),
+ *  - opt-out selalu menang atas opt-in,
  *  - hormati jam tenang (tidak dikirim 21.00–08.00),
  *  - tidak ada duplikat: setiap aturan punya "kunci" (dedupe key) yang
  *    disimpan di db sehingga pesan tidak dikirim dua kali.
@@ -227,7 +229,11 @@ async function runReminders(now) {
     // Hanya kirim bila nomor ada di daftar kontak DAN pelanggan mengizinkan
     // pemberitahuan tentang booking-nya (izin transaksional, terpisah dari
     // izin promo). Opt-out selalu menang atas keduanya.
-    if (!contact || contact.optOut || contact.waNotify === false) {
+    //
+    // `optIn` WAJIB dicek di sini — sama seperti jalur blast
+    // (`wa.deliverTo`). Tanpa itu, kontak yang pernah opting-out lalu
+    // diaktifkan kembali bisa menerima pengingat tanpa izin promo.
+    if (!contact || contact.optOut || !contact.optIn || contact.waNotify === false) {
       summary.skipped += 1;
       summary.details.push({
         key: item.key,
@@ -237,7 +243,9 @@ async function runReminders(now) {
           ? 'nomor tidak terdaftar'
           : contact.optOut
             ? 'opted-out'
-            : 'tidak mengizinkan pemberitahuan'
+            : !contact.optIn
+              ? 'tidak mengizinkan pesan'
+              : 'tidak mengizinkan pemberitahuan'
       });
       continue;
     }

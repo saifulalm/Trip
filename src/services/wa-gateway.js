@@ -68,6 +68,40 @@ function clampTimeoutMs(value) {
 }
 
 /**
+ * Tentukan timeout gateway dari settings & env dengan SATU prioritas eksplisit.
+ *
+ * PRIORITAS: nilai di panel admin (settings) MENANG atas env.
+ * Env `OPENWA_TIMEOUT_MS` hanya dipakai sebagai FALLBACK — yaitu ketika key
+ * `openwaTimeoutMs` tidak ada (atau kosong) di settings.
+ *
+ * Alasan: `ensureSeed()` selalu menulis `openwaTimeoutMs` ke basis data,
+ * jadi key itu praktis selalu ada. Bila env menang, nilai yang sudah
+ * disetel admin dari `/admin/pengaturan` diam-diam tak berlaku — persis
+ * kasus yang ditemukan saat audit Task 9. Env tetap berguna untuk
+ * soaking/override sementara tanpa harus mengetik ulang di panel.
+ *
+ * Perbedaan dengan kredensial (API key & webhook secret): untuk kredensial
+ * env tetap menang, karena kredensial sebaiknya tidak disimpan di db.
+ *
+ * @param {object} s settings situs
+ * @returns {number} timeout valid (3000–120000)
+ */
+function resolveTimeoutMs(s) {
+  const dariSettings = Number(s.openwaTimeoutMs);
+  if (s.openwaTimeoutMs !== undefined && s.openwaTimeoutMs !== null &&
+      s.openwaTimeoutMs !== '' && Number.isFinite(dariSettings) && dariSettings > 0) {
+    return clampTimeoutMs(dariSettings);
+  }
+  const dariEnv = Number(process.env.OPENWA_TIMEOUT_MS);
+  if (process.env.OPENWA_TIMEOUT_MS !== undefined &&
+      String(process.env.OPENWA_TIMEOUT_MS).trim() !== '' &&
+      Number.isFinite(dariEnv) && dariEnv > 0) {
+    return clampTimeoutMs(dariEnv);
+  }
+  return DEFAULT_TIMEOUT_MS;
+}
+
+/**
  * Pola nama session OpenWA.
  *
  * OpenWA hanya menerima nama alphanumeric + tanda hubung, maksimal 50
@@ -139,14 +173,11 @@ function config(settings) {
     s.openwaWebhookUrl || process.env.OPENWA_WEBHOOK_URL || ''
   ).trim();
 
-  // Timeout: settings panel menang atas env. Keduanya dijepit ke rentang
-  // yang sama (3000–120000) supaya tak ada sumber timeout yang bisa
-  // membuat gateway menggantung tanpa akhir.
-  const timeoutMs = clampTimeoutMs(
-    s.openwaTimeoutMs !== undefined && s.openwaTimeoutMs !== null && s.openwaTimeoutMs !== ''
-      ? s.openwaTimeoutMs
-      : process.env.OPENWA_TIMEOUT_MS
-  );
+  // Timeout: nilai di panel admin (settings) menang atas env. Env hanya
+  // fallback bila key `openwaTimeoutMs` tidak ada di settings. Keduanya
+  // dijepit ke rentang yang sama (3000–120000) supaya tak ada sumber
+  // timeout yang bisa membuat gateway menggantung tanpa akhir.
+  const timeoutMs = resolveTimeoutMs(s);
 
   return { baseUrl, sessionName, apiKey, webhookSecret, webhookUrl, timeoutMs };
 }
@@ -684,6 +715,67 @@ async function refreshState(settings) {
 }
 
 /**
+ * Batas umur cache status sebelum di-refresh ulang (milidetik).
+ */
+const STATE_MAX_AGE_MS = 30000;
+
+/**
+ * Pastikan cache status gateway masih segar, TANPA memblokir render.
+ *
+ * Kenapa perlu: `wa.isReady()` membaca cache `gateway.state.status`, dan
+ * cache itu hanya terisi oleh polling berkala (`startPolling`) atau
+ * `refreshState()`. Tanpa penjaga ini, halaman panel Kontak & Blast
+ * menampilkan `waActive = false` (tombol "Kirim Blast" nonaktif) walau
+ * gateway sebenarnya sudah siap.
+ *
+ * Sifatnya:
+ *  - cache yang masih segar dipakai apa adanya (tanpa request jaringan);
+ *  - gateway yang BELUM dikonfigurasi tidak disentuh sama sekali — status
+ *    dipaksa `disconnected` (benar) tanpa(network call);
+ *  - refresh yang gagal/slow tidak boleh memblokir render → dibatasi
+ *    waktu dan kegagalannya ditelan (status terakhir yang dipakai).
+ *
+ * @param {object} [settings] settings situs
+ * @param {number} [maxAgeMs] umur maksimum cache (default 30 detik)
+ * @returns {Promise<object>} state gateway
+ */
+async function ensureStateFresh(settings, maxAgeMs) {
+  // `0` berarti "paksa refresh" — jadi nilai 0 tak boleh dianggap falsy
+  // dan jatuh ke default (sebelumnya `Number(maxAgeMs) || DEFAULT` membuat
+  // 0 jadi default, sehingga jalur refresh-basah tak pernah berjalan).
+  const maxAge = maxAgeMs === undefined || maxAgeMs === null
+    ? STATE_MAX_AGE_MS
+    : Number(maxAgeMs);
+  const s = settings && typeof settings === 'object'
+    ? settings
+    : ((db.read() || {}).settings || {});
+
+  const updatedAt = state.updatedAt ? new Date(state.updatedAt).getTime() : 0;
+  if (updatedAt && Date.now() - updatedAt < maxAge) return getState();
+
+  // Gateway belum dikonfigurasi (base URL / API key kosong) → tak ada yang
+  // bisa di-poll. Status dipaksa 'disconnected' supaya panel menampilkan
+  // kondisi yang benar, tanpa satu pun request jaringan.
+  if (!isConfigured(s)) {
+    state.status = 'disconnected';
+    state.updatedAt = new Date().toISOString();
+    return getState();
+  }
+
+  try {
+    // Batas waktu: render halaman tidak boleh menunggu gateway lama.
+    const timeout = new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(getState()), 3000);
+      if (typeof timer.unref === 'function') timer.unref();
+    });
+    return await Promise.race([refreshState(s), timeout]);
+  } catch (err) {
+    // Kegagalan refresh tidak boleh memblokir render halaman.
+    return getState();
+  }
+}
+
+/**
  * Kirim pesan teks ke satu nomor.
  *
  * Ini titik masuk yang dipakai `wa.js`. Format nomor sudah dinormalisasi
@@ -839,6 +931,7 @@ module.exports = {
   MIN_TIMEOUT_MS,
   MAX_TIMEOUT_MS,
   clampTimeoutMs,
+  resolveTimeoutMs,
   SAFE_SESSION_NAME,
   OpenwaError,
   config,
@@ -868,6 +961,8 @@ module.exports = {
   getState,
   applySession,
   refreshState,
+  ensureStateFresh,
+  STATE_MAX_AGE_MS,
   isReady,
   healthCheck,
   startPolling,

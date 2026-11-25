@@ -1155,6 +1155,10 @@ router.get('/pengaturan', (req, res) => {
   res.render('admin/settings', {
     title: 'Pengaturan Situs',
     item: req.data.settings,
+    // Rentang nilai numerik yang dipakai form. Satu sumber kebenaran:
+    // `SETTINGS_LIMITS` yang sama dipakai route penyimpanan — supaya
+    // atribut min/max di form tak pernah melenceng dari batas sebenarnya.
+    limits: SETTINGS_LIMITS,
     // Daftar platform media sosial untuk form tautan profil.
     socialPlatforms: require('../services/social').PROFILE_PLATFORMS
   });

@@ -29,6 +29,21 @@ if (!process.env.SABESI_DATA_DIR) {
 }
 const DB = path.join(process.env.SABESI_DATA_DIR, 'db.json');
 
+// Default seed untuk nilai settings yang dipulihkan. diambil dari
+// `src/seed.js` (sumber kebenaran) supaya nilai fallback di skrip ini
+// tidak pernah melenceng dari default aplikasi.
+const SEED_DEFAULTS = (() => {
+  try {
+    // eslint-disable-next-line global-require
+    return require('../src/seed').buildSeed().settings || {};
+  } catch (err) {
+    return {};
+  }
+})();
+const DEFAULT_OPENWA_TIMEOUT_MS = Number(SEED_DEFAULTS.openwaTimeoutMs) || 20000;
+const DEFAULT_FREQUENCY_CAP = Number(SEED_DEFAULTS.frequencyCap) || 3;
+const DEFAULT_GLOBAL_DAILY_LIMIT = Number(SEED_DEFAULTS.globalDailyLimit) || 100;
+
 let cookie = '';
 
 function saveCookie(res) {
@@ -146,18 +161,38 @@ function t(name, ok, info) {
   } finally {
     // ── Pulihkan nilai awal (jangan tinggalkan setelan uji) ─────────
     try {
-      await save('openwa', { openwaTimeoutMs: String(original.openwaTimeoutMs) });
+      // Nilai pemulihan WAJIB berupa NUMBER yang valid. `String(x)` pada
+      // key yang tidak ada menghasilkan "undefined" — dan `scopedInt`
+      // lalu menolak string itu sehingga nilai akhirnya bukan angka
+      // (tak ternormalisasi). Karena itu setiap nilai dinormalisasi
+      // lebih dulu: `Number(x)`, dan bila bukan angka → default seed.
+      const timeoutAsli = Number(original.openwaTimeoutMs);
+      const timeoutPulih = Number.isFinite(timeoutAsli)
+        ? timeoutAsli
+        : DEFAULT_OPENWA_TIMEOUT_MS;
+      const capAsli = Number(original.frequencyCap);
+      const capPulih = Number.isFinite(capAsli) ? capAsli : DEFAULT_FREQUENCY_CAP;
+      const limitAsli = Number(original.globalDailyLimit);
+      const limitPulih = Number.isFinite(limitAsli) ? limitAsli : DEFAULT_GLOBAL_DAILY_LIMIT;
+
+      await save('openwa', { openwaTimeoutMs: String(timeoutPulih) });
       await save('wa', {
-        frequencyCap: String(original.frequencyCap),
-        globalDailyLimit: String(original.globalDailyLimit)
+        frequencyCap: String(capPulih),
+        globalDailyLimit: String(limitPulih)
       });
-      t('settings awal dipulihkan',
-        settings().openwaTimeoutMs === original.openwaTimeoutMs &&
-        settings().frequencyCap === original.frequencyCap &&
-        settings().globalDailyLimit === original.globalDailyLimit,
-        'timeout=' + settings().openwaTimeoutMs +
-        ' cap=' + settings().frequencyCap +
-        ' limit=' + settings().globalDailyLimit);
+
+      const sekarang = settings();
+      const pulih =
+        typeof sekarang.openwaTimeoutMs === 'number' &&
+        typeof sekarang.frequencyCap === 'number' &&
+        typeof sekarang.globalDailyLimit === 'number' &&
+        sekarang.openwaTimeoutMs === timeoutPulih &&
+        sekarang.frequencyCap === capPulih &&
+        sekarang.globalDailyLimit === limitPulih;
+      t('settings awal dipulihkan', pulih,
+        'timeout=' + sekarang.openwaTimeoutMs +
+        ' cap=' + sekarang.frequencyCap +
+        ' limit=' + sekarang.globalDailyLimit);
     } catch (err) {
       // Pemulihan gagal — tetap laporkan, jangan menelan error-nya.
       console.log('GAGAL settings awal dipulihkan — ' + String((err && err.message) || err));

@@ -14,8 +14,13 @@ function createMarketingRouter() {
   const router = express.Router();
 
   /* Kontak marketing */
-  router.get('/kontak', (req, res) => {
+  router.get('/kontak', async (req, res) => {
     const data = db.read();
+    // Status gateway di-refresh bila cache-nya sudah basi. Tanpa ini
+    // `waActive` selalu false (tombol kirim nonaktif) karena cache status
+    // hanya terisi oleh polling berkala. Kegagalan refresh tidak boleh
+    // memblokir render halaman.
+    await gateway.ensureStateFresh(data.settings);
     res.render('admin/contacts', {
       title: 'Kontak Marketing',
       contacts: data.contacts || [],
@@ -101,8 +106,13 @@ function createMarketingRouter() {
   });
 
   /* Blast WhatsApp */
-  router.get('/blast', (req, res) => {
+  router.get('/blast', async (req, res) => {
     const data = db.read();
+    // Sama seperti halaman Kontak: status gateway di-refresh bila cache
+    // basi, supaya `waActive` mencerminkan kondisi sebenarnya (tombol
+    // "Kirim Blast" aktif hanya kalau kanal siap). Kegagalan refresh
+    // tidak boleh memblokir render halaman.
+    await gateway.ensureStateFresh(data.settings);
     res.render('admin/blast', {
       title: 'Blast WhatsApp',
       waActive: wa.isReady(),
