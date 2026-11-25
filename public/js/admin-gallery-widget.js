@@ -19,16 +19,26 @@
  */
 (function () {
   /**
-   * Fallback bila `upload-spec.js` belum termuat. Hanya jaring pengaman —
-   * sumber kebenaran tetap `SylUploadSpec`.
+   * Fallback bila `upload-spec.js` belum termuat.
+   *
+   * Fallback SENGAJA memakai batas paling ketat di antara slot yang relevan
+   * (batas terkecil = 500 KB, format paling sempit = PNG/WEBP, sisi
+   * terpendek minimum terbesar = 800 px) sehingga widget tidak pernah
+   * menerima berkas yang lebih longgar daripada server.
+   *
+   * Bila `SylUploadSpec` benar-benar tidak termuat, widget lebih aman
+   * MENOLAK berkas dengan pesan jelas daripada menebak aturannya.
    */
   const FALLBACK_SPEC = {
-    maxBytes: 5 * 1024 * 1024,
-    mime: ['image/jpeg', 'image/png', 'image/webp'],
+    maxBytes: 500 * 1024,
+    mime: ['image/png', 'image/webp'],
     ratio: [16, 10],
     minShortSide: 800,
-    hint: 'JPG, PNG, atau WEBP · maksimal 5 MB'
+    hint: 'PNG atau WEBP · maksimal 500 KB'
   };
+
+  // True bila spesifikasi slot benar-benar termuat di halaman.
+  const SPEC_AVAILABLE = !!window.SylUploadSpec;
 
   // Batas & format diambil dari spesifikasi slot (window.SylUploadSpec)
   // supaya selalu sinkron dengan validasi server.
@@ -44,15 +54,16 @@
     acceptAttr: function () {
       return FALLBACK_SPEC.mime.join(',');
     },
-    validate: function (file) {
-      if (!file) return { ok: false, error: 'Berkas tidak valid.', warning: null };
-      if (file.size > FALLBACK_SPEC.maxBytes) {
-        return { ok: false, error: 'Ukuran file terlalu besar.', warning: null };
-      }
-      return { ok: true, error: null, warning: null };
+    validate: function () {
+      // Tanpa spesifikasi slot, aturannya tidak bisa dipastikan.
+      return {
+        ok: false,
+        error: 'Spesifikasi unggahan tidak termuat. Muat ulang halaman lalu coba lagi.',
+        warning: null
+      };
     },
     readDimensions: function () {
-      return Promise.reject(new Error('Browser tidak mendukung pembacaan dimensi gambar.'));
+      return Promise.reject(new Error('Spesifikasi unggahan tidak termuat.'));
     }
   };
 
@@ -149,6 +160,15 @@
       }
 
       if (!list.length) {
+        input.value = '';
+        return;
+      }
+
+      // Tanpa spesifikasi slot, aturan upload tidak bisa dipastikan —
+      // lebih aman menolak daripada menerima berkas yang server tolak.
+      if (!SPEC_AVAILABLE) {
+        drop.classList.add('is-error');
+        setText(filenameEl, 'Spesifikasi unggahan tidak termuat. Muat ulang halaman lalu coba lagi.');
         input.value = '';
         return;
       }

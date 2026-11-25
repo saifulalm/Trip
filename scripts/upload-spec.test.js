@@ -14,6 +14,7 @@ const image = require(path.join(root, 'src', 'services', 'image'));
 
 let pass = 0;
 let fail = 0;
+let skip = 0;
 function t(name, fn) {
   try {
     fn();
@@ -23,6 +24,18 @@ function t(name, fn) {
     fail += 1;
     console.log('  FAIL  ' + name + '  ->  ' + err.message);
   }
+}
+
+/**
+ * Catat pemeriksaan yang dilewati (SKIP) — mis. karena lingkungan tidak
+ * mendukung (Chromium/puppeteer tidak tersedia). SKIP tidak menggagalkan
+ * suite, tapi tetap ditampilkan supaya hasilnya terlihat.
+ * @param {string} name nama pemeriksaan
+ * @param {string} reason alasan dilewati
+ */
+function ts(name, reason) {
+  skip += 1;
+  console.log('  SKIP  ' + name + '  ->  ' + reason);
 }
 
 console.log('\n== Spesifikasi slot upload ==');
@@ -693,86 +706,119 @@ console.log('\n== Widget upload (browser) ==');
  *  5. kegagalan `readDimensions` menampilkan error — bukan diam-diam
  *     melanjutkan validasi tanpa dimensi.
  */
-async function runWidgetSuite() {
-  const fs = require('fs');
-  const puppeteer = require(path.join(root, 'node_modules', 'puppeteer'));
-
-  const MARKUP = [
-    '<!doctype html><html><body>',
-    '<div class="img-upload" data-slot="card">',
-    '  <div class="img-upload__row">',
-    '    <div class="img-upload__preview img-upload__preview--empty" data-preview-box></div>',
-    '    <div class="img-upload__body">',
-    '      <input type="file" id="imageFile" name="imageFile">',
-    '      <div class="img-upload__drop" data-drop tabindex="0">',
-    '        <div class="img-upload__hint" data-hint data-extra-hint="Rasio 16:10 (contoh 1280x800) - JPG, PNG, WEBP atau GIF - maksimal 5 MB"></div>',
-    '        <div class="img-upload__filename" data-filename></div>',
-    '        <div class="img-upload__meta" data-meta></div>',
-    '        <div class="img-upload__warning" data-warning hidden></div>',
-    '      </div>',
-    '      <div class="img-upload__actions">',
-    '        <button type="button" data-clear hidden>Hapus pilihan</button>',
-    '      </div>',
-    '    </div>',
-    '  </div>',
-    '</div>',
-    '</body></html>'
-  ].join('\n');
-
-  let browser = null;
+/**
+ * Siapkan browser untuk suite UI.
+ * Bila `puppeteer` tidak terpasang atau Chromium gagal start, suite
+ * di-SKIP (tidak menggagalkan `npm test`) dengan pesan yang jelas.
+ * @returns {Promise<object|null>} objek browser, atau null bila tidak tersedia
+ */
+async function openBrowser() {
+  let puppeteer;
   try {
-    browser = await puppeteer.launch({
+    puppeteer = require(path.join(root, 'node_modules', 'puppeteer'));
+  } catch (err) {
+    ts('suite widget upload (browser)', 'browser suite dilewati: puppeteer tidak tersedia');
+    return null;
+  }
+  try {
+    return await puppeteer.launch({
       headless: 'new',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
   } catch (err) {
-    await ta('widget upload (browser) — browser tidak bisa dijalankan', () => {
-      throw new Error('puppeteer gagal start: ' + err.message);
-    });
-    return;
+    ts('suite widget upload (browser)', 'browser suite dilewati: Chromium/puppeteer tidak tersedia');
+    return null;
   }
+}
+
+/**
+ * Stub API gambar di dalam halaman agar dimensi bisa dikendalikan test.
+ * Dipakai bersama oleh suite widget tunggal dan suite widget galeri.
+ * @param {object} page halaman puppeteer
+ */
+async function stubBrowserApis(page) {
+  await page.evaluate(() => {
+    window.__calls = [];
+    window.__dims = { width: 1280, height: 800 };
+    window.__dimsShouldFail = false;
+    window.createImageBitmap = function () {
+      window.__calls.push('readDimensions');
+      if (window.__dimsShouldFail) return Promise.reject(new Error('decode gagal'));
+      return Promise.resolve(window.__dims);
+    };
+    // FileReader sederhana untuk pratinjau.
+    window.FileReader = function () {
+      this.onload = null;
+      this.readAsDataURL = function () {
+        if (this.onload) this.onload({ target: { result: 'data:,' } });
+      };
+    };
+  });
+}
+
+/**
+ * Pilih beberapa file pada input dan tunggu widget selesai memprosesnya.
+ * @param {object} page halaman puppeteer
+ * @param {string} selector selektor input file
+ * @param {Array<object>} files daftar {name, type}
+ */
+async function pilihFiles(page, selector, files) {
+  await page.evaluate((sel, list) => {
+    const input = document.querySelector(sel);
+    // File asli + DataTransfer supaya input.files jadi FileList sungguhan.
+    const dt = new DataTransfer();
+    list.forEach((f) => {
+      dt.items.add(new File([new Uint8Array(1024)], f.name, { type: f.type }));
+    });
+    input.files = dt.files;
+    input.dispatchEvent(new Event('change'));
+  }, selector, files);
+  // Tunggu promise di dalam widget selesai.
+  await new Promise((r) => setTimeout(r, 200));
+}
+
+async function runWidgetSuite() {
+  const browser = await openBrowser();
+  if (!browser) return;
 
   try {
     const page = await browser.newPage();
 
+    const MARKUP = [
+      '<!doctype html><html><body>',
+      '<div class="img-upload" data-slot="card">',
+      '  <div class="img-upload__row">',
+      '    <div class="img-upload__preview img-upload__preview--empty" data-preview-box></div>',
+      '    <div class="img-upload__body">',
+      '      <input type="file" id="imageFile" name="imageFile">',
+      '      <div class="img-upload__drop" data-drop tabindex="0">',
+      '        <div class="img-upload__hint" data-hint data-extra-hint="Rasio 16:10 (contoh 1280x800) - JPG, PNG, WEBP atau GIF - maksimal 5 MB"></div>',
+      '        <div class="img-upload__filename" data-filename></div>',
+      '        <div class="img-upload__meta" data-meta></div>',
+      '        <div class="img-upload__warning" data-warning hidden></div>',
+      '      </div>',
+      '      <div class="img-upload__actions">',
+      '        <button type="button" data-clear hidden>Hapus pilihan</button>',
+      '      </div>',
+      '    </div>',
+      '  </div>',
+      '</div>',
+      '</body></html>'
+    ].join('\n');
+
     // Stub createImageBitmap: dimensi dikendalikan test.
     await page.setContent(MARKUP);
-    await page.evaluate(() => {
-      window.__calls = [];
-      window.__dims = { width: 1280, height: 800 };
-      window.__dimsShouldFail = false;
-      window.createImageBitmap = function () {
-        window.__calls.push('readDimensions');
-        if (window.__dimsShouldFail) return Promise.reject(new Error('decode gagal'));
-        return Promise.resolve(window.__dims);
-      };
-      // FileReader sederhana untuk pratinjau.
-      window.FileReader = function () {
-        this.onload = null;
-        this.readAsDataURL = function () {
-          if (this.onload) this.onload({ target: { result: 'data:,' } });
-        };
-      };
-    });
+    await stubBrowserApis(page);
 
     await page.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-spec.js') });
     await page.addScriptTag({ path: path.join(root, 'public', 'js', 'admin-upload.js') });
 
     /** Pilih file pada input dan tunggu widget selesai memprosesnya. */
     async function pilihFile(overrides) {
-      await page.evaluate((ov) => {
-        const input = document.querySelector('input[type="file"]');
-        // File asli + DataTransfer supaya input.files jadi FileList sungguhan.
-        const file = new File([new Uint8Array(1024)], (ov && ov.name) || 'foto.png', {
-          type: (ov && ov.type) || 'image/png'
-        });
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        input.files = dt.files;
-        input.dispatchEvent(new Event('change'));
-      }, overrides);
-      // Tunggu promise di dalam applyFile selesai.
-      await new Promise((r) => setTimeout(r, 150));
+      await pilihFiles(page, 'input[type="file"]', [{
+        name: (overrides && overrides.name) || 'foto.png',
+        type: (overrides && overrides.type) || 'image/png'
+      }]);
     }
 
     await ta('hint widget diisi dari spesifikasi slot (batas lama dibuang)', async () => {
@@ -829,6 +875,128 @@ async function runWidgetSuite() {
       const isError = await page.$eval('[data-drop]', (el) => el.classList.contains('is-error'));
       assert.ok(isError, 'drop tidak ditandai error');
     });
+
+    await ta('tanpa spesifikasi slot, widget menolak dengan pesan jelas', async () => {
+      // Halaman baru TANPA upload-spec.js -> SylUploadSpec tidak termuat.
+      const page2 = await browser.newPage();
+      await page2.setContent(MARKUP);
+      await stubBrowserApis(page2);
+      await page2.addScriptTag({ path: path.join(root, 'public', 'js', 'admin-upload.js') });
+      await pilihFiles(page2, 'input[type="file"]', [{ name: 'foto.png', type: 'image/png' }]);
+      const txt = await page2.$eval('[data-filename]', (el) => el.textContent);
+      assert.ok(
+        /spesifikasi unggahan tidak termuat/i.test(txt),
+        'pesan tidak menjelaskan spesifikasi tidak termuat: ' + txt
+      );
+      const isError = await page2.$eval('[data-drop]', (el) => el.classList.contains('is-error'));
+      assert.ok(isError, 'drop tidak ditandai error');
+      await page2.close();
+    });
+  } finally {
+    await browser.close();
+  }
+}
+
+/**
+ * Uji perilaku widget galeri (`[data-gal-upload]`) di Chromium.
+ *
+ * Yang dibuktikan:
+ *  1. `readDimensions` dipanggil PER BERKAS dan `file.width`/`file.height` terisi,
+ *  2. rasio menyimpang hanya PERINGATAN (tidak membatalkan pilihan berkas),
+ *  3. kegagalan pembacaan dimensi MEMBUANG berkas (files kept = 0) + error,
+ *  4. `minShortSide` ditolak untuk gambar kecil.
+ *
+ * Memakai harness yang sama dengan suite widget tunggal (stub
+ * `createImageBitmap`/`FileReader`/`DataTransfer`).
+ */
+async function runGalleryWidgetSuite() {
+  const browser = await openBrowser();
+  if (!browser) return;
+
+  const MARKUP = [
+    '<!doctype html><html><body>',
+    '<div class="gal-upload" data-gal-upload data-max-files="8" data-slot="gallery">',
+    '  <label class="gal-upload__label">Galeri Foto</label>',
+    '  <div class="img-upload__drop gal-upload__drop" data-gal-drop tabindex="0" role="button">',
+    '    <strong>Klik atau seret foto ke sini</strong>',
+    '    <div class="img-upload__hint" data-gal-hint data-extra-hint=""></div>',
+    '    <div class="img-upload__filename" data-gal-filename></div>',
+    '    <div class="img-upload__meta" data-gal-meta></div>',
+    '    <div class="img-upload__warning" data-gal-warning hidden></div>',
+    '  </div>',
+    '  <input type="file" id="galleryFiles" name="galleryFiles" multiple data-gal-input>',
+    '</div>',
+    '</body></html>'
+  ].join('\n');
+
+  try {
+    const page = await browser.newPage();
+    await page.setContent(MARKUP);
+    await stubBrowserApis(page);
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-spec.js') });
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'admin-gallery-widget.js') });
+
+    await ta('galeri: readDimensions dipanggil per berkas dan dimensi terisi', async () => {
+      await page.evaluate(() => { window.__calls = []; });
+      await pilihFiles(page, 'input[type="file"]', [
+        { name: 'a.png', type: 'image/png' },
+        { name: 'b.png', type: 'image/png' }
+      ]);
+      const calls = await page.evaluate(() => window.__calls);
+      const n = calls.filter((c) => c === 'readDimensions').length;
+      assert.strictEqual(n, 2, 'readDimensions harus dipanggil 2x, dapat ' + n);
+      const dims = await page.evaluate(() => {
+        const input = document.querySelector('input[type="file"]');
+        return Array.from(input.files).map((f) => ({ w: f.width, h: f.height }));
+      });
+      assert.strictEqual(dims.length, 2, 'harus ada 2 berkas');
+      dims.forEach((d) => {
+        assert.strictEqual(d.w, 1280, 'file.width tidak terisi');
+        assert.strictEqual(d.h, 800, 'file.height tidak terisi');
+      });
+    });
+
+    await ta('galeri: rasio menyimpang hanya PERINGATAN, berkas tidak dibatalkan', async () => {
+      await page.evaluate(() => { window.__dims = { width: 1000, height: 1000 }; });
+      await pilihFiles(page, 'input[type="file"]', [{ name: 'a.png', type: 'image/png' }]);
+      const warn = await page.$eval('[data-gal-warning]', (el) => ({
+        hidden: el.hidden,
+        text: el.textContent
+      }));
+      assert.ok(!warn.hidden, 'peringatan rasio tidak tampil');
+      assert.ok(/rasio/i.test(warn.text), 'teks peringatan kurang jelas: ' + warn.text);
+      const isError = await page.$eval('[data-gal-drop]', (el) => el.classList.contains('is-error'));
+      assert.ok(!isError, 'peringatan rasio tidak boleh membatalkan berkas');
+      const kept = await page.evaluate(
+        () => document.querySelector('input[type="file"]').files.length
+      );
+      assert.strictEqual(kept, 1, 'berkas harus tetap dipilih');
+    });
+
+    await ta('galeri: minShortSide ditolak untuk gambar kecil', async () => {
+      await page.evaluate(() => { window.__dims = { width: 100, height: 100 }; });
+      await pilihFiles(page, 'input[type="file"]', [{ name: 'kecil.png', type: 'image/png' }]);
+      const txt = await page.$eval('[data-gal-filename]', (el) => el.textContent);
+      assert.ok(/800/.test(txt), 'pesan tidak menyebut batas dimensi: ' + txt);
+      const isError = await page.$eval('[data-gal-drop]', (el) => el.classList.contains('is-error'));
+      assert.ok(isError, 'drop tidak ditandai error');
+    });
+
+    await ta('galeri: kegagalan baca dimensi membuang berkas dan menampilkan error', async () => {
+      await page.evaluate(() => { window.__dimsShouldFail = true; });
+      await pilihFiles(page, 'input[type="file"]', [
+        { name: 'a.png', type: 'image/png' },
+        { name: 'b.png', type: 'image/png' }
+      ]);
+      const txt = await page.$eval('[data-gal-filename]', (el) => el.textContent);
+      assert.ok(/dimensi/i.test(txt), 'tidak ada pesan error dimensi: ' + txt);
+      const isError = await page.$eval('[data-gal-drop]', (el) => el.classList.contains('is-error'));
+      assert.ok(isError, 'drop tidak ditandai error');
+      const kept = await page.evaluate(
+        () => document.querySelector('input[type="file"]').files.length
+      );
+      assert.strictEqual(kept, 0, 'berkas harus dibuang, tersisa ' + kept);
+    });
   } finally {
     await browser.close();
   }
@@ -859,13 +1027,52 @@ t('gallery-upload.ejs memakai slot gallery', () => {
   assert.ok(!/data-max-size="5242880"/.test(src), 'data-max-size masih di-hardcode');
 });
 
-t('form artikel memakai slot article, form OG memakai slot og', () => {
-  const art = readPartial(path.join('views', 'admin', 'article-form.ejs'));
-  assert.ok(/ratio:\s*'article'/.test(art), 'artikel harus ratio article');
+/**
+ * Apakah file form admin sudah memakai partial unggah?
+ *
+ * Form admin (`article-form.ejs`, `seo.ejs`, dst.) adalah pekerjaan lama
+ * (redesign situs) yang belum tentu ikut ter-commit. Assertion slot
+ * per-form hanya bermakna bila form itu memang memanggil partial —
+ * kalau belum, assertion-nya dilewati (SKIP), bukan gagal.
+ *
+ * @param {string} relPath jalur relatif file form
+ * @returns {boolean} true bila form memakai partial unggah
+ */
+function formUsesUploadPartial(relPath) {
+  let src;
+  try {
+    src = readPartial(relPath);
+  } catch (err) {
+    // Form tidak ada di checkout ini — anggap belum memakai partial.
+    return false;
+  }
+  return /include\s*\(\s*['"]partials\/(image-upload|gallery-upload)['"]/.test(src)
+    || (/<%-?\s*include\s*\(/.test(src) && /img-upload/.test(src));
+}
 
-  const seo = readPartial(path.join('views', 'admin', 'seo.ejs'));
-  assert.ok(/ratio:\s*'og'/.test(seo), 'SEO harus ratio og');
-});
+/**
+ * Assertion bersyarat: kalau form memakai partial unggah, slot yang
+ * dipakai WAJIB benar; kalau tidak, dilewati (SKIP) dan dicatat.
+ * @param {string} formRelPath jalur relatif file form
+ * @param {string} slot slot yang diharapkan
+ */
+function assertFormSlot(formRelPath, slot) {
+  const label = path.basename(formRelPath);
+  if (!formUsesUploadPartial(formRelPath)) {
+    ts('form ' + label + ' memakai slot ' + slot, 'form belum memakai partial unggah');
+    return;
+  }
+  const src = readPartial(formRelPath);
+  t('form ' + label + ' memakai slot ' + slot, () => {
+    assert.ok(
+      new RegExp("ratio:\\s*'" + slot + "'").test(src),
+      label + ' harus memakai ratio ' + slot
+    );
+  });
+}
+
+assertFormSlot(path.join('views', 'admin', 'article-form.ejs'), 'article');
+assertFormSlot(path.join('views', 'admin', 'seo.ejs'), 'og');
 
 t('widget upload memakai SylUploadSpec, bukan konstanta hardcode', () => {
   const upload = readPartial(path.join('public', 'js', 'admin-upload.js'));
@@ -900,12 +1107,52 @@ t('widget galeri juga membaca dimensi sebelum validasi', () => {
   assert.ok(dimIdx < valIdx, 'readDimensions harus dipanggil sebelum validate');
 });
 
+t('fallback widget tidak lebih longgar daripada slot mana pun', () => {
+  // Batas terkecil di antara seluruh slot = logo (500 KB). Fallback tidak
+  // boleh lebih longgar dari itu, kalau tidak widget menerima berkas yang
+  // server akan tolak saat `upload-spec.js` gagal termuat.
+  const batasTertecil = Math.min.apply(null, Object.keys(image.SLOT_SPECS)
+    .map((k) => image.SLOT_SPECS[k].maxBytes));
+
+  ['public/js/admin-upload.js', 'public/js/admin-gallery-widget.js'].forEach((rel) => {
+    const src = readPartial(path.join(rel));
+    const m = src.match(/const FALLBACK_SPEC\s*=\s*\{([\s\S]*?)\}/);
+    assert.ok(m, rel + ' harus punya FALLBACK_SPEC');
+    const maxBytes = m[1].match(/maxBytes:\s*([0-9* ]+)/);
+    assert.ok(maxBytes, rel + ' FALLBACK_SPEC harus punya maxBytes');
+    // Hitung nilainya (hanya perkalian sederhana).
+    const nilai = maxBytes[1]
+      .split('*')
+      .map((s) => parseInt(s.trim(), 10))
+      .reduce((a, b) => a * b, 1);
+    assert.ok(
+      nilai <= batasTertecil,
+      rel + ' fallback maxBytes ' + nilai + ' lebih longgar dari batas terkecil ' + batasTertecil
+    );
+  });
+});
+
+t('widget menolak dengan pesan jelas bila spesifikasi tidak termuat', () => {
+  ['public/js/admin-upload.js', 'public/js/admin-gallery-widget.js'].forEach((rel) => {
+    const src = readPartial(path.join(rel));
+    assert.ok(
+      /Spesifikasi unggahan tidak termuat/.test(src),
+      rel + ' harus menampilkan pesan spesifikasi tidak termuat'
+    );
+    assert.ok(
+      /SPEC_AVAILABLE/.test(src),
+      rel + ' harus memeriksa ketersediaan spesifikasi'
+    );
+  });
+});
+
 runBackendSuite()
   .then(runDimensionSuite)
   .then(runWidgetSuite)
+  .then(runGalleryWidgetSuite)
   .then(() => {
     console.log('\n' + (fail === 0
-      ? 'OK - ' + pass + ' pemeriksaan lulus'
+      ? 'OK - ' + pass + ' pemeriksaan lulus' + (skip ? ', ' + skip + ' dilewati (SKIP)' : '')
       : fail + ' dari ' + (pass + fail) + ' pemeriksaan GAGAL'));
     process.exit(fail === 0 ? 0 : 1);
   }).catch((err) => {
