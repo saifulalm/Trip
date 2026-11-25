@@ -1,0 +1,576 @@
+/* ==========================================================================
+   Hero Section Interaktif — video sinematik pulau
+   Palet & tipografi mengikuti style.css (deep sea teal, apricot sunset).
+   Semua efek bersifat progresif: tanpa JS/JS gagal → poster tetap tampil.
+   ========================================================================== */
+
+/* ---------- Latar video ---------- */
+.hero--animated {
+  position: relative;
+  min-height: min(92vh, 780px);
+  display: flex;
+  align-items: center;
+  color: var(--on-deep);
+  background: var(--sea-900);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* Matriks titik bawaan .hero (dari style.css) dinonaktifkan agar tidak
+ menimbulkan pola moiré di atas video. Tekstur sinematik memakai .hero-video__grain. */
+.hero--animated::before {
+  content: none;
+}
+
+/* Video + poster ditumpuk persis satu di atas yang lain */
+.hero-video {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  overflow: hidden;
+}
+
+.hero-video__poster,
+.hero-video__el {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 62%;
+}
+
+.hero-video__poster {
+  z-index: 0;
+}
+
+/* Video disembunyikan sampai benar-benar siap diputar supaya tidak ada
+   kedipan hitam; poster yang menutupi layar selama itu. */
+.hero-video__el {
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.hero-video.is-playing .hero-video__el {
+  opacity: 1;
+}
+
+/* Fallback: video gagal dimuat → poster tetap menjadi latar utama. */
+.hero-video.is-fallback .hero-video__poster {
+  filter: saturate(1.05) contrast(1.02);
+}
+
+/* Overlay gelap bertingkat: menjaga kontras headline & CTA.
+   Intensitas sengaja dibuat "halus" — video tetap terlihat sebagai
+   sinematik, sementara teks tetap punya kontras jauh di atas WCAG AA.
+   Pita atas dibuat paling tipis karena area itu tidak berisi teks
+   (judul mulai ±20% tinggi hero), sehingga langit tetap terlihat.
+   Diperiksa lewat audit luminance: area teks tetap di atas 4.5:1. */
+.hero-video__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background:
+    linear-gradient(100deg, rgba(4, 22, 30, 0.70) 0%, rgba(4, 22, 30, 0.50) 40%, rgba(4, 22, 30, 0.16) 70%, rgba(4, 22, 30, 0.06) 100%),
+    linear-gradient(180deg, rgba(4, 22, 30, 0.22) 0%, rgba(4, 22, 30, 0.02) 22%, rgba(4, 22, 30, 0.34) 80%, rgba(4, 22, 30, 0.78) 100%);
+}
+
+/* Butiran halus untuk kesan sinematik */
+.hero-video__grain {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0.1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+/* ---------- Konten ---------- */
+.hero--animated__inner {
+  position: relative;
+  z-index: 2;
+  width: min(1160px, 92%);
+  padding: 6.5rem 0 7.5rem;
+}
+
+.hero--animated__content {
+  max-width: 42rem;
+}
+
+.hero--animated__badge {
+  background: rgba(246, 240, 230, 0.08);
+  border-style: solid;
+  border-color: rgba(246, 240, 230, 0.28);
+  backdrop-filter: blur(6px);
+}
+
+.hero--animated__badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--apricot);
+  box-shadow: 0 0 0 0 rgba(242, 166, 90, 0.55);
+  animation: hero-pulse 2.4s ease-out infinite;
+}
+
+@keyframes hero-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(242, 166, 90, 0.55); }
+  70%  { box-shadow: 0 0 0 9px rgba(242, 166, 90, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(242, 166, 90, 0); }
+}
+
+.hero--animated__title {
+  font-size: clamp(2.3rem, 5.6vw, 4.1rem);
+  line-height: 1.08;
+  color: #fbf8f2;
+  text-shadow: 0 2px 24px rgba(3, 18, 24, 0.45);
+  margin-bottom: 1.1rem;
+}
+
+/* Animasi masuk bertahap (CSS murni, dipicu oleh kelas .is-ready) */
+.hero--animated__content > * {
+  opacity: 0;
+  transform: translateY(20px);
+}
+
+.hero--animated.is-ready .hero--animated__content > * {
+  animation: hero-rise 0.75s cubic-bezier(0.22, 0.68, 0.28, 1) forwards;
+}
+
+.hero--animated.is-ready .hero--animated__content > *:nth-child(1) { animation-delay: 0.05s; }
+.hero--animated.is-ready .hero--animated__content > *:nth-child(2) { animation-delay: 0.14s; }
+.hero--animated.is-ready .hero--animated__content > *:nth-child(3) { animation-delay: 0.23s; }
+.hero--animated.is-ready .hero--animated__content > *:nth-child(4) { animation-delay: 0.32s; }
+.hero--animated.is-ready .hero--animated__content > *:nth-child(5) { animation-delay: 0.41s; }
+.hero--animated.is-ready .hero--animated__content > *:nth-child(6) { animation-delay: 0.50s; }
+.hero--animated.is-ready .hero--animated__content > *:nth-child(7) { animation-delay: 0.59s; }
+.hero--animated.is-ready .hero--animated__content > *:nth-child(8) { animation-delay: 0.68s; }
+
+@keyframes hero-rise {
+  to { opacity: 1; transform: none; }
+}
+
+.hero--animated__sub {
+  font-size: clamp(1rem, 1.5vw, 1.16rem);
+  color: rgba(246, 240, 230, 0.88);
+  max-width: 36rem;
+  margin-bottom: 1.9rem;
+  text-shadow: 0 1px 12px rgba(3, 18, 24, 0.5);
+}
+
+.hero--animated__actions { margin-bottom: 2rem; }
+
+.hero--animated__stats {
+  gap: 2.2rem;
+  margin-top: 0.4rem;
+}
+
+.hero--animated__stats .hero__stat strong { color: #fbf8f2; }
+.hero--animated__stats .hero__stat span { color: rgba(246, 240, 230, 0.72); }
+
+/* ---------- Form pencarian cepat ---------- */
+.hero-search {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr auto;
+  gap: 0.7rem;
+  align-items: end;
+  padding: 0.85rem;
+  margin-bottom: 1.1rem;
+  border-radius: var(--radius-m);
+  background: rgba(246, 240, 230, 0.10);
+  border: 1px solid rgba(246, 240, 230, 0.20);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 46px -22px rgba(3, 18, 24, 0.85);
+}
+
+.hero-search__field { min-width: 0; display: flex; flex-direction: column; }
+
+.hero-search__field label {
+  display: block;
+  font-size: 0.68rem;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  /* Label form berada di atas video yang brightness-nya berubah-ubah.
+     Supaya kontras tidak ikut naik-turun bersama frame video, label
+     memakai latar gelap eksplisit + teks krem penuh (bukan relying
+     pada warna piksel video di belakangnya). */
+  color: #f6f0e6;
+  background: rgba(6, 31, 37, 0.62);
+  border-radius: 6px;
+  align-self: flex-start;
+  padding: 0.1rem 0.45rem 0.16rem;
+  margin-bottom: 0.3rem;
+  margin-left: 0;
+  text-shadow: none;
+  /* Samakan tinggi baris label agar field sejajar antar kolom. */
+  line-height: 1.4;
+}
+
+.hero-search__control {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 46px;
+  background: rgba(4, 22, 30, 0.42);
+  border: 1px solid rgba(246, 240, 230, 0.18);
+  border-radius: 11px;
+  padding: 0.1rem 0.7rem;
+  transition: border-color 0.25s ease, background 0.25s ease;
+}
+
+.hero-search__control:focus-within {
+  border-color: rgba(242, 166, 90, 0.75);
+  background: rgba(4, 22, 30, 0.60);
+}
+
+.hero-search__icon {
+  display: grid;
+  place-items: center;
+  color: rgba(246, 240, 230, 0.86);
+  flex: none;
+}
+
+.hero-search__control input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #fbf8f2;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 0.62rem 0;
+}
+
+.hero-search__control input::placeholder { color: rgba(246, 240, 230, 0.45); }
+.hero-search__control input:focus { outline: none; }
+
+/* Ikon kalender bawaan browser gelap di atas latar gelap */
+.hero-search__control input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) opacity(0.65);
+  cursor: pointer;
+}
+
+.hero-search__submit {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+  height: 46px;
+  padding-inline: 1.3rem;
+}
+
+.hero-search__submit svg { transition: transform 0.25s ease; }
+.hero-search__submit:hover svg { transform: translateX(3px); }
+
+/* ---------- Chipopi populer ---------- */
+.hero-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.6rem;
+}
+
+.hero-chips__label {
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(246, 240, 230, 0.55);
+}
+
+.hero-chips__item {
+  font-size: 0.82rem;
+  padding: 0.3rem 0.78rem;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 240, 230, 0.24);
+  background: rgba(246, 240, 230, 0.07);
+  color: rgba(246, 240, 230, 0.9);
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+}
+
+.hero-chips__item:hover {
+  background: rgba(242, 166, 90, 0.18);
+  border-color: rgba(242, 166, 90, 0.55);
+  transform: translateY(-2px);
+}
+
+/* ---------- Tombol audio pojok kanan bawah ----------
+   Diposisi fixed agar selalu terjangkau (terutama di ponsel, saat tinggi
+   hero melebihi tinggi layar). Diamati JS: otomatis muncul saat hero
+   terlihat dan hilang saat digulir ke bawah, sehingga tidak pernah
+   bertumpuk dengan tombol WhatsApp mengambang. */
+.hero-audio {
+  position: fixed;
+  right: clamp(1rem, 3vw, 1.2rem);
+  /* Di atas tombol WhatsApp (56px + jarak 1.2rem + jarak aman 8px)
+     supaya keduanya tidak pernah tumpang tindih. */
+  bottom: 5.4rem;
+  z-index: 62;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  border: 1px solid rgba(246, 240, 230, 0.24);
+  background: rgba(4, 22, 30, 0.55);
+  backdrop-filter: blur(10px);
+  color: rgba(246, 240, 230, 0.92);
+  font-family: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 0.25s ease, border-color 0.25s ease, transform 0.25s ease,
+    opacity 0.35s ease, visibility 0.35s ease;
+}
+
+/* Sembunyi saat hero tidak lagi terlihat (anti-tumpang tindih). */
+.hero-audio.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(10px);
+}
+
+.hero-audio:hover {
+  background: rgba(4, 22, 30, 0.78);
+  border-color: rgba(242, 166, 90, 0.55);
+  transform: translateY(-2px);
+}
+
+.hero-audio.is-hidden:hover {
+  transform: translateY(10px);
+}
+
+.hero-audio__icon { display: grid; place-items: center; }
+
+/* Ikon berganti lewat JS (tidak ada SVG ganda di markup) */
+.hero-audio.is-on .hero-audio__icon svg path:nth-child(2),
+.hero-audio.is-on .hero-audio__icon svg path:nth-child(3) {
+  display: none;
+}
+
+/* Equalizer muncul hanya saat suara aktif */
+.hero-audio__bars {
+  display: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 15px;
+}
+
+.hero-audio.is-on .hero-audio__bars { display: flex; }
+
+.hero-audio__bars i {
+  display: block;
+  width: 2.5px;
+  height: 40%;
+  border-radius: 2px;
+  background: var(--apricot);
+  animation: hero-eq 1s ease-in-out infinite;
+}
+
+.hero-audio__bars i:nth-child(2) { animation-delay: 0.18s; }
+.hero-audio__bars i:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes hero-eq {
+  0%, 100% { height: 30%; }
+  50%      { height: 100%; }
+}
+
+.hero-audio.is-on .hero-audio__text { color: var(--apricot); }
+
+/* ---------- Indikator scroll ---------- */
+.hero-scroll {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(1rem, 3vw, 2rem);
+  transform: translateX(-50%);
+  z-index: 4;
+  display: grid;
+  justify-items: center;
+  gap: 0.4rem;
+  color: rgba(246, 240, 230, 0.92);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.hero-scroll:hover { color: var(--apricot); }
+
+.hero-scroll__mouse {
+  width: 22px;
+  height: 34px;
+  border: 1.5px solid currentColor;
+  border-radius: 12px;
+  display: grid;
+  justify-items: center;
+  padding-top: 6px;
+}
+
+.hero-scroll__mouse i {
+  width: 3px;
+  height: 7px;
+  border-radius: 2px;
+  background: currentColor;
+  animation: hero-wheel 1.8s ease-in-out infinite;
+}
+
+@keyframes hero-wheel {
+  0%   { transform: translateY(0); opacity: 1; }
+  70%  { transform: translateY(11px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+
+/* ==========================================================================
+   Reveal-on-scroll (CSS murni) — elemen [data-reveal] muncul saat masuk
+   viewport.
+   CATATAN: aturan ini HANYA aktif bila <html> punya kelas "js-reveal"
+   (ditambahkan oleh JS). Tanpa JS, elemen langsung terlihat — konten
+   tidak pernah hilang. Reveal untuk section di bawah hero memakai kelas
+   .reveal yang sudah ada di style.css + layout publik.
+   ========================================================================== */
+.js-reveal [data-reveal] {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.65s ease, transform 0.65s ease;
+}
+
+.js-reveal [data-reveal].is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* ==========================================================================
+   Responsif: Mobile → Tablet → Desktop
+   ========================================================================== */
+
+/* Tablet & bawah (≤ 900px): form pencarian menjadi dua kolom, tombol penuh */
+@media (max-width: 900px) {
+  .hero--animated { min-height: auto; }
+  .hero--animated__inner { padding: 4.6rem 0 5.6rem; }
+  .hero-search {
+    grid-template-columns: 1fr 1fr;
+  }
+  .hero-search__submit {
+    grid-column: 1 / -1;
+    justify-content: center;
+    width: 100%;
+  }
+}
+
+/* Mobile (≤ 640px): satu kolom, kontrol lebih besar untuk sentuhan */
+@media (max-width: 640px) {
+  .hero--animated__inner { padding: 3.6rem 0 4.8rem; }
+  .hero--animated__title { font-size: clamp(1.9rem, 8.4vw, 2.6rem); }
+  .hero--animated__sub { font-size: 0.98rem; }
+
+  .hero-search {
+    grid-template-columns: 1fr;
+    padding: 0.7rem;
+  }
+
+  .hero-search__control input { font-size: 16px; /* cegah zoom otomatis iOS */ }
+  .hero-search__submit { height: 50px; }
+
+  .hero--animated__actions { flex-direction: column; align-items: stretch; }
+  .hero--animated__actions .btn { width: 100%; justify-content: center; }
+
+  .hero--animated__stats { gap: 1.3rem; }
+  .hero--animated__stats .hero__stat strong { font-size: 1.4rem; }
+
+  .hero-audio {
+    padding: 0.5rem 0.75rem;
+    bottom: 4.9rem;
+  }
+  .hero-audio__text { display: none; }
+
+  /* Indikator scroll disembunyikan di layar kecil agar tidak berdesakan
+     dengan tombol audio. */
+  .hero-scroll { display: none; }
+}
+
+/* Layar sangat pendek (landscape ponsel) */
+@media (max-height: 520px) and (orientation: landscape) {
+  .hero--animated__inner { padding: 3rem 0 4rem; }
+  .hero-scroll { display: none; }
+}
+
+/* ==========================================================================
+   REDESIGN HERO (2026-11-14)
+   --------------------------------------------------------------------------
+   1. Class yatim `--dest` / `--date` kini punya definisi eksplisit.
+   2. Mode 'image' (tanpa video) punya tampilan setara dengan mode video.
+   3. Pita bawah hero jadi "safe area" agar konten di layar pendek tidak
+      tertutup tombol WA mengambang & tombol audio.
+   4. Pita gradien dekoratif sebagai pembatas ke section berikutnya.
+   5. Ketegasan tipografi judul & subjudul.
+   ========================================================================== */
+
+/* ---------- Class yatim: kolom form yang sebelumnya tanpa gaya ---------- */
+.hero-search__field--dest { grid-column: 1; }
+.hero-search__field--date { grid-column: 2; }
+
+@media (max-width: 900px) {
+  .hero-search__field--dest,
+  .hero-search__field--date { grid-column: auto; }
+}
+
+/* ---------- Mode gambar: poster statis tanpa video ---------- */
+.hero-video.is-static .hero-video__el { display: none; }
+.hero-video.is-static .hero-video__poster {
+  filter: saturate(1.04) contrast(1.02);
+}
+/* Overlay sedikit lebih pekat karena tidak ada video yang bergerak —
+   kontras teks tetap dijaga di atas WCAG AA 4.5:1. */
+.hero-video.is-static .hero-video__overlay {
+  background:
+    linear-gradient(100deg, rgba(4, 22, 30, 0.74) 0%, rgba(4, 22, 30, 0.54) 40%, rgba(4, 22, 30, 0.24) 70%, rgba(4, 22, 30, 0.12) 100%),
+    linear-gradient(180deg, rgba(4, 22, 30, 0.26) 0%, rgba(4, 22, 30, 0.04) 22%, rgba(4, 22, 30, 0.38) 80%, rgba(4, 22, 30, 0.82) 100%);
+}
+
+/* ---------- Safe area bawah: konten hero tidak tertutup widget mengambang ---------- */
+.hero--animated__inner {
+  padding-bottom: max(4.2rem, calc(4.2rem + env(safe-area-inset-bottom, 0px)));
+}
+@media (max-width: 640px) {
+  .hero--animated__inner { padding-bottom: 5.4rem; }
+}
+
+/* ---------- Pita gradien dekoratif di bawah hero (pembatas ke section berikutnya) ---------- */
+.hero--animated::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(90deg, var(--apricot) 0%, var(--coral) 55%, var(--teal-400) 100%);
+  opacity: 0.85;
+}
+
+/* ---------- Judul: ketegasan tipografi ---------- */
+.hero--animated__title {
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.hero--animated__sub { text-wrap: pretty; }
+
+/* ---------- Aksesibilitas: hormati preferensi reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .hero--animated__content > * {
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+  }
+  .hero--animated__badge-dot,
+  .hero-scroll__mouse i,
+  .hero-audio__bars i {
+    animation: none !important;
+  }
+  .hero-video__el { transition: none; }
+}

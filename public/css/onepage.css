@@ -1,0 +1,161 @@
+/* ==========================================================================
+   Onepage — navigasi section beranda
+   Berisi: scroll-margin-top (kompensasi header sticky), rail navigasi
+   sisi kanan, dan penanda state aktif untuk nav header + rail.
+   ========================================================================== */
+
+/* ---------- Offset scroll untuk section beranda ----------
+   Header bersifat sticky (tinggi ~72px). Tanpa kompensasi ini, judul
+   section akan tertutup header saat menggulir ke sebuah anchor.
+   Nilai ini harus sinkron dengan EXTRA_GAP di public/js/onepage.js. */
+html {
+  scroll-padding-top: 88px;
+}
+
+section[id],
+[id][data-section-target] {
+  scroll-margin-top: 88px;
+}
+
+/* Tautan anchor di dalam konten: offset yang sama. */
+main a[href^="#"] {
+  scroll-margin-top: 88px;
+}
+
+/* ==========================================================================
+   Rail navigasi section (sisi kanan)
+   ========================================================================== */
+.section-rail {
+  position: fixed;
+  top: 50%;
+  right: 1.4rem;
+  transform: translateY(-50%);
+  z-index: 40; /* di bawah header (60) & tombol WhatsApp mengambang */
+  pointer-events: none;
+}
+
+.section-rail__list {
+  display: grid;
+  gap: 0.85rem;
+  justify-items: end;
+}
+
+.section-rail__item {
+  display: block;
+}
+
+.section-rail__link {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  pointer-events: auto;
+  color: var(--ink-soft);
+  text-decoration: none;
+}
+
+/* Titik navigasi.
+   Warna border memakai --accent (bukan --accent-line) karena border
+   semi-transparan hanya menghasilkan kontras ~1.42:1 terhadap latar
+   gelap — jauh di bawah ambang WCAG 3:1 untuk komponen UI non-teks.
+   Mode gelap memakai --teal-300 karena --accent terlalu gelap di atas
+   latar gelap (rasio hanya ~2.95:1). */
+.section-rail__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  background: transparent;
+  transition: background 0.25s ease, transform 0.25s ease, border-color 0.25s ease;
+  flex: 0 0 auto;
+}
+
+[data-theme="dark"] .section-rail__dot {
+  border-color: var(--teal-300);
+}
+
+/* Label — hanya muncul saat hover / section aktif (desktop). */
+.section-rail__label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(6px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.section-rail:hover .section-rail__label,
+.section-rail__link.is-active .section-rail__label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.section-rail__link:hover .section-rail__dot {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.section-rail__link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+/* Section aktif */
+.section-rail__link.is-active .section-rail__dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  transform: scale(1.35);
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.section-rail__link.is-active {
+  color: var(--accent-ink);
+}
+
+/* ---------- Tautan nav header yang sedang aktif (mode onepage) ----------
+   Nav header memakai ::after sebagai garis bawah (lihat style.css).
+   Class `is-active` memakai gaya serupa supaya konsisten. */
+.nav__link.is-active {
+  color: var(--sea-800);
+}
+/* Mode gelap: --sea-800 terlalu gelap di atas header gelap (rasio 1,08:1). */
+[data-theme="dark"] .nav a:hover,
+[data-theme="dark"] .nav a.active {
+  color: var(--teal-300);
+}
+.nav__link.is-active::after {
+  width: 100%;
+}
+
+[data-theme="dark"] .nav__link.is-active {
+  color: var(--teal-300);
+}
+
+/* ==========================================================================
+   Responsif
+   ========================================================================== */
+
+/* Tablet & ponsel: rail disembunyikan (nav header sudah jadi drawer),
+   tapi scroll-margin tetap berlaku agar anchor tidak tertutup header. */
+@media (max-width: 1000px) {
+  .section-rail {
+    display: none;
+  }
+}
+
+/* Layar sangat pendek (landscape ponsel): rail tetap disembunyikan. */
+@media (max-height: 520px) {
+  .section-rail {
+    display: none;
+  }
+}
+
+/* Cetak: rail tidak relevan. */
+@media print {
+  .section-rail {
+    display: none;
+  }
+}

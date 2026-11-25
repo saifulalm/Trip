@@ -1,0 +1,411 @@
+/* ==========================================================================
+   admin-v3.css — Lapisan redesign panel admin (2026-11-14)
+   --------------------------------------------------------------------------
+   Dimuat SETELAH admin-v2.css & admin-social.css (lihat views/layouts/admin.ejs)
+   sehingga aturan di sini menimpa layer lama tanpa menghapusnya.
+
+   Isi:
+     1. Token tambahan (v3) — warna status, radius, elevasi.
+     2. Indikator koneksi realtime (.a-live) + panel blast realtime.
+     3. Kartu KPI modern (.a-stat-grid / .a-stat).
+     4. Panel perangkat WhatsApp (device link) yang rapi.
+     5. Perapian tabel & tombol di halaman marketing.
+     6. Penyesuaian mode gelap (hanya menimpa token, bukan menulis ulang aturan).
+
+   Aturan umum: mode gelap HANYA menimpa token — tidak menulis ulang aturan.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Token v3
+   -------------------------------------------------------------------------- */
+:root {
+  --a3-radius-sm: 10px;
+  --a3-radius: 14px;
+  --a3-radius-lg: 20px;
+
+  --a3-ok: #1f8a54;
+  --a3-ok-soft: rgba(31, 138, 84, 0.12);
+  --a3-warn: #b26a00;
+  --a3-warn-soft: rgba(178, 106, 0, 0.12);
+  --a3-danger: #c23b3b;
+  --a3-danger-soft: rgba(194, 59, 59, 0.12);
+  --a3-info: #166b7a;
+  --a3-info-soft: rgba(22, 107, 122, 0.12);
+
+  --a3-elev-1: 0 1px 2px rgba(8, 30, 38, 0.06), 0 4px 14px -8px rgba(8, 30, 38, 0.22);
+  --a3-elev-2: 0 2px 6px rgba(8, 30, 38, 0.07), 0 14px 34px -16px rgba(8, 30, 38, 0.28);
+
+  --a3-live: #1f8a54;
+  --a3-live-soft: rgba(31, 138, 84, 0.14);
+}
+
+[data-theme="dark"] {
+  --a3-ok: #6fd7a0;
+  --a3-ok-soft: rgba(111, 215, 160, 0.16);
+  --a3-warn: #f0b45e;
+  --a3-warn-soft: rgba(240, 180, 94, 0.16);
+  --a3-danger: #f09a9a;
+  --a3-danger-soft: rgba(240, 154, 154, 0.16);
+  --a3-info: #7fd0de;
+  --a3-info-soft: rgba(127, 208, 222, 0.16);
+
+  --a3-elev-1: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 14px -8px rgba(0, 0, 0, 0.6);
+  --a3-elev-2: 0 2px 6px rgba(0, 0, 0, 0.45), 0 14px 34px -16px rgba(0, 0, 0, 0.7);
+
+  --a3-live: #6fd7a0;
+  --a3-live-soft: rgba(111, 215, 160, 0.18);
+}
+
+/* --------------------------------------------------------------------------
+   2. Indikator koneksi realtime
+   -------------------------------------------------------------------------- */
+.a-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid var(--a-line);
+  background: var(--a-surface-2);
+  color: var(--a-soft);
+  white-space: nowrap;
+  transition: background var(--a-transition), color var(--a-transition), border-color var(--a-transition);
+}
+
+/* Titik indikator: berdenyut saat koneksi hidup. */
+.a-live::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: 0 0 auto;
+}
+
+.a-live.is-live {
+  color: var(--a3-live);
+  background: var(--a3-live-soft);
+  border-color: color-mix(in srgb, var(--a3-live) 30%, transparent);
+}
+.a-live.is-live::before {
+  animation: a3-pulse 2s ease-in-out infinite;
+}
+
+.a-live.is-connecting {
+  color: var(--a3-warn);
+  background: var(--a3-warn-soft);
+  border-color: color-mix(in srgb, var(--a3-warn) 30%, transparent);
+}
+.a-live.is-connecting::before {
+  animation: a3-blink 1s steps(2, end) infinite;
+}
+
+.a-live.is-offline {
+  color: var(--a3-danger);
+  background: var(--a3-danger-soft);
+  border-color: color-mix(in srgb, var(--a3-danger) 30%, transparent);
+}
+
+@keyframes a3-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
+}
+@keyframes a3-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+/* Hormati preferensi pengguna yang mengurangi animasi. */
+@media (prefers-reduced-motion: reduce) {
+  .a-live::before { animation: none !important; }
+}
+
+/* --------------------------------------------------------------------------
+   3. Panel blast realtime
+   -------------------------------------------------------------------------- */
+.a-blast {
+  display: grid;
+  gap: var(--a-space-3);
+  padding: var(--a-space-4);
+  border-radius: var(--a3-radius-lg);
+  background:
+    linear-gradient(140deg, color-mix(in srgb, var(--accent) 10%, transparent) 0%, transparent 55%),
+    var(--a-surface-1);
+  border: 1px solid var(--a-line);
+  box-shadow: var(--a3-elev-1);
+}
+
+.a-blast.is-empty { opacity: 0.86; }
+
+.a-blast__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a-space-2);
+}
+
+.a-blast__title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: var(--a-ink);
+}
+
+.a-blast__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: var(--a-surface-3);
+  color: var(--a-soft);
+}
+.a-blast__state.is-running { background: var(--a3-info-soft); color: var(--a3-info); }
+.a-blast__state.is-done { background: var(--a3-ok-soft); color: var(--a3-ok); }
+.a-blast__state.is-paused { background: var(--a3-warn-soft); color: var(--a3-warn); }
+
+.a-blast__progress {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--a-surface-3);
+  overflow: hidden;
+  border: 1px solid var(--a-line);
+}
+
+.a-blast__bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent) 0%, var(--a3-live) 100%);
+  transition: width 0.4s cubic-bezier(0.32, 0.72, 0.28, 1);
+}
+
+.a-blast__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+  gap: var(--a-space-2);
+}
+
+.a-blast__stat {
+  padding: 0.6rem 0.7rem;
+  border-radius: var(--a3-radius-sm);
+  background: var(--a-surface-2);
+  border: 1px solid var(--a-line);
+  min-width: 0;
+}
+
+.a-blast__stat strong {
+  display: block;
+  font-size: 1.28rem;
+  line-height: 1.1;
+  color: var(--a-ink);
+  font-variant-numeric: tabular-nums;
+}
+.a-blast__stat span {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--a-soft);
+  margin-top: 0.2rem;
+}
+.a-blast__stat.is-ok strong { color: var(--a3-ok); }
+.a-blast__stat.is-warn strong { color: var(--a3-warn); }
+.a-blast__stat.is-danger strong { color: var(--a3-danger); }
+
+/* --------------------------------------------------------------------------
+   4. Kartu KPI modern
+   -------------------------------------------------------------------------- */
+.a-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--a-space-3);
+}
+
+.a-stat {
+  display: grid;
+  gap: 0.3rem;
+  padding: var(--a-space-4);
+  border-radius: var(--a3-radius-lg);
+  background: var(--a-surface-1);
+  border: 1px solid var(--a-line);
+  box-shadow: var(--a3-elev-1);
+  min-width: 0;
+  transition: transform var(--a-transition), box-shadow var(--a-transition);
+}
+
+.a-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--a3-elev-2);
+}
+
+.a-stat__label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--a-soft);
+}
+.a-stat__label svg { width: 16px; height: 16px; }
+
+.a-stat__value {
+  font-size: 1.9rem;
+  font-weight: 700;
+  line-height: 1.05;
+  color: var(--a-ink);
+  font-variant-numeric: tabular-nums;
+}
+.a-stat__value small {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--a-soft);
+}
+
+.a-stat__hint {
+  font-size: 0.78rem;
+  color: var(--a-soft);
+}
+
+/* --------------------------------------------------------------------------
+   5. Panel perangkat WhatsApp (tautan perangkat)
+   -------------------------------------------------------------------------- */
+.a-device {
+  display: grid;
+  gap: var(--a-space-3);
+  padding: var(--a-space-4);
+  border-radius: var(--a3-radius-lg);
+  background: var(--a-surface-1);
+  border: 1px solid var(--a-line);
+  box-shadow: var(--a3-elev-1);
+}
+
+.a-device__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.a-device__icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--a3-info-soft);
+  color: var(--a3-info);
+  flex: 0 0 auto;
+}
+.a-device__icon svg { width: 20px; height: 20px; }
+
+.a-device__meta { min-width: 0; }
+.a-device__name {
+  font-weight: 700;
+  color: var(--a-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.a-device__sub { font-size: 0.78rem; color: var(--a-soft); }
+
+.a-device__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: var(--a-surface-3);
+  color: var(--a-soft);
+}
+.a-device__badge.is-ready { background: var(--a3-ok-soft); color: var(--a3-ok); }
+.a-device__badge.is-off { background: var(--a3-danger-soft); color: var(--a3-danger); }
+
+/* --------------------------------------------------------------------------
+   6. Perapian halaman marketing
+   -------------------------------------------------------------------------- */
+
+/* Judul halaman: hierarchy lebih tegas. */
+.admin-head h1 {
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.admin-head p { text-wrap: pretty; }
+
+/* Panel marketing: sudut lebih lembut + elevasi halus. */
+.panel {
+  border-radius: var(--a3-radius-lg);
+  box-shadow: var(--a3-elev-1);
+}
+
+.panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--a-space-2);
+  flex-wrap: wrap;
+}
+.panel__head h2 { letter-spacing: -0.01em; }
+
+/* Baris aksi pada tabel: tombol kecil tidak saling bertumpuk. */
+.a-table td .btn-a + .btn-a { margin-left: 0.35rem; }
+
+/* Label jam tenang: tampil sebagai pill, bukan badge generik. */
+.a-quiet-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.24rem 0.62rem;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  background: var(--a3-warn-soft);
+  color: var(--a3-warn);
+}
+
+/* Baris "pengingatan" pada tabel blast. */
+.a-table tr[data-rt-row="active"] td { background: var(--a3-info-soft); }
+
+/* Kosongkan tabel dengan pesan yang jelas. */
+.a-table td.a-empty-cell {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: var(--a-soft);
+}
+
+/* Blok inline script di template marketing:(video-style tidak dipakai). */
+.a-note {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--a3-radius-sm);
+  background: var(--a-surface-2);
+  border: 1px solid var(--a-line);
+  font-size: 0.82rem;
+  color: var(--a-soft);
+}
+.a-note svg { width: 16px; height: 16px; flex: 0 0 auto; margin-top: 0.15rem; }
+.a-note strong { color: var(--a-ink); }
+
+/* --------------------------------------------------------------------------
+   7. Responsif
+   -------------------------------------------------------------------------- */
+@media (max-width: 760px) {
+  .a-blast__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .a-stat-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .a-stat { padding: var(--a-space-3); }
+  .a-stat__value { font-size: 1.5rem; }
+  .admin-head__actions { width: 100%; }
+}
