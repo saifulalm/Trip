@@ -25,8 +25,21 @@ const gateway = require('./wa-gateway');
 
 const MIN_DELAY_MS = 5000; // jeda minimum antar pesan (5 detik — lebih aman untuk hindari rate-limit)
 const MAX_PER_RUN = 30; // batas pesan per satu kali blast (lebih konservatif — 50 terlalu cepat)
+// CATATAN: dua konstanta di bawah ini adalah FALLBACK — dipakai hanya bila
+// key `globalDailyLimit` / `frequencyCap` belum ada di settings (mis. DB
+// lama yang belum pernah lewat `ensureSeed()`). Nilainya WAJIB sama dengan
+// default di `src/seed.js` (globalDailyLimit: 100, frequencyCap: 3),
+// supaya batas yang tampil di panel admin sama dengan batas yang berlaku
+// di kode saat key-nya belum terisi.
 const MAX_SENDS_PER_DAY = 100; // batas global harian (semua blast, total)
 const FREQUENCY_CAP_PER_CONTACT_PER_DAY = 3; // max 3 pesan per kontak per hari
+// Batas tertinggi yang BOLEH disetel admin untuk `globalDailyLimit`.
+// Nilainya tidak boleh lebih besar dari LOG_RETENTION_PER_DAY: log kirim
+// harian hanya menyimpan 500 entri terakhir, jadi batas yang lebih besar
+// dari 500 tidak akan pernah terpicu (efektif jadi 500 saja).
+const MAX_GLOBAL_DAILY_LIMIT = 500;
+// Retensi log kirim harian (jumlah entri yang disimpan per hari).
+const LOG_RETENTION_PER_DAY = 500;
 const QUIET_START = 21; // jangan kirim antara 21.00–08.00 (waktu server)
 const QUIET_END = 8;
 
@@ -395,14 +408,32 @@ function checkFrequencyCap(phone, settings) {
 }
 
 /**
- * Cek batas global harian (total 100/hari).
+ * Batas global harian yang EFEKTIF berlaku.
+ *
+ * Nilai dari settings bisa saja lebih besar daripada retensi log harian
+ * (log hanya menyimpan LOG_RETENTION_PER_DAY entri terakhir per hari).
+ * Kalau dibiarkan, batas yang di atas 500 tidak akan pernah terpicu —
+ * karena `checkDailyLimit` menghitung jumlah entri log. Jadi cap
+ * dijepit ke LOG_RETENTION_PER_DAY supaya batas yang dijalankan kode
+ * selalu sama dengan batas yang bisa(admin) tetapkan.
+ *
+ * @param {object} [settings] settings situs
+ * @returns {number} batas harian efektif
+ */
+function effectiveDailyLimit(settings) {
+  const cap = Number(settings && settings.globalDailyLimit) || MAX_SENDS_PER_DAY;
+  return Math.min(cap, LOG_RETENTION_PER_DAY);
+}
+
+/**
+ * Cek batas global harian (total pesan per hari).
  * Mengembalikan: { allowed: boolean, reason?: string }
  */
 function checkDailyLimit(settings) {
   const d = db.read() || {};
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
-  const cap = Number(settings.globalDailyLimit) || MAX_SENDS_PER_DAY;
+  const cap = effectiveDailyLimit(settings);
   const logs = (d.whatsappSendLogs || [])
     .filter((l) => l.loggedAt && l.loggedAt.slice(0, 10) === today);
   if (logs.length >= cap) {
@@ -428,9 +459,12 @@ function logSend({ phone, name, status, error, template }) {
   };
   if (!d.whatsappSendLogs) d.whatsappSendLogs = [];
   d.whatsappSendLogs.unshift(log);
-  // Batasi log harian ke 500 entri (jaga db ringan)
+  // Batasi log harian ke LOG_RETENTION_PER_DAY entri (jaga db ringan).
+  // PENTING: jumlah ini juga menjadi batas EFEKTIF `globalDailyLimit`
+  // — makanya batas maksimum yang boleh disetel admin tidak boleh lebih
+  // besar dari nilai ini (lihat MAX_GLOBAL_DAILY_LIMIT).
   const today = new Date().toISOString().slice(0, 10);
-  d.whatsappSendLogs = d.whatsappSendLogs.filter((l) => l.loggedAt && l.loggedAt.slice(0, 10) === today).slice(0, 500);
+  d.whatsappSendLogs = d.whatsappSendLogs.filter((l) => l.loggedAt && l.loggedAt.slice(0, 10) === today).slice(0, LOG_RETENTION_PER_DAY);
   db.write();
 }
 
@@ -450,7 +484,7 @@ function createBroadcastJob({ templateBody, segment, dryRun }) {
   const d = db.read() || {};
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
-  const cap = Number(d.settings ? d.settings.globalDailyLimit : 0) || MAX_SENDS_PER_DAY;
+  const cap = effectiveDailyLimit(d.settings);
   const dailyLogs = (d.whatsappSendLogs || []).filter(
     (l) => l.loggedAt && l.loggedAt.slice(0, 10) === today
   );
@@ -515,10 +549,10 @@ function createBroadcastJob({ templateBody, segment, dryRun }) {
 async function startBroadcast({ templateBody, segment, dryRun }) {
   const data = db.read() || {};
 
-  // Cek batas harian global (total 100/hari)
+  // Cek batas harian global (semua blast, total)
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
-  const cap = Number(data.settings ? data.settings.globalDailyLimit : 0) || MAX_SENDS_PER_DAY;
+  const cap = effectiveDailyLimit(data.settings);
   const dailyLogs = (data.whatsappSendLogs || []).filter(
     (l) => l.loggedAt && l.loggedAt.slice(0, 10) === today
   );
@@ -559,7 +593,12 @@ module.exports = {
   startBroadcast,
   checkFrequencyCap,
   checkDailyLimit,
+  effectiveDailyLimit,
   logSend,
   MAX_PER_RUN,
-  MIN_DELAY_MS
+  MIN_DELAY_MS,
+  MAX_SENDS_PER_DAY,
+  FREQUENCY_CAP_PER_CONTACT_PER_DAY,
+  MAX_GLOBAL_DAILY_LIMIT,
+  LOG_RETENTION_PER_DAY
 };

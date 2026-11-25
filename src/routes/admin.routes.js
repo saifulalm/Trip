@@ -13,6 +13,8 @@ const { flash } = require('../middleware/context');
 const { requireLogin, loginLimiter } = require('../middleware/security');
 const trip = require('../services/trip');
 const geo = require('../services/geo');
+const gateway = require('../services/wa-gateway');
+const waService = require('../services/wa');
 
 const router = express.Router();
 
@@ -1059,6 +1061,20 @@ const SETTINGS_GROUPS = {
 };
 
 /**
+ * Batas nilai yang boleh disetel admin untuk tiap key numerik.
+ *
+ * WAJIB satu sumber kebenaran: `globalDailyLimit` tidak boleh lebih besar
+ * daripada retensi log harian (`wa.MAX_GLOBAL_DAILY_LIMIT`), karena
+ * `checkDailyLimit` menghitung entri log — batas yang lebih besar tidak
+ * akan pernah terpicu (efektif jadi 500 saja).
+ */
+const SETTINGS_LIMITS = {
+  openwaTimeoutMs: { min: gateway.MIN_TIMEOUT_MS, max: gateway.MAX_TIMEOUT_MS, def: gateway.DEFAULT_TIMEOUT_MS },
+  frequencyCap: { min: 1, max: 50, def: 3 },
+  globalDailyLimit: { min: 10, max: waService.MAX_GLOBAL_DAILY_LIMIT, def: 100 }
+};
+
+/**
  * Ambil daftar field yang boleh diproses oleh form yang sedang dikirim.
  *
  * Bila field `form` tidak dikenal (permintaan lama / pihak ketiga), semua
@@ -1222,15 +1238,27 @@ router.post(
   }
   // Timeout gateway OpenWA (ms). Terpisah dari blok kredensial di atas
   // supaya "Hapus konfigurasi gateway" tidak ikut menghapus timeout.
+  // Batas min/max diambil dari `wa-gateway` supaya panel & env berbagi
+  // satu rentang yang sama.
   if (scope.has('openwaTimeoutMs')) {
-    s.openwaTimeoutMs = scopedInt(b, scope, 'openwaTimeoutMs', s.openwaTimeoutMs, 20000, 3000, 120000);
+    const lim = SETTINGS_LIMITS.openwaTimeoutMs;
+    s.openwaTimeoutMs = scopedInt(
+      b, scope, 'openwaTimeoutMs', s.openwaTimeoutMs, lim.def, lim.min, lim.max
+    );
   }
   // Batas pengiriman: pesan per kontak per hari & total harian.
+  // Batas atas `globalDailyLimit` = 500 (MAX_GLOBAL_DAILY_LIMIT) karena
+  // log kirim harian hanya menyimpan 500 entri terakhir — batas yang lebih
+  // besar dari itu tidak akan pernah terpicu (efektif jadi 500 saja).
   if (scope.has('frequencyCap')) {
-    s.frequencyCap = scopedInt(b, scope, 'frequencyCap', s.frequencyCap, 3, 1, 50);
+    const lim = SETTINGS_LIMITS.frequencyCap;
+    s.frequencyCap = scopedInt(b, scope, 'frequencyCap', s.frequencyCap, lim.def, lim.min, lim.max);
   }
   if (scope.has('globalDailyLimit')) {
-    s.globalDailyLimit = scopedInt(b, scope, 'globalDailyLimit', s.globalDailyLimit, 100, 10, 5000);
+    const lim = SETTINGS_LIMITS.globalDailyLimit;
+    s.globalDailyLimit = scopedInt(
+      b, scope, 'globalDailyLimit', s.globalDailyLimit, lim.def, lim.min, lim.max
+    );
   }
   // Lokasi langsung (presence): toggle fitur & masa berlaku posisi (menit).
   // Checkbox yang tidak dicentang berarti admin sengaja mematikan fitur.
@@ -1334,4 +1362,11 @@ router.post('/akun/password', (req, res) => {
   res.redirect('/admin/akun');
 });
 
+// Ekspor tambahan: `settingsScope` dipakai skrip uji untuk membuktikan
+// bahwa field baru benar-benar masuk scope form yang benar (bukan hanya
+// ada di template). Ekspor tambahan ini tidak merusak pemanggil lama
+// (module.exports tetap objek router Express).
 module.exports = router;
+module.exports.settingsScope = settingsScope;
+module.exports.SETTINGS_GROUPS = SETTINGS_GROUPS;
+module.exports.SETTINGS_LIMITS = SETTINGS_LIMITS;

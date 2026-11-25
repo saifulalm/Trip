@@ -7,7 +7,8 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "seed": "node src/seed.js --force",
-    "images": "node scripts/generate-images.js"
+    "images": "node scripts/generate-images.js",
+    "test:admin-wa-settings": "node scripts/run-e2e.js admin-wa-settings"
   },
   "keywords": [
     "wisata",

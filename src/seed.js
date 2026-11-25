@@ -834,16 +834,18 @@ function buildSeed() {
     openwaSessionName: 'seayoulatertrip',
     openwaWebhookUrl: '',
     openwaWebhookSecret: '',
-    // Timeout request ke gateway OpenWA (ms). Batas bawah 3000, atas 120000.
-    // PENTING: ketiga key ini (openwaTimeoutMs, frequencyCap,
+    // PENTING: ketiga key di bawah ini (openwaTimeoutMs, frequencyCap,
     // globalDailyLimit) WAJIB ada di seed. Kalau tidak,
     // `snapshotSettings()` pada skrip audit membaca `undefined`, lalu route
     // /admin/pengaturan menulis nilai default → audit "settings asli
     // dipulihkan" gagal palsu.
+    // Timeout request ke gateway OpenWA (ms). Batas bawah 3000, atas 120000.
     openwaTimeoutMs: 20000,
     // Batas pesan per kontak per hari (mencegah spam ke satu nomor).
     frequencyCap: 3,
     // Batas total pesan per hari untuk seluruh kanal.
+    // Batas atas 500 — log kirim harian hanya menyimpan 500 entri terakhir,
+    // jadi batas yang lebih besar tidak akan pernah terpicu.
     globalDailyLimit: 100,
     // Menu WhatsApp mengambang (situs publik)
     waFloatEnabled: true,

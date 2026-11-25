@@ -43,6 +43,31 @@ const DEFAULT_SESSION_NAME = 'seayoulatertrip';
 const DEFAULT_TIMEOUT_MS = 20000;
 
 /**
+ * Rentang valid timeout gateway (milidetik).
+ *
+ * Dipakai oleh DUA sumber timeout — settings panel (`openwaTimeoutMs`)
+ * dan env (`OPENWA_TIMEOUT_MS`) — supaya keduanya berbagi satu batas.
+ * Nilai di luar rentang dijepit, bukan ditolak, supaya timeout yang tak
+ * masuk akal tidak bisa membuat gateway menggantung tanpa akhir.
+ */
+const MIN_TIMEOUT_MS = 3000;
+const MAX_TIMEOUT_MS = 120000;
+
+/**
+ * Jepit nilai timeout ke rentang yang valid.
+ *
+ * Nilai bukan angka (NaN) memakai DEFAULT_TIMEOUT_MS.
+ *
+ * @param {*} value nilai mentah dari settings atau env
+ * @returns {number} timeout valid (3000–120000)
+ */
+function clampTimeoutMs(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return DEFAULT_TIMEOUT_MS;
+  return Math.min(MAX_TIMEOUT_MS, Math.max(MIN_TIMEOUT_MS, Math.round(n)));
+}
+
+/**
  * Pola nama session OpenWA.
  *
  * OpenWA hanya menerima nama alphanumeric + tanda hubung, maksimal 50
@@ -114,8 +139,14 @@ function config(settings) {
     s.openwaWebhookUrl || process.env.OPENWA_WEBHOOK_URL || ''
   ).trim();
 
-  const timeoutMs = Number(s.openwaTimeoutMs || process.env.OPENWA_TIMEOUT_MS)
-    || DEFAULT_TIMEOUT_MS;
+  // Timeout: settings panel menang atas env. Keduanya dijepit ke rentang
+  // yang sama (3000–120000) supaya tak ada sumber timeout yang bisa
+  // membuat gateway menggantung tanpa akhir.
+  const timeoutMs = clampTimeoutMs(
+    s.openwaTimeoutMs !== undefined && s.openwaTimeoutMs !== null && s.openwaTimeoutMs !== ''
+      ? s.openwaTimeoutMs
+      : process.env.OPENWA_TIMEOUT_MS
+  );
 
   return { baseUrl, sessionName, apiKey, webhookSecret, webhookUrl, timeoutMs };
 }
@@ -805,6 +836,9 @@ module.exports = {
   DEFAULT_BASE_URL,
   DEFAULT_SESSION_NAME,
   DEFAULT_TIMEOUT_MS,
+  MIN_TIMEOUT_MS,
+  MAX_TIMEOUT_MS,
+  clampTimeoutMs,
   SAFE_SESSION_NAME,
   OpenwaError,
   config,
