@@ -1253,25 +1253,22 @@ t('layouts/public.ejs tidak punya duplikat muatan upload-spec.js', () => {
   assert.strictEqual(n, 1, 'upload-spec.js dimuat ' + n + ' kali (harus tepat 1)');
 });
 
-t('tidak ada template publik yang memakai markup upload bukti', () => {
-  const dir = path.join(root, 'views');
-  const Targets = ['pages', 'partials', 'layouts'];
-  Targets.forEach((sub) => {
-    const full = path.join(dir, sub);
-    fsMod.readdirSync(full)
-      .filter((f) => f.endsWith('.ejs'))
-      .forEach((f) => {
-        const src = fsMod.readFileSync(path.join(full, f), 'utf8');
-        assert.ok(
-          !/data-proof-(drop|name|preview)/.test(src),
-          'markup upload bukti masih ada di ' + sub + '/' + f
-        );
-        assert.ok(
-          !/id=["']proof["']/.test(src),
-          'input #proof masih ada di ' + sub + '/' + f
-        );
-      });
-  });
+t('layout publik tidak punya lookup markup upload bukti yang mati', () => {
+  // Cakupan sengaja HANYA layout publik: yang dihapus di task ini adalah
+  // IIFE upload bukti di views/layouts/public.ejs. Form bukti transfer
+  // manual di halaman pembayaran (input #proof) adalah fitur yang masih
+  // hidup dan dipakai route POST /pembayaran/:code/manual — jadi TIDAK
+  // dikunci sebagai "dead code" di sini.
+  const src = fsMod.readFileSync(
+    path.join(root, 'views', 'layouts', 'public.ejs'), 'utf8');
+  assert.ok(
+    !/data-proof-(drop|name|preview)/.test(src),
+    'layout publik masih mencari markup upload bukti yang sudah dihapus'
+  );
+  assert.ok(
+    !/getElementById\(['"]proof['"]\)/.test(src),
+    'layout publik masih mencari input #proof'
+  );
 });
 
 // -- Suite galeri: tombol upload benar-benar POST ke server ----------
