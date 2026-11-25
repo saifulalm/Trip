@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Data awal (seed) untuk jalanjalanenak.com.
+ * Data awal (seed) untuk seayoulatertrip.
  * Dijalankan otomatis saat server start bila database kosong,
  * atau paksa ulang dengan: npm run seed
  */
@@ -471,7 +471,7 @@ function buildSeed() {
       body:
         'Snorkeling adalah cara paling mudah menikmati keindahan bawah laut tanpa sertifikasi menyelam. Namun ada beberapa hal yang perlu disiapkan agar pengalaman pertama kamu berjalan lancar.\n\n## 1. Pilih waktu dengan air tenang\nSebagian besar spot wisata pulau memiliki arus terkuat saat pergantian pasang. Tanyakan jam terbaik ke pemandu — biasanya pagi hari antara pukul 07.00–10.00.\n\n## 2. Gunakan masker yang pas\nMasker yang bocor akan mengalihkan seluruh perhatian kamu. Tekan masker ke wajah tanpa tali, lalu hisap — jika menempel beberapa detik, ukurannya pas.\n\n## 3. Bernapas lewat mulut\nTubuh jauh lebih rileks ketika kamu bernapas lewat mulut sambil menghadap ke air. Latihan di kolam renang dulu sangat membantu.\n\n## 4. Jangan menyentuh karang\nKarang hidup sangat rapuh. Sentuhan sekecil apa pun bisa memutus puluhan tahun pertumbuhannya. Jaga jarak minimal satu meter.\n\n## 5. Pakai pelampungMeskipun kamu perenang yang baik, arus bisa berubah. Pelampung memberi rasa aman tanpa mengurangi kesenangan.\n\n## 6. Olesi sunscreen ramah karang\nSunscreen konvensional mengandung bahan yang memutihkan karang. Gunakan sunscreen mineral atau baju renang berlengan panjang.\n\n## 7. Istirahat jika lelah\nSungai tenang pun melelahkan. Beristirahatlah di perahu setiap 30–45 menit dan minum air yang cukup.',
       category: 'Tips Wisata',
-      author: 'Tim JJE',
+      author: 'Tim seayoulatertrip',
       coverImage: '/img/dest-sabesi.svg',
       status: 'published',
       publishedAt: day(10)
@@ -493,7 +493,7 @@ function buildSeed() {
       id: db.uid('art'),
       slug: 'wisata-bahari-ramah-lingkungan',
       title: 'Prinsip Wisata Bahari Ramah Lingkungan yang Kita Terapkan',
-      excerpt: 'Setiap perjalanan bersama JJE menerapkan prinsip konservasi sederhana yang berdampak besar bagi pulau.',
+      excerpt: 'Setiap perjalanan bersama seayoulatertrip menerapkan prinsip konservasi sederhana yang berdampak besar bagi pulau.',
       body:
         'Pulau kecil adalah ekosistem yang rapuh. Satu kali kedatangan wisatawan yang tidak bertanggung jawab bisa merusak karang yang tumbuh puluhan tahun.\n\n## Tidak membuang sampah di laut\nSemua sampah dibawa kembali ke daratan dan dipilah bersama warga desa mitra.\n\n## Homestay milik warga\nSebagian besar pendapatan mengalir langsung ke keluarga lokal sehingga mereka memiliki insentif langsung untuk menjaga laut.\n\n## Batasi jumlah rombongan\nKami membatasi maksimal 12 orang per kelompok agar tekanan terhadap spot snorkeling tetap rendah.\n\n## Edukasi sebelum turun air\nSetiap peserta mendapat briefing singkat tentang karang, ikan hias, dan cara menjaga jarak.',
       category: 'Konservasi',
@@ -510,7 +510,7 @@ function buildSeed() {
       body:
         'Liburan pulau tidak membutuhkan koper besar. Kuncinya adalah pakaian cepat kering dan perlindungan dari matahari.\n\n## Pakaian\nTiga set pakaian cepat kering, satu jaket tipis untuk malam, satu set pakaian sopan untuk berkunjung ke desa.\n\n## Perlindungan matahari\nKacamata hitam, topi lebar, sunscreen mineral, dan rash guard berlengan panjang.\n\n## Elektronik\nPowerbank 20.000 mAh, kabel tahan air, dan dry bag 10 liter untuk perahu.\n\n## Obat pribadi\nAntiseptik luka, obat anti mabuk laut, dan obat alergi. Sengatan ubur-ubur jarang serius tetapi tetap perlu diantisipasi.',
       category: 'Persiapan',
-      author: 'Tim JJE',
+      author: 'Tim seayoulatertrip',
       coverImage: '/img/dest-togean.svg',
       status: 'published',
       publishedAt: day(4)
@@ -520,7 +520,7 @@ function buildSeed() {
   const bookings = [
     {
       id: db.uid('bkg'),
-      code: 'JJE-240501',
+      code: 'SYL-240501',
       name: 'Ayu Lestari',
       email: 'ayu.lestari@example.com',
       phone: '081234567890',
@@ -543,7 +543,7 @@ function buildSeed() {
     },
     {
       id: db.uid('bkg'),
-      code: 'JJE-240502',
+      code: 'SYL-240502',
       name: 'Bima Saputra',
       email: 'bima.s@example.com',
       phone: '085678901234',
@@ -566,7 +566,7 @@ function buildSeed() {
     },
     {
       id: db.uid('bkg'),
-      code: 'JJE-240503',
+      code: 'SYL-240503',
       name: 'Citra Ayuning',
       email: 'citra.ayu@example.com',
       phone: '087812345678',
@@ -589,7 +589,7 @@ function buildSeed() {
     },
     {
       id: db.uid('bkg'),
-      code: 'JJE-240418',
+      code: 'SYL-240418',
       name: 'Rangga Saputra',
       email: 'rangga@example.com',
       phone: '085678901234',
@@ -616,7 +616,7 @@ function buildSeed() {
     },
     {
       id: db.uid('bkg'),
-      code: 'JJE-240504',
+      code: 'SYL-240504',
       name: 'Ayu Lestari',
       email: 'ayu.lestari@example.com',
       phone: '081234567890',
@@ -639,7 +639,7 @@ function buildSeed() {
     },
     {
       id: db.uid('bkg'),
-      code: 'JJE-240505',
+      code: 'SYL-240505',
       name: 'Hendra Wijaya',
       email: 'hendra.w@example.com',
       phone: '081377778888',
@@ -691,7 +691,7 @@ function buildSeed() {
   const reviews = [
     {
       id: db.uid('rev'),
-      bookingCode: 'JJE-238122',
+      bookingCode: 'SYL-238122',
       customerName: 'Nadia Kusuma',
       packageName: 'Sabesi Island Escape',
       rating: 5,
@@ -702,7 +702,7 @@ function buildSeed() {
     },
     {
       id: db.uid('rev'),
-      bookingCode: 'JJE-238099',
+      bookingCode: 'SYL-238099',
       customerName: 'Fajar Nugroho',
       packageName: 'Weh Sunset Escape',
       rating: 4,
@@ -713,7 +713,7 @@ function buildSeed() {
     },
     {
       id: db.uid('rev'),
-      bookingCode: 'JJE-240502',
+      bookingCode: 'SYL-240502',
       customerName: 'Bima Saputra',
       packageName: 'Misool Southern Lagoon Liveaboard',
       rating: 5,
@@ -723,7 +723,7 @@ function buildSeed() {
     },
     {
       id: db.uid('rev'),
-      bookingCode: 'JJE-240418',
+      bookingCode: 'SYL-240418',
       customerName: 'Rangga Saputra',
       packageName: 'Derawan Jellyfish Quest',
       rating: 5,
@@ -734,7 +734,7 @@ function buildSeed() {
     },
     {
       id: db.uid('rev'),
-      bookingCode: 'JJE-240311',
+      bookingCode: 'SYL-240311',
       customerName: 'Maya Putri',
       packageName: 'Misool Southern Lagoon Liveaboard',
       rating: 5,
@@ -745,11 +745,11 @@ function buildSeed() {
     },
     {
       id: db.uid('rev'),
-      bookingCode: 'JJE-240221',
+      bookingCode: 'SYL-240221',
       customerName: 'Yoga Pratama',
       packageName: 'Weh Sunset Escape',
       rating: 4,
-      comment: 'Sunset Sumur Tiga memang juara. Trip singkat tapi memorable. Thanks JJE!',
+      comment: 'Sunset Sumur Tiga memang juara. Trip singkat tapi memorable. Thanks seayoulatertrip!',
       status: 'approved',
       createdAt: day(13)
     }
@@ -793,54 +793,85 @@ function buildSeed() {
       id: db.uid('usr'),
       username: 'admin',
       passwordHash: bcrypt.hashSync('admin123', 10),
-      name: 'Administrator JJE',
+      name: 'Administrator seayoulatertrip',
       role: 'admin',
       createdAt: day(40)
     }
   ];
 
   const settings = {
-    siteName: 'jalanjalanenak.com',
+    // Nama brand aktif — sumber kebenaran seluruh teks brand di situs.
+    brandName: 'seayoulatertrip',
+    siteName: 'seayoulatertrip',
     tagline: 'Liburan pulau yang enak, terencana, tanpa ribet',
     whatsapp: '6281234567890',
-    email: 'halo@jalanjalanenak.com',
+    email: 'halo@seayoulatertrip.com',
     phone: '0812-3456-7890',
     address: 'Jl. Samudra Raya No. 21, Banda Aceh, Indonesia',
-    instagram: 'https://instagram.com/jalanjalanenak',
-    facebook: 'https://facebook.com/jalanjalanenak',
+    instagram: 'https://instagram.com/seayoulatertrip',
+    facebook: 'https://facebook.com/seayoulatertrip',
     about:
-      'JalanJalanEnak adalah operator wisata bahari yang berfokus pada kepulauan Indonesia. Sejak 2019 kami membantu ribuan wisatawan menikmati pulau-pulau terbaik Nusantara dengan pemandu lokal, homestay milik warga, dan itinerary yang matang.',
+      'seayoulatertrip adalah operator wisata bahari yang berfokus pada kepulauan Indonesia. Sejak 2019 kami membantu ribuan wisatawan menikmati pulau-pulau terbaik Nusantara dengan pemandu lokal, homestay milik warga, dan itinerary yang matang.',
     heroTitle: 'Pulau-pulau Indonesia,\ndibuat enak dikunjungi.',
     heroSubtitle:
       'Dari Sabesi hingga Ora — kami susun perjalanan bahari yang nyaman, aman, dan mendukung warga lokal.'
     ,
     heroImageUrl: '',
-    // Pembayaran
-    paymentBank: 'BCA',
-    paymentAccount: '1234567890',
-    paymentAccountName: 'PT JalanJalanEnak Wisata',
-    midtransServerKey: '',
-    midtransClientKey: '',
-    midtransProduction: false,
-    tripayMerchantCode: '',
-    tripayPrivateKey: '',
-    tripayApiKey: '',
-    tripayProduction: false,
-    // WhatsApp Cloud API (marketing)
-    waToken: '',
-    waPhoneId: '',
-    waDefaultTemplate:
-      'Halo {{nama}}! 👋 Ada trip baru ke Pulau Sabesi — Raja Ampat yang lagi promo. Mau lihat itinerary-nya? Balas pesan ini ya, kak! 🏝️',
+    // Mode tampilan hero beranda:
+    //   'auto'  → pakai video; gambar hero (bila ada) hanya dipakai sebagai poster
+    //   'video' → selalu pakai video; gambar hero hanya jadi poster
+    //   'image' → tanpa video sama sekali (hemat bandwidth)
+    heroMode: 'auto',
+    // Payment gateway iPaymu (VA + API Key dari dashboard iPaymu → Integration)
+    ipaymuVa: '',
+    ipaymuApiKey: '',
+    ipaymuProduction: false,
+    // WhatsApp — gateway open-source **OpenWA** (self-hosted, REST API).
+    // Backend tidak menjalankan browser: scan QR / kode pairing dilakukan
+    // di instance OpenWA, lalu blast & pengingat berjalan lewat REST API.
+    openwaBaseUrl: 'http://localhost:2785',
+    openwaApiKey: '',
+    openwaSessionName: 'seayoulatertrip',
+    openwaWebhookUrl: '',
+    openwaWebhookSecret: '',
+    // Timeout request ke gateway OpenWA (ms). Batas bawah 3000, atas 120000.
+    // PENTING: ketiga key ini (openwaTimeoutMs, frequencyCap,
+    // globalDailyLimit) WAJIB ada di seed. Kalau tidak,
+    // `snapshotSettings()` pada skrip audit membaca `undefined`, lalu route
+    // /admin/pengaturan menulis nilai default → audit "settings asli
+    // dipulihkan" gagal palsu.
+    openwaTimeoutMs: 20000,
+    // Batas pesan per kontak per hari (mencegah spam ke satu nomor).
+    frequencyCap: 3,
+    // Batas total pesan per hari untuk seluruh kanal.
+    globalDailyLimit: 100,
     // Menu WhatsApp mengambang (situs publik)
     waFloatEnabled: true,
     waFloatMessage:
-      'Halo jalanjalanenak.com! Saya mau tanya-tanya soal trip ya. Boleh minta info itinerary & harga?',
+      'Halo seayoulatertrip! Saya mau tanya-tanya soal trip ya. Boleh minta info itinerary & harga?',
     // SEO
     siteUrl: '',
     seoDescription:
-      'JalanJalanEnak — paket wisata bahari terpercaya ke Raja Ampat, Sabesi, Ora, dan pulau-pulau terbaik Indonesia. Itinerary matang, pemandu lokal, harga transparan.',
+      'seayoulatertrip — paket wisata bahari terpercaya ke Raja Ampat, Sabesi, Ora, dan pulau-pulau terbaik Indonesia. Itinerary matang, pemandu lokal, harga transparan.',
     ogImageUrl: '',
-    seoIndex: true
+    seoIndex: true,
+    // Tema tampilan (dipakai admin & situs publik)
+    themeMode: 'light',
+    themeAccent: '#166b7a',
+    // Lokasi langsung (presence): fitur aktif + masa berlaku posisi (menit).
+    //
+    // PENTING: key ini WAJIB ada di seed. Kalau tidak, `snapshotSettings()`
+    // pada skrip audit membaca `undefined`, lalu route /admin/pengaturan
+    // menulis nilai default → audit "settings asli dipulihkan" gagal
+    // palsu (key dianggap berubah dari undefined ke 'true').
+    presenceEnabled: true,
+    presenceTtlMin: 5,
+    // WhatsApp: template blast bawaan + jam tenang + interval pengingat.
+    // Start == end berarti jam tenang NONAKTIF.
+    waDefaultTemplate: '',
+    waQuietStart: 21,
+    waQuietEnd: 8,
+    waReminderIntervalMin: 30
   };
 
   const contacts = [

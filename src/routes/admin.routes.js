@@ -1040,7 +1040,9 @@ const SETTINGS_GROUPS = {
   social: require('../services/social').settingsFields(),
   wa: [
     'waDefaultTemplate',
-    'waQuietStart', 'waQuietEnd', 'waReminderIntervalMin'
+    'waQuietStart', 'waQuietEnd', 'waReminderIntervalMin',
+    // Batas pengiriman: per kontak per hari & total harian.
+    'frequencyCap', 'globalDailyLimit'
   ],
   // Gateway WhatsApp OpenWA (self-hosted REST API).
   // Kredensial API key & webhook secret boleh diisi di sini; kalau dikosongkan
@@ -1048,7 +1050,9 @@ const SETTINGS_GROUPS = {
   // terkirim ulang oleh browser).
   openwa: [
     'openwaBaseUrl', 'openwaApiKey', 'openwaSessionName',
-    'openwaWebhookUrl', 'openwaWebhookSecret'
+    'openwaWebhookUrl', 'openwaWebhookSecret',
+    // Timeout request ke gateway (ms).
+    'openwaTimeoutMs'
   ],
   // Lokasi langsung (presence): toggle fitur + masa berlaku posisi.
   presence: ['presenceEnabled', 'presenceTtlMin']
@@ -1215,6 +1219,18 @@ router.post(
       const webhookSecret = scopedText(b, scope, 'openwaWebhookSecret', '');
       if (webhookSecret) s.openwaWebhookSecret = webhookSecret;
     }
+  }
+  // Timeout gateway OpenWA (ms). Terpisah dari blok kredensial di atas
+  // supaya "Hapus konfigurasi gateway" tidak ikut menghapus timeout.
+  if (scope.has('openwaTimeoutMs')) {
+    s.openwaTimeoutMs = scopedInt(b, scope, 'openwaTimeoutMs', s.openwaTimeoutMs, 20000, 3000, 120000);
+  }
+  // Batas pengiriman: pesan per kontak per hari & total harian.
+  if (scope.has('frequencyCap')) {
+    s.frequencyCap = scopedInt(b, scope, 'frequencyCap', s.frequencyCap, 3, 1, 50);
+  }
+  if (scope.has('globalDailyLimit')) {
+    s.globalDailyLimit = scopedInt(b, scope, 'globalDailyLimit', s.globalDailyLimit, 100, 10, 5000);
   }
   // Lokasi langsung (presence): toggle fitur & masa berlaku posisi (menit).
   // Checkbox yang tidak dicentang berarti admin sengaja mematikan fitur.

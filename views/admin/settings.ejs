@@ -2,6 +2,7 @@
   <div class="panel__head"><h2>Pengaturan Situs</h2></div>
   <form action="/admin/pengaturan" method="post" enctype="multipart/form-data" class="a-form">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="form" value="site">
     <div class="a-form-grid">
       <div class="a-field">
         <label>Nama Situs</label>
@@ -59,19 +60,44 @@
         <textarea name="waFloatMessage" rows="2"><%= item.waFloatMessage || '' %></textarea>
       </div>
       <div class="a-field">
-        <label>Logo (opsional)</label>
-        <input type="file" name="logoFile" accept="image/*">
-        <% if (item.logo) { %><img src="<%= item.logo %>" alt="" class="img-preview" style="margin-top:0.5rem"><% } %>
+        <%- include('partials/image-upload', {
+          name: 'logoFile',
+          current: item.logo || '',
+          ratio: 'logo',
+          label: 'Logo (opsional)',
+          hint: 'Format persegi (1:1) · PNG dengan latar transparan · maksimal 5 MB'
+        }) %>
+        <% if (item.logo && String(item.logo).startsWith('/uploads/')) { %>
+          <label class="a-check" style="margin-top:0.4rem">
+            <input type="checkbox" name="logoImageReset" value="1"> Kembalikan ke logo bawaan
+          </label>
+        <% } %>
       </div>
       <div class="a-field a-field--full">
-        <label>Gambar Hero Beranda (JPG/PNG/WEBP, maks 5 MB — opsional, tampil di kartu hero)</label>
-        <input type="file" name="heroFile" accept="image/*">
+        <%- include('partials/image-upload', {
+          name: 'heroFile',
+          current: item.heroImageUrl || '',
+          ratio: 'hero',
+          label: 'Gambar Hero Beranda (opsional, dipakai sebagai poster video)',
+          hint: 'Rasio 16:9 (contoh 1920×1080) · JPG, PNG, WEBP atau GIF · maksimal 5 MB · gambar polos (tanpa detail) ditolak'
+        }) %>
         <% if (item.heroImageUrl) { %>
-          <img src="<%= item.heroImageUrl %>" alt="" class="img-preview" style="margin-top:0.5rem; max-height:160px">
           <label class="a-check" style="margin-top:0.4rem">
             <input type="checkbox" name="heroImageReset" value="1"> Kembalikan ke gambar default
           </label>
         <% } %>
+      </div>
+      <div class="a-field a-field--full">
+        <label for="heroMode">Tampilan Hero Beranda</label>
+        <select id="heroMode" name="heroMode">
+          <option value="auto" <%= (item.heroMode || 'auto') === 'auto' ? 'selected' : '' %>>Otomatis — pakai video, gambar jadi poster</option>
+          <option value="video" <%= item.heroMode === 'video' ? 'selected' : '' %>>Selalu video — gambar hanya jadi poster</option>
+          <option value="image" <%= item.heroMode === 'image' ? 'selected' : '' %>>Tanpa video — gambar diam (hemat bandwidth)</option>
+        </select>
+        <p class="help">
+          Video hero bawaan (<code>/media/hero-islands.mp4</code>) selalu tersedia. Mode "Otomatis"
+          memakai video walau ada gambar hero — gambar hanya jadi poster, bukan menggantikan video.
+        </p>
       </div>
     </div>
     <div class="form-actions">
@@ -80,42 +106,189 @@
   </form>
 </div>
 
+<div class="panel">
+  <div class="panel__head">
+    <h2>Tampilan &amp; Tema</h2>
+    <span class="help">Perubahan berlaku untuk admin panel dan situs publik.</span>
+  </div>
+  <form action="/admin/pengaturan" method="post" class="a-form">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <input type="hidden" name="form" value="theme">
+    <div class="a-form-grid">
+      <div class="a-field">
+        <label>Mode Tampilan</label>
+        <select name="themeMode" id="themeModeSelect">
+          <option value="light" <%= item.themeMode === 'light' ? 'selected' : '' %>>Terang</option>
+          <option value="dark" <%= item.themeMode === 'dark' ? 'selected' : '' %>>Gelap</option>
+          <option value="auto" <%= item.themeMode === 'auto' ? 'selected' : '' %>>Otomatis (ikut sistem)</option>
+        </select>
+        <span class="help">Mode "Otomatis" mengikuti preferensi perangkat pengguna.</span>
+      </div>
+      <div class="a-field">
+        <label for="themeAccentPicker">Warna Aksen</label>
+        <div style="display:flex; gap:0.6rem; align-items:center">
+          <input type="color" name="themeAccent" id="themeAccentPicker" value="<%= theme.accent %>" style="width:54px;height:44px;padding:2px;border:1.5px solid var(--a-line);border-radius:10px;background:var(--a-field-bg);cursor:pointer">
+          <code style="font-size:0.82rem; color:var(--a-soft)" id="themeAccentValue"><%= theme.accent %></code>
+        </div>
+        <span class="help">Warna ini dipakai pada sidebar, tombol, dan sorotan di seluruh situs.</span>
+      </div>
+      <div class="a-field a-field--full">
+        <label>Pratinjau Aksen</label>
+        <div style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:center">
+          <button type="button" class="btn-a btn-a--primary">Tombol Utama</button>
+          <button type="button" class="btn-a btn-a--ghost">Tombol Sekunder</button>
+          <span class="badge badge--confirmed">Terbit</span>
+          <span class="badge badge--pending">Menunggu</span>
+          <span style="padding:0.35rem 0.8rem; border-radius:999px; background:var(--accent-glow); color:var(--accent); font-weight:700; font-size:0.78rem">Chip Aksen</span>
+        </div>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn-a btn-a--sunset">Simpan Tema</button>
+    </div>
+  </form>
+</div>
+
 <div class="panel-grid">
   <div class="panel">
-    <div class="panel__head"><h2>Pembayaran — Transfer Manual</h2></div>
+    <div class="panel__head"><h2>Payment Gateway — iPaymu</h2></div>
     <form action="/admin/pengaturan" method="post" class="a-form">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <div class="a-field"><label>Nama Bank</label><input type="text" name="paymentBank" value="<%= item.paymentBank || 'BCA' %>"></div>
-      <div class="a-field"><label>Nomor Rekening</label><input type="text" name="paymentAccount" value="<%= item.paymentAccount || '' %>"></div>
-      <div class="a-field"><label>Atas Nama</label><input type="text" name="paymentAccountName" value="<%= item.paymentAccountName || '' %>"></div>
-      <div class="form-actions"><button type="submit" class="btn-a btn-a--sunset">Simpan Rekening</button></div>
-    </form>
-  </div>
-  <div class="panel">
-    <div class="panel__head"><h2>Payment Gateway</h2></div>
-    <form action="/admin/pengaturan" method="post" class="a-form">
-      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <p class="help" style="margin-bottom:0.8rem">Isi kunci dari dashboard masing-masing gateway. Kosongkan untuk menonaktifkan. (Midtrans &amp; Tripay dipanggil via REST resmi.)</p>
-      <div class="a-field"><label>Midtrans Server Key</label><input type="text" name="midtransServerKey" value="<%= item.midtransServerKey || '' %>" placeholder="SB-Mid-server-…"></div>
-      <div class="a-field"><label>Midtrans Client Key</label><input type="text" name="midtransClientKey" value="<%= item.midtransClientKey || '' %>" placeholder="SB-Mid-client-…"></div>
-      <label class="a-check" style="margin-bottom:0.8rem"><input type="checkbox" name="midtransProduction" <%= item.midtransProduction ? 'checked' : '' %>> Midtrans mode production (tanpa centang = sandbox)</label>
-      <hr style="border-color:var(--a-line); margin:0.8rem 0">
-      <div class="a-field"><label>Tripay Merchant Code</label><input type="text" name="tripayMerchantCode" value="<%= item.tripayMerchantCode || '' %>" placeholder="TRX-…"></div>
-      <div class="a-field"><label>Tripay Private Key</label><input type="password" name="tripayPrivateKey" value="<%= item.tripayPrivateKey || '' %>" autocomplete="off"></div>
-      <div class="a-field"><label>Tripay API Key</label><input type="password" name="tripayApiKey" value="<%= item.tripayApiKey || '' %>" autocomplete="off"></div>
-      <label class="a-check" style="margin-bottom:0.8rem"><input type="checkbox" name="tripayProduction" <%= item.tripayProduction ? 'checked' : '' %>> Tripay mode production</label>
+      <input type="hidden" name="form" value="gateway">
+      <p class="help" style="margin-bottom:0.8rem">
+        Ambil <strong>VA</strong> dan <strong>API Key</strong> dari menu <em>Integration</em> di dashboard iPaymu.
+        VA dipakai juga sebagai secret key verifikasi signature webhook. Kosongkan untuk menonaktifkan pembayaran online.
+      </p>
+      <div class="a-field"><label>VA (Virtual Account)</label><input type="text" name="ipaymuVa" value="<%= item.ipaymuVa || '' %>" placeholder="1179000899"></div>
+      <div class="a-field"><label>API Key</label><input type="password" name="ipaymuApiKey" value="<%= item.ipaymuApiKey || '' %>" autocomplete="off" placeholder="xxxxxxxx.xxxxxxxx"></div>
+      <label class="a-check" style="margin-bottom:0.8rem"><input type="checkbox" name="ipaymuProduction" <%= item.ipaymuProduction ? 'checked' : '' %>> iPaymu mode produksi (tanpa centang = sandbox)</label>
+      <p class="help" style="margin-bottom:0.8rem">
+        Callback URL untuk didaftarkan di dashboard iPaymu:
+        <code><%= absoluteUrl('/payment/webhook/ipaymu') || 'https://domain-anda.com/payment/webhook/ipaymu' %></code>
+      </p>
       <div class="form-actions"><button type="submit" class="btn-a btn-a--sunset">Simpan Gateway</button></div>
     </form>
   </div>
   <div class="panel">
-    <div class="panel__head"><h2>WhatsApp Cloud API (Marketing)</h2></div>
+    <div class="panel__head"><h2>WhatsApp (Gateway OpenWA)</h2></div>
     <form action="/admin/pengaturan" method="post" class="a-form">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-      <p class="help" style="margin-bottom:0.8rem">Gunakan token resmi <strong>WhatsApp Cloud API</strong> (Meta) — bukan automasi ilegal. Token disimpan di server, tidak pernah ditampilkan kembali setelah disimpan.</p>
-      <div class="a-field"><label>Access Token</label><input type="password" name="waToken" value="<%= item.waToken || '' %>" autocomplete="off" placeholder="EAAG…"></div>
-      <div class="a-field"><label>Phone Number ID</label><input type="text" name="waPhoneId" value="<%= item.waPhoneId || '' %>" placeholder="123456789"></div>
+      <input type="hidden" name="form" value="wa">
+      <p class="help" style="margin-bottom:0.8rem">
+        WhatsApp memakai <strong>OpenWA</strong> (gateway open-source self-hosted) — scan QR di menu
+        <a href="/admin/marketing/whatsapp">Hub WhatsApp</a>. Tidak ada token berbayar yang perlu dibeli.
+      </p>
       <div class="a-field"><label>Template Blast Bawaan</label><textarea name="waDefaultTemplate" rows="4"><%= item.waDefaultTemplate || '' %></textarea><span class="help">Gunakan {'{{nama}}'} sebagai placeholder nama kontak.</span></div>
+      <hr style="border-color:var(--a-line); margin:0.9rem 0">
+      <p class="help" style="margin-bottom:0.8rem">Jam tenang: pesan blast &amp; pengingat otomatis <strong>ditunda</strong> (bukan dibatalkan) selama rentang ini. Isi jam yang sama untuk menonaktifkan.</p>
+      <div class="a-field"><label>Jam tenang mulai (0–23)</label><input type="number" name="waQuietStart" min="0" max="23" value="<%= item.waQuietStart === undefined ? 21 : item.waQuietStart %>"></div>
+      <div class="a-field"><label>Jam tenang selesai (0–23)</label><input type="number" name="waQuietEnd" min="0" max="23" value="<%= item.waQuietEnd === undefined ? 8 : item.waQuietEnd %>"></div>
+      <div class="a-field"><label>Interval cek pengingat (menit)</label><input type="number" name="waReminderIntervalMin" min="5" max="1440" value="<%= item.waReminderIntervalMin || 30 %>"><span class="help">Minimal 5 menit. Default 30 menit.</span></div>
+      <hr style="border-color:var(--a-line); margin:0.9rem 0">
+      <p class="help" style="margin-bottom:0.8rem">Batas pengiriman: menjaga supaya blast tidak dianggap spam oleh WhatsApp.</p>
+      <div class="a-field">
+        <label>Maks pesan per kontak per hari</label>
+        <input type="number" name="frequencyCap" min="1" max="50" value="<%= item.frequencyCap || 3 %>">
+        <span class="help">Setelah batas ini tercapai, pesan untuk kontak yang sama ditunda sampai hari berikutnya. Default 3.</span>
+      </div>
+      <div class="a-field">
+        <label>Maks pesan total per hari</label>
+        <input type="number" name="globalDailyLimit" min="10" max="5000" step="10" value="<%= item.globalDailyLimit || 100 %>">
+        <span class="help">Batas keseluruhan pesan yang boleh dikirim dalam satu hari. Default 100.</span>
+      </div>
       <div class="form-actions"><button type="submit" class="btn-a btn-a--sunset">Simpan Pengaturan WA</button></div>
-    </form>
-  </div>
-</div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ============ Gateway WhatsApp OpenWA ============ -->
+      <div class="panel">
+        <div class="panel__head"><h2>Gateway WhatsApp OpenWA</h2></div>
+        <form action="/admin/pengaturan" method="post" class="a-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="form" value="openwa">
+          <p class="help" style="margin-bottom:0.9rem">
+            Alamat &amp; kredensial instance <strong>OpenWA</strong> (self-hosted). Env
+            <code>OPENWA_BASE_URL</code>, <code>OPENWA_API_KEY</code>, <code>OPENWA_WEBHOOK_URL</code>,
+            dan <code>OPENWA_WEBHOOK_SECRET</code>dipakai lebih dulu bila diisi — env menang atas nilai di bawah.
+          </p>
+          <div class="a-field"><label>Base URL gateway</label><input type="text" name="openwaBaseUrl" placeholder="http://localhost:2785" value="<%= item.openwaBaseUrl || '' %>"><span class="help">Alamat instance OpenWA (tanpa garis miring di akhir).</span></div>
+          <div class="a-field"><label>API Key</label><input type="password" name="openwaApiKey" placeholder="owa_k1_…" value="<%= item.openwaApiKey || '' %>"><span class="help">Dikirim sebagai header <code>X-API-Key</code> (tanpa awalan Bearer). Kosongkan berarti pertahankan yang lama.</span></div>
+          <div class="a-field"><label>Nama session</label><input type="text" name="openwaSessionName" placeholder="seayoulatertrip" value="<%= item.openwaSessionName || '' %>"><span class="help">Hanya huruf, angka, dan tanda hubung (maks 50 karakter). Kosongkan berarti pertahankan yang lama.</span></div>
+          <div class="a-field"><label>URL webhook inbound</label><input type="text" name="openwaWebhookUrl" placeholder="https://domain-anda.com/api/webhooks/openwa" value="<%= item.openwaWebhookUrl || '' %>"><span class="help">Dipakai gateway untuk mengirim pesan masuk. Wajib URL publik bila server berada di balik proxy.</span></div>
+          <div class="a-field"><label>Webhook secret</label><input type="password" name="openwaWebhookSecret" value="<%= item.openwaWebhookSecret || '' %>"><span class="help">Minimal 16 karakter. Dipakai untuk HMAC-SHA256 atas body webhook. Kosongkan berarti pertahankan yang lama.</span></div>
+          <div class="a-field">
+            <label>Timeout gateway (milidetik)</label>
+            <input type="number" name="openwaTimeoutMs" min="3000" max="120000" step="500" value="<%= item.openwaTimeoutMs || 20000 %>">
+            <span class="help">Batas waktu menunggu jawaban gateway sebelum dianggap gagal. Default 20000 ms (20 detik).</span>
+          </div>
+          <div class="a-field">
+            <label style="display:flex; align-items:center; gap:0.5rem">
+              <input type="checkbox" name="openwaClear" value="1">
+              Hapus konfigurasi gateway
+            </label>
+            <span class="help">Mengosongkan seluruh field OpenWA di atas. Centang ini akan mengabaikan nilai yang Anda ketik.</span>
+          </div>
+          <div class="form-actions"><button type="submit" class="btn-a btn-a--sunset">Simpan Gateway WhatsApp</button></div>
+        </form>
+      </div>
+
+      <!-- ============ Lokasi langsung (presence) ============ -->
+      <div class="panel">
+        <div class="panel__head">
+          <h2>Lokasi Langsung (Presence)</h2>
+          <a href="/admin/lokasi" class="btn-a btn-a--ghost btn-a--sm"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-eye"/></svg></span>Lihat Peta →</a>
+        </div>
+        <form action="/admin/pengaturan" method="post" class="a-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="form" value="presence">
+          <p class="help" style="margin-bottom:0.9rem">
+            Fitur berbagi posisi langsung antara admin &amp; pelanggan. Posisi disimpan terpisah di
+            <code>data/presence.json</code> dan otomatis dianggap offline setelah masa berlaku habis.
+            Pelanggan hanya melihat tim dan fellow traveler dengan booking yang sama.
+          </p>
+          <div class="a-field">
+            <label style="display:flex; align-items:center; gap:0.5rem">
+              <input type="checkbox" name="presenceEnabled" value="1" <%= item.presenceEnabled === false ? '' : 'checked' %>>
+              Aktifkan fitur berbagi lokasi langsung
+            </label>
+            <span class="help">Bila tidak dicentang, fitur dimatikan dan endpoint API menolak ping.</span>
+          </div>
+          <div class="a-field">
+            <label>Masa berlaku posisi (menit)</label>
+            <input type="number" name="presenceTtlMin" min="1" max="120" value="<%= item.presenceTtlMin || 5 %>">
+            <span class="help">Posisi yang lebih lama dari ini dianggap offline dan dibuang. Default 5 menit (maks 120).</span>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-a btn-a--sunset">Simpan Pengaturan Lokasi</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ============ Media sosial ============ -->
+      <div class="panel">
+        <div class="panel__head">
+          <h2>Media Sosial</h2>
+          <a href="/admin/social" class="btn-a btn-a--ghost btn-a--sm">Kelola kanal →</a>
+        </div>
+        <form action="/admin/pengaturan" method="post" class="a-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="form" value="social">
+          <p class="help" style="margin-bottom:0.9rem">
+            Tautan profil ini tampil di footer situs publik dan menjadi data terstruktur
+            <code>sameAs</code> untuk mesin pencari. Untuk menghubungkan kanal publikasi, gunakan menu
+            <a href="/admin/social">Connect Social Media</a>.
+          </p>
+          <div class="a-form-grid">
+            <% socialPlatforms.forEach(function (p) { %>
+              <div class="a-field">
+                <label for="set-<%= p.slug %>"><%= p.label %></label>
+                <input type="text" id="set-<%= p.slug %>" name="<%= p.slug %>" value="<%= item[p.slug] || '' %>" placeholder="<%= p.urlPattern.replace('https://', '').replace('{handle}', 'username') %>">
+              </div>
+            <% }) %>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-a btn-a--sunset">Simpan Tautan Media Sosial</button>
+          </div>
+        </form>
+      </div>

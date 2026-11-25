@@ -66,6 +66,36 @@ async function t(name, fn) {
     );
   });
 
+  // ── Konfigurasi yang bisa diatur dari panel admin ────────────────
+  // `gateway.config()` membaca settings; nilai ini harus bisa diubah admin
+  // lewat /admin/pengaturan, bukan terkunci di konstanta modul.
+  console.log('\n== Konfigurasi yang diatur dari panel admin ==');
+  await t('timeout gateway bisa diatur lewat settings', () => {
+    const cfg = gateway.config({ openwaTimeoutMs: 4500 });
+    assert.strictEqual(cfg.timeoutMs, 4500);
+  });
+  await t('timeout default 20000 ms bila tidak diatur', () => {
+    const cfg = gateway.config({});
+    assert.strictEqual(cfg.timeoutMs, gateway.DEFAULT_TIMEOUT_MS);
+  });
+  await t('seed punya openwaTimeoutMs, frequencyCap, globalDailyLimit', () => {
+    const fs = require('fs');
+    const seedSrc = fs.readFileSync(path.join(root, 'src', 'seed.js'), 'utf8');
+    ['openwaTimeoutMs', 'frequencyCap', 'globalDailyLimit'].forEach((k) => {
+      assert.ok(
+        seedSrc.includes(k + ':'),
+        'seed harus punya key ' + k
+      );
+    });
+  });
+  await t('scope settings admin memuat key baru', () => {
+    const fs = require('fs');
+    const src = fs.readFileSync(path.join(root, 'src', 'routes', 'admin.routes.js'), 'utf8');
+    assert.ok(src.includes("'openwaTimeoutMs'"), 'openwaTimeoutMs belum di scope');
+    assert.ok(src.includes("'frequencyCap'"), 'frequencyCap belum di scope');
+    assert.ok(src.includes("'globalDailyLimit'"), 'globalDailyLimit belum di scope');
+  });
+
   console.log('\n== Normalisasi nomor & JID ==');
   await t('nomor polos menjadi JID c.us', () => {
     assert.strictEqual(gateway.toChatId('628123456789'), '628123456789@c.us');
