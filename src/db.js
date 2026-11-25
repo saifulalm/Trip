@@ -10,7 +10,21 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+/**
+ * Lokasi basis data.
+ *
+ * `SABESI_DATA_DIR` memungkinkan skrip uji memakai basis data sintetis di
+ * folder terpisah. Tanpa itu, skrip uji yang memanggil `db.reset()` akan
+ * menimpa `data/db.json` produksi — dan kalau ada server yang sedang
+ * berjalan, restore berkas manual akan ditimpa balik oleh cache server.
+ *
+ * Env ini hanya untuk pengujian & tooling; server produksi tidak pernah
+ * menyetelnya.
+ */
+const DATA_DIR = process.env.SABESI_DATA_DIR
+  ? path.resolve(process.env.SABESI_DATA_DIR)
+  : path.join(__dirname, '..', 'data');
+
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 const TMP_FILE = path.join(DATA_DIR, '.db.tmp');
 
@@ -75,4 +89,18 @@ function uniqueSlug(collection, base, excludeId) {
   return slug;
 }
 
-module.exports = { DB_FILE, read, write, initIfEmpty, reset, uid, slugify, uniqueSlug };
+/**
+ * Baca ulang berkas db.json dari disk, buang cache.
+ *
+ * Cache di modul ini berguna untuk sprout (server hanya satu proses), tapi
+ * skrip uji / alat CLI yang berjalan sebagai proses TERPISAH butuh melihat
+ * data yang baru ditulis proses lain (mis. server).
+ *
+ * @returns {object} data terbaru
+ */
+function reload() {
+  cache = null;
+  return read();
+}
+
+module.exports = { DB_FILE, read, write, initIfEmpty, reset, uid, slugify, uniqueSlug, reload };
