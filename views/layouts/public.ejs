@@ -193,66 +193,6 @@
   <script src="/js/depth.js" defer></script>
   <script src="/js/destinations-gallery.js" defer></script>
   <script src="/js/hero-animated.js" defer></script>
-  <script>
-    /* ---------- Unggah bukti transfer (halaman pembayaran) ---------- */
-    (function () {
-      var input = document.getElementById('proof');
-      var drop = document.querySelector('[data-proof-drop]');
-      if (!input || !drop) return;
-      var nameEl = document.querySelector('[data-proof-name]');
-      var preview = document.querySelector('[data-proof-preview]');
-      var MAX = 5 * 1024 * 1024;
-
-      function apply(file) {
-        if (!file) return;
-        if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) {
-          drop.style.borderColor = 'var(--a-red, #d64545)';
-          if (nameEl) nameEl.textContent = 'Format harus JPG, PNG, WEBP, atau GIF.';
-          return;
-        }
-        if (file.size > MAX) {
-          drop.style.borderColor = 'var(--a-red, #d64545)';
-          if (nameEl) nameEl.textContent = 'Ukuran maksimal 5 MB.';
-          return;
-        }
-        drop.style.borderColor = '';
-        if (nameEl) nameEl.textContent = file.name + ' · ' + (file.size / 1024 / 1024).toFixed(2) + ' MB';
-        if (preview) {
-          var reader = new FileReader();
-          reader.onload = function (e) {
-            preview.src = e.target.result;
-            preview.hidden = false;
-          };
-          reader.readAsDataURL(file);
-        }
-      }
-
-      input.addEventListener('change', function () { apply(input.files && input.files[0]); });
-
-      ['dragenter', 'dragover'].forEach(function (evt) {
-        drop.addEventListener(evt, function (e) {
-          e.preventDefault();
-          drop.classList.add('is-dragover');
-        });
-      });
-      ['dragleave', 'drop'].forEach(function (evt) {
-        drop.addEventListener(evt, function (e) {
-          e.preventDefault();
-          drop.classList.remove('is-dragover');
-        });
-      });
-      drop.addEventListener('drop', function (e) {
-        var files = e.dataTransfer && e.dataTransfer.files;
-        if (!files || !files.length) return;
-        try {
-          var dt = new DataTransfer();
-          dt.items.add(files[0]);
-          input.files = dt.files;
-        } catch (err) { /* browser lama */ }
-        apply(files[0]);
-      });
-    })();
-  </script>
   <% if (typeof mapData !== 'undefined' && mapData) { %>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="/js/map.js"></script>

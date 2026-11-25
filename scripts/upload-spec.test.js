@@ -1211,6 +1211,69 @@ t('admin-gallery-suite.js tidak lagi mensimulasikan unggah', () => {
   );
 });
 
+// -- Dead code upload harus dibersihkan -------------------------------
+console.log('\n== Dead code upload ==');
+
+t('layouts/public.ejs tidak lagi punya blok upload bukti', () => {
+  const src = fsMod.readFileSync(
+    path.join(root, 'views', 'layouts', 'public.ejs'), 'utf8');
+  assert.ok(
+    !/data-proof-drop/.test(src),
+    'blok upload bukti yang sudah mati masih ada'
+  );
+  assert.ok(
+    !/Unggah bukti transfer/.test(src),
+    'komentar upload bukti masih ada'
+  );
+});
+
+t('layouts/public.ejs tidak lagi punya lookup #proof / data-proof-*', () => {
+  const src = fsMod.readFileSync(
+    path.join(root, 'views', 'layouts', 'public.ejs'), 'utf8');
+  assert.ok(
+    !/getElementById\('proof'\)/.test(src),
+    'lookup input #proof masih ada'
+  );
+  assert.ok(
+    !/data-proof-name|data-proof-preview/.test(src),
+    'lookup pratinjau/nama berkas bukti masih ada'
+  );
+});
+
+t('layouts/public.ejs tetap memuat upload-spec.js', () => {
+  const src = fsMod.readFileSync(
+    path.join(root, 'views', 'layouts', 'public.ejs'), 'utf8');
+  assert.ok(src.includes('/js/upload-spec.js'), 'upload-spec.js belum dimuat');
+});
+
+t('layouts/public.ejs tidak punya duplikat muatan upload-spec.js', () => {
+  const src = fsMod.readFileSync(
+    path.join(root, 'views', 'layouts', 'public.ejs'), 'utf8');
+  const n = (src.match(/\/js\/upload-spec\.js/g) || []).length;
+  assert.strictEqual(n, 1, 'upload-spec.js dimuat ' + n + ' kali (harus tepat 1)');
+});
+
+t('tidak ada template publik yang memakai markup upload bukti', () => {
+  const dir = path.join(root, 'views');
+  const Targets = ['pages', 'partials', 'layouts'];
+  Targets.forEach((sub) => {
+    const full = path.join(dir, sub);
+    fsMod.readdirSync(full)
+      .filter((f) => f.endsWith('.ejs'))
+      .forEach((f) => {
+        const src = fsMod.readFileSync(path.join(full, f), 'utf8');
+        assert.ok(
+          !/data-proof-(drop|name|preview)/.test(src),
+          'markup upload bukti masih ada di ' + sub + '/' + f
+        );
+        assert.ok(
+          !/id=["']proof["']/.test(src),
+          'input #proof masih ada di ' + sub + '/' + f
+        );
+      });
+  });
+});
+
 // -- Suite galeri: tombol upload benar-benar POST ke server ----------
 console.log('\n== Galeri: tombol upload mengirim berkas (bukan simulasi) ==');
 
