@@ -88,11 +88,17 @@ function createApp() {
     // jadi pesan tidak bisa lagi berupa konstanta tunggal. Yang dipakai di
     // sini hanya pola "Format ... tidak diizinkan untuk ..." yang mencakup
     // semua slot.
+    //
+    // Route yang membalas JSON (mis. /admin/galeri/unggah) punya handler
+    // error sendiri di dalam router, jadi pesan per-slot sampai ke klien
+    // apa adanya. Handler global ini hanya melayani route form biasa.
     const isUploadError =
       err &&
       (
         err.code === 'INVALID_IMAGE' ||
         err.code === 'LIMIT_FILE_SIZE' ||
+        err.code === 'LIMIT_FILE_COUNT' ||
+        err.code === 'LIMIT_UNEXPECTED_FILE' ||
         /tidak diizinkan untuk/.test(err.message || '') ||
         /maksimal .+\.$/.test(err.message || '')
       );

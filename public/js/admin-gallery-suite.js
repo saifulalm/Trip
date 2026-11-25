@@ -76,6 +76,8 @@
     const uploadBtn = dropZone.querySelector('[data-upload]');
     const totalFilesEl = dropZone.querySelector('[data-total]');
     const hintEl = dropZone.querySelector('[data-gallery-hint]');
+    const destInput = dropZone.querySelector('[data-destination-id]');
+    const resultsEl = dropZone.querySelector('[data-upload-results]');
 
     // Slot dan batas ukuran diambil dari spesifikasi slot agar selalu
     // sinkron dengan validasi server.
@@ -154,6 +156,43 @@
       }
     });
 
+    /**
+     * Tampilkan hasil unggahan di halaman: pratinjau gambar + URL.
+     *
+     * Tanpa ini admin hanya melihat toast "berhasil diunggah" tanpa
+     * akses ke berkas yang baru diunggah (URL-nya tidak diketahui).
+     *
+     * @param {Array<{filename: string, url: string, width: number, height: number, bytes: number}>} files hasil unggah
+     * @param {string} destinationId ID destinasi tujuan (boleh kosong)
+     */
+    function renderUploadResults(files, destinationId) {
+      if (!resultsEl) return;
+      const list = Array.isArray(files) ? files : [];
+      if (!list.length) return;
+
+      const kartu = list.map((f) => {
+        const size = f.bytes ? formatBytes(f.bytes) : '';
+        const dims = f.width && f.height ? f.width + '×' + f.height : '';
+        return `
+          <figure class="upload-result">
+            <img src="${f.url}" alt="${f.filename}" loading="lazy">
+            <figcaption>
+              <a href="${f.url}" target="_blank" rel="noopener">${f.url}</a>
+              <span>${[dims, size].filter(Boolean).join(' · ')}</span>
+            </figcaption>
+          </figure>`;
+      }).join('');
+
+      const catatan = destinationId
+        ? ` Berkas ditempel ke destinasi <code>${destinationId}</code>.`
+        : ' Berkas tersimpan di folder uploads (galeri umum).';
+
+      resultsEl.innerHTML =
+        `<p class="upload-results__note">${list.length} berkas berhasil diunggah.${catatan}</p>` +
+        `<div class="upload-results__grid">${kartu}</div>`;
+      resultsEl.hidden = false;
+    }
+
     // ── Upload button ──────────────────────────────────────────
     uploadBtn.addEventListener('click', async () => {
       if (state.isBusy || !files.length) {
@@ -178,11 +217,17 @@
         const batch = window.SylUploadBatch;
         if (!batch) throw new Error('Modul unggah batch belum termuat.');
 
+        // Destinasi tujuan (opsional). Kalau diisi, berkas langsung
+        // ditempel ke galeri / gambar utama destinasi tersebut.
+        // Kalau kosong, hasil unggahan tetap ditampilkan sebagai galeri
+        // umum di halaman ini.
+        const destinationId = destInput ? String(destInput.value || '').trim() : '';
+
         const result = await batch.upload(files, {
           url: '/admin/galeri/unggah',
           field: 'galleryFiles',
           csrfToken: csrfToken,
-          extra: { kind: 'gallery' }
+          extra: { kind: 'gallery', destinationId: destinationId }
         });
 
         if (!result.ok) {
@@ -199,6 +244,11 @@
             progress: 100
           });
         });
+
+        // Tampilkan hasil unggahan (URL + pratinjau) supaya admin bisa
+        // melihat & menyalin alamat berkasnya — tanpa ini admin hanya
+        // melihat toast dan berkas jadi "hilang".
+        renderUploadResults(result.files, destinationId);
 
         state.isBusy = false;
         uploadBtn.classList.remove('is-busy');

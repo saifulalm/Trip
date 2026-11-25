@@ -112,6 +112,11 @@
         <p style="font-size:0.75rem;color:var(--a-soft)" data-gallery-hint>
           Rasio 16:10 (1280x800) - JPG, PNG, atau WEBP - maksimal 2 MB · maksimal 8 file per unggahan
         </p>
+        <label class="gallery-upload-bundle__dest" for="galleryDestinationId">
+          <span>Tempelkan ke ID destinasi (opsional)</span>
+          <input type="text" id="galleryDestinationId" data-destination-id
+                 placeholder="mis. dst_abc123" autocomplete="off">
+        </label>
         <button class="btn-a btn-a--deep btn-a--sm" data-upload disabled>
           🖼 Upload All (WebP)
         </button>
@@ -121,6 +126,8 @@
         <span data-filename></span>
         <span data-meta></span>
       </div>
+      <!-- Hasil unggahan: pratinjau + URL berkas -->
+      <div class="gallery-upload-bundle__results" data-upload-results hidden></div>
     </section>
   </div>
 </div>

@@ -369,6 +369,102 @@ router.get('/galeri', (req, res) => {
 });
 
 /**
+ * Bersihkan berkas gambar yang sudah ditulis ke disk tapi tidak terpakai.
+ *
+ * MASALAH: middleware `galleryImages` memproses berkas satu per satu. Bila
+ * berkas ke-2 gagal validasi, berkas ke-1 sudah tertulis di `public/uploads`
+ * — tapi `req.processedImages` belum pernah diisi (error dilempar sebelum
+ * assignment), sehingga `cleanupUploads()` tidak menemukannya dan berkas
+ * itu menjadi yatim.
+ *
+ * Solusi: fungsi ini memeriksa DUA sumber:
+ *  1. `req.processedImages` — berkas yang selesai diproses normal,
+ *  2. `req.files[field]` — berkas yang field `filename`/`path`-nya sudah
+ *     diisi oleh `processImage` (artinya sudah ditulis ke disk).
+ *
+ * @param {object} req request Express
+ * @param {string} [field] nama field berkas (default: semua field)
+ */
+function cleanupUploadFiles(req, field) {
+  const processed = (req && req.processedImages) || {};
+  const fields = field ? [field] : Object.keys(processed);
+
+  // Sumber 1: hasil proses yang tercatat di req.processedImages.
+  fields.forEach((f) => {
+    const result = processed[f];
+    const list = Array.isArray(result) ? result : [result];
+    list.forEach((item) => {
+      if (item && item.filename) removeUploadByUrl('/uploads/' + item.filename);
+    });
+  });
+
+  // Sumber 2: berkas multer yang field filename-nya sudah diisi
+  // `processImage` (berarti sudah ada di disk).
+  const files = (req && req.files) || {};
+  Object.keys(files).forEach((f) => {
+    if (field && f !== field) return;
+    (files[f] || []).forEach((file) => {
+      // `file.path` diisi processImage dengan URL publik (/uploads/...).
+      // `file.originalname` (nama asli) TIDAK boleh dihapus.
+      if (file && file.path && String(file.path).startsWith('/uploads/')) {
+        removeUploadByUrl(file.path);
+      }
+    });
+  });
+}
+
+/**
+ * Petakan error unggah menjadi status HTTP + pesan per-slot.
+ *
+ * Endpoint JSON (mis. /admin/galeri/unggah) memakai peta ini supaya
+ * galat ALWAYS dibalas sebagai JSON `{ok:false, error}` — bukan redirect
+ * HTML seperti route form biasa. Tanpa ini, pesan batas ukuran per-slot
+ * hilang dan klien hanya melihat "Respons server tidak valid".
+ *
+ * @param {Error} err error dari middleware upload / multer
+ * @returns {{status: number, message: string}}
+ */
+function uploadErrorResponse(err) {
+  const code = err && err.code;
+
+  // MIME / format tidak didukung untuk slot ini.
+  if (code === 'INVALID_IMAGE') {
+    const message = err.message || 'Format berkas tidak didukung.';
+    // Pesan "tidak diizinkan untuk <label slot>" = MIME tak didukung.
+    const status = /tidak diizinkan untuk/.test(message) ? 415 : 400;
+    return { status: status, message: message };
+  }
+
+  // Ukuran melebihi batas per-slot (pesan sudah menyebut batas slot).
+  if (code === 'LIMIT_FILE_SIZE') {
+    return { status: 400, message: err.message || 'Berkas terlalu besar.' };
+  }
+
+  // Jumlah berkas melebihi batas atau field tak dikenal.
+  if (code === 'LIMIT_FILE_COUNT' || code === 'LIMIT_UNEXPECTED_FILE') {
+    return {
+      status: 400,
+      message: 'Jumlah berkas melebihi batas. Maksimal 8 file per unggahan.'
+    };
+  }
+
+  // Token CSRF tidak valid.
+  if (code === 'INVALID_CSRF') {
+    return {
+      status: 403,
+      message: err.message || 'Token keamanan tidak valid atau kedaluwarsa.'
+    };
+  }
+
+  // Gambar polos / transparan.
+  if (code === 'BLANK_IMAGE') {
+    return { status: 400, message: err.message || 'Gambar tidak dapat dipakai.' };
+  }
+
+  return { status: 400, message: (err && err.message) || 'Upload gagal.' };
+}
+
+/**
  * Unggah batch foto galeri (Gallery Management Suite).
  *
  * Route ini dipakai widget batch upload di /admin/galeri. Widget tersebut
@@ -381,56 +477,89 @@ router.get('/galeri', (req, res) => {
  *  - kind          : text   ('gallery' default | 'main')
  *
  * Respons: JSON { ok, files[], error? }
+ *
+ * Semua galat dibalas sebagai JSON dengan status yang jelas:
+ *  - 400 format/ukuran/jumlah berkas tidak valid
+ *  - 403 token CSRF tidak valid
+ *  - 404 destinationId tidak dikenal
+ *  - 415 MIME tidak diizinkan untuk slot
  */
 router.post(
   '/galeri/unggah',
   ...galleryImages('galleryFiles', 'gallery', 8),
-  (req, res) => {
-    const processed = (req.processedImages && req.processedImages.galleryFiles) || [];
-    if (!processed.length) {
-      return res.status(400).json({
-        ok: false,
-        error: 'Tidak ada berkas gambar yang diunggah.'
-      });
-    }
-
-    const data = req.data;
-    const destId = String(req.body.destinationId || '').trim();
-    const kind = String(req.body.kind || 'gallery').trim();
-
-    // Kalau destinationId diberikan, langsung pasang berkasnya ke destinasi.
-    let dest = null;
-    if (destId) {
-      dest = (data.destinations || []).find((d) => d.id === destId);
-      if (!dest) {
-        cleanupUploads(req);
-        return res.status(404).json({ ok: false, error: 'Destinasi tidak ditemukan.' });
-      }
-    }
-
-    const files = processed.map((p) => ({
-      filename: p.filename,
-      url: p.url,
-      width: p.width || null,
-      height: p.height || null,
-      bytes: p.bytes || null
-    }));
-
-    if (dest) {
-      if (kind === 'main') {
-        const oldImage = dest.image;
-        dest.image = files[0].url;
-        if (oldImage && oldImage !== dest.image) removeUploadByUrl(oldImage);
-      } else {
-        dest.gallery = Array.isArray(dest.gallery) ? dest.gallery : [];
-        files.forEach((f) => {
-          if (!dest.gallery.includes(f.url)) dest.gallery.push(f.url);
+  async (req, res, next) => {
+    try {
+      const processed = (req.processedImages && req.processedImages.galleryFiles) || [];
+      if (!processed.length) {
+        return res.status(400).json({
+          ok: false,
+          error: 'Tidak ada berkas gambar yang diunggah.'
         });
       }
-      db.write();
-    }
 
-    return res.json({ ok: true, files });
+      const data = req.data;
+      const destId = String(req.body.destinationId || '').trim();
+      const kind = String(req.body.kind || 'gallery').trim();
+
+      // "Ganti gambar utama" hanya menerima SATU berkas. Kalau lebih dari
+      // satu, sisanya akan jadi berkas yatim di disk (tidak terpakai dan
+      // tidak pernah dihapus) — lebih baik ditolak dengan jelas.
+      if (kind === 'main' && processed.length > 1) {
+        cleanupUploadFiles(req, 'galleryFiles');
+        return res.status(400).json({
+          ok: false,
+          error: 'Ganti gambar utama hanya menerima 1 file per unggahan.'
+        });
+      }
+
+      // Kalau destinationId diberikan, langsung pasang berkasnya ke destinasi.
+      let dest = null;
+      if (destId) {
+        dest = (data.destinations || []).find((d) => d.id === destId);
+        if (!dest) {
+          cleanupUploadFiles(req, 'galleryFiles');
+          return res.status(404).json({ ok: false, error: 'Destinasi tidak ditemukan.' });
+        }
+      }
+
+      const files = processed.map((p) => ({
+        filename: p.filename,
+        url: p.url,
+        width: p.width || null,
+        height: p.height || null,
+        bytes: p.bytes || null
+      }));
+
+      if (dest) {
+        if (kind === 'main') {
+          const oldImage = dest.image;
+          dest.image = files[0].url;
+          if (oldImage && oldImage !== dest.image) removeUploadByUrl(oldImage);
+        } else {
+          dest.gallery = Array.isArray(dest.gallery) ? dest.gallery : [];
+          files.forEach((f) => {
+            if (!dest.gallery.includes(f.url)) dest.gallery.push(f.url);
+          });
+        }
+        db.write();
+      }
+
+      return res.json({ ok: true, files });
+    } catch (err) {
+      // Galat tak terduga di dalam handler: bersihkan berkas yang sudah
+      // ditulis supaya tidak ada berkas yatim di folder uploads.
+      cleanupUploadFiles(req, 'galleryFiles');
+      return next(err);
+    }
+  },
+  // Penangkap error dari middleware upload (validasi & multer).
+  // Tanpa ini error dilempar ke global error handler yang me-redirect
+  // (HTML) — pesan per-slot tidak pernah sampai ke klien.
+  (err, req, res, next) => {
+    cleanupUploadFiles(req, 'galleryFiles');
+    const mapped = uploadErrorResponse(err);
+    if (res.headersSent) return next(err);
+    return res.status(mapped.status).json({ ok: false, error: mapped.message });
   }
 );
 

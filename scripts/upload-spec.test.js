@@ -1242,20 +1242,19 @@ async function runGalleryUploadSuite() {
     '<section class="gallery-upload-bundle" id="galleryUploadZone" data-slot="gallery">',
     '  <div class="gallery-upload-bundle__drop" data-drop>',
     '    <p data-gallery-hint></p>',
+    '    <input type="text" data-destination-id value="">',
     '    <button data-upload disabled>Upload All (WebP)</button>',
     '  </div>',
     '  <div class="gallery-upload-bundle__dots"><span data-dot></span><span data-dot></span></div>',
     '  <input type="file" id="galleryUploadInput" accept="image/jpeg,image/png,image/webp" multiple>',
     '  <div class="gallery-upload-bundle__meta"><span data-filename></span><span data-meta></span></div>',
+    '  <div data-upload-results></div>',
     '</section>',
     '</body></html>'
   ].join('\n');
 
   // Permintaan yang benar-benar diterima server uji.
   const received = [];
-  // Penghitung terpisah: skenario "gagal" adalah permintaan ke-2 dan
-  // seterusnya (permintaan ke-1 = skenario sukses).
-  let totalRequest = 0;
 
   const server = http.createServer((req, res) => {
     if (req.method === 'POST' && req.url === '/admin/galeri/unggah') {
@@ -1269,8 +1268,9 @@ async function runGalleryUploadSuite() {
           contentType: req.headers['content-type'] || '',
           body: body
         });
-        totalRequest += 1;
-        const gagal = totalRequest > 1; // permintaan kedua = skenario gagal
+        // Skenario gagal ditandai oleh nama berkas 'gagal-*.png' — cara ini
+        // membuat tiap pemeriksaan berdiri sendiri (tidak bergantung urutan).
+        const gagal = body.indexOf('filename="gagal-') > -1;
         res.writeHead(gagal ? 400 : 200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify(gagal
           ? { ok: false, error: 'Format file harus JPG, PNG, WEBP, atau GIF.' }
@@ -1330,7 +1330,7 @@ async function runGalleryUploadSuite() {
     await ta('server membalas gagal -> pesan error server ditampilkan', async () => {
       received.length = 0;
       await pilihFiles(page, '#galleryUploadInput', [
-        { name: 'tiga.png', type: 'image/png' }
+        { name: 'gagal-tiga.png', type: 'image/png' }
       ]);
       await page.click('[data-upload]');
       await new Promise((r) => setTimeout(r, 800));
@@ -1368,6 +1368,70 @@ async function runGalleryUploadSuite() {
         'permintaan tidak terkirim saat reduce-motion aktif'
       );
       await page2.close();
+    });
+
+    // -- Temuan review: UI harus mengirim destinationId & menampilkan hasil
+    await ta('UI mengirim destinationId ke server', async () => {
+      const page3 = await browser.newPage();
+      await page3.goto(base + '/admin/galeri', { waitUntil: 'load' });
+      await page3.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-spec.js') });
+      await page3.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-batch.js') });
+      await page3.addScriptTag({ path: path.join(root, 'public', 'js', 'admin-gallery-suite.js') });
+
+      // Isi input destination (bila ada di markup halaman).
+      const adaInput = await page3.$('[data-destination-id]');
+      assert.ok(adaInput, 'halaman harus punya input destinationId');
+      await page3.$eval('[data-destination-id]', (el) => { el.value = 'dst_uji_1'; });
+
+      received.length = 0;
+      await pilihFiles(page3, '#galleryUploadInput', [
+        { name: 'tempel.png', type: 'image/png' }
+      ]);
+      await page3.click('[data-upload]');
+      await new Promise((r) => setTimeout(r, 800));
+
+      assert.strictEqual(received.length, 1, 'harus ada satu permintaan');
+      const body = received[0].body;
+      assert.ok(
+        body.indexOf('name="destinationId"') > -1,
+        'field destinationId tidak terkirim'
+      );
+      assert.ok(
+        body.indexOf('dst_uji_1') > -1,
+        'nilai destinationId tidak terkirim'
+      );
+      await page3.close();
+    });
+
+    await ta('hasil unggahan ditampilkan sebagai pratinjau (URL + <img>)', async () => {
+      const page4 = await browser.newPage();
+      await page4.goto(base + '/admin/galeri', { waitUntil: 'load' });
+      await page4.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-spec.js') });
+      await page4.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-batch.js') });
+      await page4.addScriptTag({ path: path.join(root, 'public', 'js', 'admin-gallery-suite.js') });
+
+      await pilihFiles(page4, '#galleryUploadInput', [
+        { name: 'pratinjau.png', type: 'image/png' }
+      ]);
+      await page4.click('[data-upload]');
+      await new Promise((r) => setTimeout(r, 800));
+
+      const hasil = await page4.evaluate(() => {
+        const root = document.querySelector('[data-upload-results]');
+        if (!root) return null;
+        return {
+          html: root.innerHTML,
+          teks: root.textContent,
+          jumlahImg: root.querySelectorAll('img').length
+        };
+      });
+      assert.ok(hasil, 'harus ada wadah hasil unggah [data-upload-results]');
+      assert.strictEqual(hasil.jumlahImg, 1, 'harus ada 1 <img> pratinjau');
+      assert.ok(
+        hasil.html.indexOf('/uploads/a.webp') > -1,
+        'URL hasil unggah tidak ditampilkan: ' + hasil.html
+      );
+      await page4.close();
     });
   } finally {
     await browser.close();

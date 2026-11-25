@@ -19,6 +19,10 @@
    *
    * @param {File[]} files berkas yang dipilih
    * @param {object} options { url, field, extra, csrfToken }
+   *   - url       : endpoint target (default '/admin/galeri/unggah')
+   *   - field     : nama field berkas (default 'galleryFiles')
+   *   - extra     : field teks tambahan (mis. { kind, destinationId })
+   *   - csrfToken : token CSRF sesi
    * @returns {Promise<{ok: boolean, files: Array, error: string|null}>}
    */
   function upload(files, options) {
@@ -39,7 +43,11 @@
     if (opts.csrfToken) fd.append('_csrf', opts.csrfToken);
     if (opts.extra) {
       Object.keys(opts.extra).forEach(function (k) {
-        fd.append(k, opts.extra[k]);
+        // Nilai kosong tidak perlu dikirim — server membacanya sebagai
+        // "tidak diisi" dan tidak melakukan apa pun.
+        const v = opts.extra[k];
+        if (v === undefined || v === null || v === '') return;
+        fd.append(k, v);
       });
     }
     list.forEach(function (f) {

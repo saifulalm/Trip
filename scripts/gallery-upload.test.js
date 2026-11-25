@@ -32,12 +32,12 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-// Folder sementara untuk basis data uji — WAJIB disetel sebelum
-// `src/db.js` dimuat, karena modul itu membaca env saat require.
-const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sabesi-galeri-uji-'));
-process.env.SABESI_DATA_DIR = TEST_DATA_DIR;
-
+// PENTING: basis data uji harus dipisah dari data produksi.
+// `scripts/test-db.js` menyetel `SABESI_DATA_DIR` SEBELUM `src/db`
+// dimuat (modul src/db membaca env saat require). JANGAN `db.reset()`
+// tanpa isolasi ini — file produksi `data/db.json` akan tertimpa.
 const root = path.join(__dirname, '..');
+const testDb = require(path.join(__dirname, 'test-db'));
 const express = require(path.join(root, 'node_modules', 'express'));
 const session = require(path.join(root, 'node_modules', 'express-session'));
 
@@ -156,6 +156,20 @@ async function postMultipart(base, url, fields, files) {
   const dest = data.destinations[0];
   const destId = dest.id;
 
+  // PENJAGA ISOLASI: pastikan file basis data yang kita tulis BUKAN file
+  // produksi. Kalau `test-db` gagal menyetel env, `db.reset()` akan
+  // menimpa `data/db.json` produksi — test ini harus gagal cepat, bukan
+  // merusak data asli.
+  const prodDb = path.join(root, 'data', 'db.json');
+  assert.ok(
+    db.DB_FILE !== prodDb,
+    'ISOLASI GAGAL: db.DB_FILE menunjuk data/db.json produksi (' + db.DB_FILE + ')'
+  );
+  assert.ok(
+    path.resolve(testDb.DATA_DIR).indexOf(path.resolve(root, 'data')) !== 0,
+    'ISOLASI GAGAL: folder data uji berada di dalam folder data produksi'
+  );
+
   const app = buildTestApp(adminUser.id);
   const srv = await startServer(app);
 
@@ -268,6 +282,107 @@ async function postMultipart(base, url, fields, files) {
       const res = await fetch(srv.base + '/admin/galeri/unggah', { method: 'POST', body: fd });
       assert.ok(res.status >= 400, 'status harus error, dapat ' + res.status);
     });
+
+    // -- Temuan review: error harus JSON, bukan redirect HTML ---------
+    await t('MIME tak diizinkan -> 415 + JSON {ok:false,error} (bukan redirect HTML)', async () => {
+      const gif = Buffer.concat([Buffer.from('GIF89a', 'ascii'), Buffer.alloc(64, 0x00)]);
+      const fd = new FormData();
+      fd.set('_csrf', 'token-uji-galeri');
+      fd.append('galleryFiles', new Blob([gif], { type: 'image/gif' }), 'animasi.gif');
+      const res = await fetch(srv.base + '/admin/galeri/unggah', { method: 'POST', body: fd });
+      const text = await res.text();
+      assert.strictEqual(res.status, 415, 'status harus 415, dapat ' + res.status + ' body=' + text.slice(0, 120));
+      const json = JSON.parse(text);
+      assert.strictEqual(json.ok, false);
+      assert.ok(json.error, 'harus ada pesan error');
+      assert.ok(
+        /tidak diizinkan untuk foto galeri/.test(json.error),
+        'pesan per-slot harus utuh, dapat: ' + json.error
+      );
+    });
+
+    await t('ukuran melebihi batas slot -> 400 + JSON dengan pesan batas per-slot', async () => {
+      // Slot gallery = 2 MB. Berkas 3 MB harus ditolak.
+      const besar = Buffer.alloc(3 * 1024 * 1024, 0x41);
+      const fd = new FormData();
+      fd.set('_csrf', 'token-uji-galeri');
+      fd.append('galleryFiles', new Blob([besar], { type: 'image/png' }), 'besar.png');
+      const res = await fetch(srv.base + '/admin/galeri/unggah', { method: 'POST', body: fd });
+      const text = await res.text();
+      assert.strictEqual(res.status, 400, 'status harus 400, dapat ' + res.status + ' body=' + text.slice(0, 120));
+      const json = JSON.parse(text);
+      assert.strictEqual(json.ok, false);
+      assert.ok(
+        /maksimal 2 MB/.test(json.error),
+        'pesan batas per-slot harus sampai ke klien, dapat: ' + json.error
+      );
+    });
+
+    await t('lebih dari 8 berkas -> 400 + JSON (bukan 500 LIMIT_UNEXPECTED_FILE)', async () => {
+      const png = await tinyPng();
+      const fd = new FormData();
+      fd.set('_csrf', 'token-uji-galeri');
+      for (let i = 0; i < 9; i++) {
+        fd.append('galleryFiles', new Blob([png], { type: 'image/png' }), 'file' + i + '.png');
+      }
+      const res = await fetch(srv.base + '/admin/galeri/unggah', { method: 'POST', body: fd });
+      const text = await res.text();
+      assert.strictEqual(res.status, 400, 'status harus 400, dapat ' + res.status + ' body=' + text.slice(0, 120));
+      const json = JSON.parse(text);
+      assert.strictEqual(json.ok, false);
+      assert.ok(json.error, 'harus ada pesan error');
+    });
+
+    // -- Temuan review: kebocoran berkas saat batch gagal ------------
+    await t('batch gagal di tengah TIDAK menyisakan berkas yatim di uploads', async () => {
+      const png = await tinyPng();
+      const gif = Buffer.concat([Buffer.from('GIF89a', 'ascii'), Buffer.alloc(64, 0x00)]);
+      const uploadsDir = path.join(root, 'public', 'uploads');
+      const before = fs.readdirSync(uploadsDir);
+
+      const fd = new FormData();
+      fd.set('_csrf', 'token-uji-galeri');
+      fd.append('galleryFiles', new Blob([png], { type: 'image/png' }), 'valid.png');
+      fd.append('galleryFiles', new Blob([gif], { type: 'image/gif' }), 'animasi.gif');
+      const res = await fetch(srv.base + '/admin/galeri/unggah', { method: 'POST', body: fd });
+      assert.ok(res.status >= 400, 'permintaan harus gagal, dapat ' + res.status);
+
+      const after = fs.readdirSync(uploadsDir);
+      const orphan = after.filter((f) => !before.includes(f));
+      assert.strictEqual(
+        orphan.length,
+        0,
+        'berkas yatim tertinggal di uploads: ' + JSON.stringify(orphan)
+      );
+    });
+
+    // -- Temuan review: kind=main dengan >1 berkas -------------------
+    await t('kind=main dengan lebih dari 1 berkas ditolak (400 JSON), tanpa berkas yatim', async () => {
+      const png = await tinyPng();
+      const uploadsDir = path.join(root, 'public', 'uploads');
+      const before = fs.readdirSync(uploadsDir);
+
+      const r = await postMultipart(
+        srv.base,
+        '/admin/galeri/unggah',
+        { destinationId: destId, kind: 'main' },
+        [
+          { name: 'm1.png', bytes: png },
+          { name: 'm2.png', bytes: png }
+        ]
+      );
+      assert.strictEqual(r.status, 400, 'status harus 400, dapat ' + r.status + ' body=' + r.text.slice(0, 120));
+      assert.strictEqual(r.json.ok, false);
+      assert.ok(r.json.error, 'harus ada pesan error');
+
+      const after = fs.readdirSync(uploadsDir);
+      const orphan = after.filter((f) => !before.includes(f));
+      assert.strictEqual(
+        orphan.length,
+        0,
+        'berkas yatim tertinggal di uploads: ' + JSON.stringify(orphan)
+      );
+    });
   } finally {
     await srv.close();
   }
@@ -377,6 +492,11 @@ async function postMultipart(base, url, fields, files) {
   });
 
   // -- Kebersihan: hapus berkas gambar hasil uji ----------------------
+  //
+  // CATATAN: folder data uji BERSAMA (testDb.DATA_DIR) TIDAK dihapus di
+  // sini. Folder itu dipakai banyak suite (wa-*, hero-mode, dst.) sebagai
+  // baseline; menghapusnya di akhir suite ini membuat suite berikutnya
+  // membaca basis data kosong. Yang dihapus hanya berkas gambar uji.
   createdFiles.forEach((f) => {
     try {
       fs.unlinkSync(path.join(root, 'public', 'uploads', f));
@@ -384,11 +504,6 @@ async function postMultipart(base, url, fields, files) {
       // berkas sudah tidak ada — abaikan
     }
   });
-  try {
-    fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true });
-  } catch (err) {
-    // abaikan
-  }
 
   console.log('\n' + (fail === 0
     ? 'OK - ' + pass + ' pemeriksaan lulus'
