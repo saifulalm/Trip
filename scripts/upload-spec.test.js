@@ -710,14 +710,15 @@ console.log('\n== Widget upload (browser) ==');
  * Siapkan browser untuk suite UI.
  * Bila `puppeteer` tidak terpasang atau Chromium gagal start, suite
  * di-SKIP (tidak menggagalkan `npm test`) dengan pesan yang jelas.
+ * @param {string} label nama suite untuk pesan SKIP
  * @returns {Promise<object|null>} objek browser, atau null bila tidak tersedia
  */
-async function openBrowser() {
+async function openBrowser(label) {
   let puppeteer;
   try {
     puppeteer = require(path.join(root, 'node_modules', 'puppeteer'));
   } catch (err) {
-    ts('suite widget upload (browser)', 'browser suite dilewati: puppeteer tidak tersedia');
+    ts(label, 'browser suite dilewati: puppeteer tidak tersedia');
     return null;
   }
   try {
@@ -726,7 +727,7 @@ async function openBrowser() {
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
   } catch (err) {
-    ts('suite widget upload (browser)', 'browser suite dilewati: Chromium/puppeteer tidak tersedia');
+    ts(label, 'browser suite dilewati: Chromium/puppeteer tidak tersedia');
     return null;
   }
 }
@@ -778,7 +779,7 @@ async function pilihFiles(page, selector, files) {
 }
 
 async function runWidgetSuite() {
-  const browser = await openBrowser();
+  const browser = await openBrowser('suite widget upload tunggal (browser)');
   if (!browser) return;
 
   try {
@@ -910,7 +911,7 @@ async function runWidgetSuite() {
  * `createImageBitmap`/`FileReader`/`DataTransfer`).
  */
 async function runGalleryWidgetSuite() {
-  const browser = await openBrowser();
+  const browser = await openBrowser('suite widget galeri (browser)');
   if (!browser) return;
 
   const MARKUP = [
