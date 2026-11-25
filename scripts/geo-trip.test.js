@@ -165,5 +165,45 @@ test('dashboardSummary menghitung total, upcoming, completed, unpaid', () => {
   assert.strictEqual(today.length, 10);
 });
 
+// -- Deep link peta & format usia ---------------------------------------
+console.log('\n== Deep link peta ==');
+
+test('mapsUrl menghasilkan URL Google Maps yang valid', () => {
+  const u = geo.mapsUrl(-0.4719, 130.7515);
+  assert.ok(u.startsWith('https://www.google.com/maps/search/?api=1&query='), u);
+  assert.ok(u.indexOf('-0.471900') !== -1, 'latitude harus ada: ' + u);
+  assert.ok(u.indexOf('130.751500') !== -1, 'longitude harus ada: ' + u);
+});
+
+test('mapsUrl menyertakan label yang ter-encode', () => {
+  const u = geo.mapsUrl(-0.47, 130.75, 'Dermaga Waisai');
+  assert.ok(u.indexOf('Dermaga') !== -1, 'label harus ada: ' + u);
+  assert.ok(u.indexOf(' ') === -1, 'spasi harus ter-encode: ' + u);
+});
+
+test('mapsUrl menolak koordinat invalid', () => {
+  assert.strictEqual(geo.mapsUrl('abc', 130.75), '');
+  assert.strictEqual(geo.mapsUrl(-0.47, null), '');
+  assert.strictEqual(geo.mapsUrl(0, 0), '');
+});
+
+test('mapsDirUrl menghasilkan URL directions', () => {
+  const u = geo.mapsDirUrl(-0.4719, 130.7515);
+  assert.ok(u.startsWith('https://www.google.com/maps/dir/?api=1&destination='), u);
+});
+
+test('formatAge menghasilkan teks relatif yang wajar', () => {
+  const now = Date.now();
+  assert.strictEqual(geo.formatAge(new Date(now - 5000).toISOString()), 'baru saja');
+  assert.strictEqual(geo.formatAge(new Date(now - 3 * 60000).toISOString()), '3 menit lalu');
+  assert.strictEqual(geo.formatAge(new Date(now - 2 * 3600000).toISOString()), '2 jam lalu');
+  assert.strictEqual(geo.formatAge(new Date(now - 3 * 86400000).toISOString()), '3 hari lalu');
+});
+
+test('formatAge aman untuk input tidak valid', () => {
+  assert.strictEqual(geo.formatAge(null), '-');
+  assert.strictEqual(geo.formatAge('bukan tanggal'), '-');
+});
+
 console.log('\n' + passed + ' lulus, ' + failed + ' gagal.');
 process.exit(failed === 0 ? 0 : 1);

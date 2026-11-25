@@ -72,10 +72,95 @@ function formatDistanceShort(meters) {
   return `${Math.round(m / 1000)} km`;
 }
 
+/**
+ * Ubah input menjadi angka, atau null bila tidak valid.
+ *
+ * Catatan: `Number(null)` menghasilkan 0, dan `Number('')` juga 0 — jadi
+ * konversi biasa akan menganggap koordinat yang belum diisi sebagai
+ * koordinat (0,0) yang sah. Karena itu null/undefined/kosong dicek dulu.
+ *
+ * @param {*} value nilai mentah
+ * @returns {number|null} angka, atau null bila tidak bisa dipakai
+ */
+function toFiniteNumber(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Link Google Maps untuk melihat satu titik.
+ *
+ * Dipakai admin & pelanggan untuk membuka lokasi terakhir peserta di aplikasi
+ * peta — jauh lebih cepat daripada menyalin koordinat secara manual.
+ *
+ * @param {number|string} lat latitude
+ * @param {number|string} lng longitude
+ * @param {string} [label] nama titik (opsional)
+ * @returns {string} URL Google Maps, atau string kosong bila koordinat invalid
+ */
+function mapsUrl(lat, lng, label) {
+  const la = toFiniteNumber(lat);
+  const ln = toFiniteNumber(lng);
+  if (la === null || ln === null) return '';
+  // (0,0) adalah titik "null" di laut — bukan lokasi nyata.
+  if (la === 0 && ln === 0) return '';
+  let q = la.toFixed(6) + ',' + ln.toFixed(6);
+  if (label) q += '(' + String(label) + ')';
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+}
+
+/**
+ * Link Google Maps untuk rute menuju satu titik.
+ *
+ * @param {number|string} lat latitude tujuan
+ * @param {number|string} lng longitude tujuan
+ * @returns {string} URL Directions, atau string kosong bila koordinat invalid
+ */
+function mapsDirUrl(lat, lng) {
+  const la = toFiniteNumber(lat);
+  const ln = toFiniteNumber(lng);
+  if (la === null || ln === null) return '';
+  if (la === 0 && ln === 0) return '';
+  return 'https://www.google.com/maps/dir/?api=1&destination=' +
+    encodeURIComponent(la.toFixed(6) + ',' + ln.toFixed(6));
+}
+
+/**
+ * Format waktu relatif yang enak dibaca ("3 menit lalu").
+ *
+ * Dipakai untuk menampilkan kapan posisi terakhir seseorang tercatat.
+ * @param {string|number|Date} value waktu ISO
+ * @returns {string} teks relatif, atau '-' bila tidak valid
+ */
+function formatAge(value) {
+  if (!value) return '-';
+  const d = value instanceof Date ? value : new Date(value);
+  const ms = d.getTime();
+  if (!Number.isFinite(ms)) return '-';
+
+  const diff = Date.now() - ms;
+  if (diff < 0) return 'baru saja';
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return 'baru saja';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return min + ' menit lalu';
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return hour + ' jam lalu';
+  const day = Math.floor(hour / 24);
+  if (day < 30) return day + ' hari lalu';
+  const month = Math.floor(day / 30);
+  if (month < 12) return month + ' bulan lalu';
+  return Math.floor(month / 12) + ' tahun lalu';
+}
+
 module.exports = {
   EARTH_RADIUS,
   isValidLatLng,
   haversineMeters,
   formatDistance,
-  formatDistanceShort
+  formatDistanceShort,
+  mapsUrl,
+  mapsDirUrl,
+  formatAge
 };
