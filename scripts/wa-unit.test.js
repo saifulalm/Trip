@@ -17,6 +17,11 @@ const wa = require(path.join(root, 'src', 'services', 'wa'));
 const reminder = require(path.join(root, 'src', 'services', 'wa-reminder'));
 const worker = require(path.join(root, 'src', 'services', 'wa-worker'));
 
+// Transport tiruan — supaya uji tidak pernah menghubungi gateway sungguhan.
+const { gateway } = require(path.join(__dirname, 'wa-mock-gateway'));
+gateway.sendText = async () => ({ id: 'mock-1', jid: '628111222333@c.us', via: 'openwa' });
+gateway.isReady = () => true;
+
 let pass = 0;
 let fail = 0;
 function t(name, fn) {
@@ -252,7 +257,90 @@ t('detectStop mengenali "berhenti" & "STOP"', () => {
   assert.strictEqual(hook.detectStop('halo kak, info trip dong'), false);
 });
 
-// Kembalikan db.json asli.
+// ---------------------------------------------------------------------------
+// Jalur pengiriman tunggal
+// ---------------------------------------------------------------------------
+console.log('\n== Jalur pengiriman ==');
 
-console.log(`\n${pass} lulus, ${fail} gagal.`);
-process.exit(fail ? 1 : 0);
+t('wa tidak lagi mengekspos sendText (pakai sendVia saja)', () => {
+  assert.strictEqual(
+    typeof wa.sendText,
+    'undefined',
+    'wa.sendText harus dihapus — pakai wa.sendVia'
+  );
+  assert.strictEqual(typeof wa.sendVia, 'function', 'wa.sendVia harus ada');
+});
+
+t('deliverTo tetap memakai sendVia sebagai satu-satunya jalur', () => {
+  assert.strictEqual(typeof wa.deliverTo, 'function', 'wa.deliverTo harus ada');
+});
+
+/**
+ * Helper uji asinkron — `t()` di file ini sinkron, sedangkan `sendVia`
+ * mengembalikan Promise. Nama sengaja dibedakan agar tidak bentrok.
+ */
+async function ta(name, fn) {
+  try {
+    await fn();
+    pass += 1;
+    console.log('  PASS  ' + name);
+  } catch (err) {
+    fail += 1;
+    console.log('  FAIL  ' + name + ' -> ' + err.message);
+  }
+}
+
+/**
+ * Uji asinkron dijalankan setelah seluruh uji sinkron selesai, supaya
+ * ringkasan di akhir file tetap accurate.
+ */
+(async () => {
+  await ta('sendVia menolak nomor yang sudah kena batas frekuensi', async () => {
+    // Isi log kirim harian agar frequency cap untuk nomor ini terpicu.
+    // PENTING: field yang dipakai `checkFrequencyCap` adalah `loggedAt`.
+    const dCap = db.read();
+    dCap.whatsappSendLogs = dCap.whatsappSendLogs || [];
+    for (let i = 0; i < 5; i += 1) {
+      dCap.whatsappSendLogs.push({
+        id: 'log-uji-' + i,
+        phone: '628111222333',
+        name: 'Uji',
+        status: 'sent',
+        error: null,
+        template: 'halo',
+        loggedAt: new Date().toISOString()
+      });
+    }
+    db.write();
+
+    let ditolak = false;
+    try {
+      await wa.sendVia(db.read().settings, '628111222333', 'halo');
+    } catch (err) {
+      ditolak = true;
+      assert.ok(
+        /diblokir/i.test(err.message),
+        'pesan error harus menyebut diblokir: ' + err.message
+      );
+    }
+    assert.ok(ditolak, 'sendVia harus menolak ketika frekuensi harian habis');
+  });
+
+  await ta('sendVia mencatat pesan sukses ke log pengiriman', async () => {
+    const dBefore = db.read();
+    const sebelum = (dBefore.whatsappSendLogs || []).length;
+
+    await wa.sendVia(db.read().settings, '628999888777', 'halo log');
+
+    const sesudah = (db.read().whatsappSendLogs || []).length;
+    assert.ok(
+      sesudah > sebelum,
+      'harus ada entri log baru, sebelum ' + sebelum + ' sesudah ' + sesudah
+    );
+  });
+
+  // Kembalikan db.json asli.
+
+  console.log(`\n${pass} lulus, ${fail} gagal.`);
+  process.exit(fail ? 1 : 0);
+})();

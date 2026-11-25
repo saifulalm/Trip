@@ -272,11 +272,14 @@ async function runReminders(now) {
     }
 
     try {
-      await wa.sendVia(settings, phone, item.text);
-      // Catat ke log kirim — inilah yang membuat batas per kontak per hari
-      // & batas harian global bisa menghitung pengingat otomatis juga.
-      // Tanpa catatan ini, batas tak pernah terpicu untuk pengingat.
-      wa.logSend({ phone, name: booking.name, status: 'sent', template: item.text });
+      // `sendVia` sudah mencatat pesan sukses ke log kirim (satu jalur
+      // pengiriman untuk semua pemicu). Parameter `name` dipakai supaya log
+      // menyimpan nama pelanggan, bukan nomor saja.
+      //
+      // Catatan: pencatatan di `sendVia` inilah yang membuat batas per kontak
+      // per hari & batas harian global bisa menghitung pengingat otomatis
+      // juga. Tanpa catatan ini, batas tak pernah terpicu untuk pengingat.
+      await wa.sendVia(settings, phone, item.text, booking.name);
       markSent(data, item.key, { phone, rule: item.rule });
       db.write();
       summary.sent += 1;

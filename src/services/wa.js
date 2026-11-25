@@ -309,26 +309,17 @@ function contactFor(data, phone) {
 }
 
 /**
- * Kirim pesan teks lewat gateway OpenWA.
+ * Kirim pesan ke satu target lewat `sendVia`, dengan ethika opt-in/opt-out.
  *
- * @param {object} [settings] settings situs
- * @param {string} phoneRaw nomor tujuan
+ * Berbeda dengan `sendVia` (yang melempar error saat kena batas anti-spam),
+ * fungsi ini mengembalikan status: `sent`, `skipped`, atau `failed`. Itu yang
+ * dipakai worker blast agar satu nomor bermasalah tidak menggagalkan job.
+ *
+ * @param {object} target { phone, name } target
  * @param {string} text isi pesan
- * @returns {Promise<object>} hasil pengiriman
+ * @returns {Promise<{status: string, via?: string, reason?: string}>} hasil
  */
-async function sendText(settings, phoneRaw, text) {
-  // Cek batas harian global & frekuensi per kontak (anti-spam)
-  const capped = checkFrequencyCap(phoneRaw, settings);
-  const limited = checkDailyLimit(settings);
-  if (!capped.allowed || !limited.allowed) {
-    const reason = !capped.allowed ? capped.reason : limited.reason;
-    throw new Error(`Kirim diblokir: ${reason}`);
-  }
-  return gateway.sendText(phoneRaw, text, settings);
-}
-
-
-  async function deliverTo(target, text) {
+async function deliverTo(target, text) {
   const data = db.read() || {};
   const phone = normalizePhone(target.phone);
   const contact = contactFor(data, phone);
@@ -351,20 +342,19 @@ async function sendText(settings, phoneRaw, text) {
     return { status: 'skipped', reason: `diblokir: ${reason}` };
   }
 
-  // Kirim lewat perangkat WhatsApp Web (kanal tunggal).
+  // Kirim lewat gateway OpenWA (kanal tunggal).
   const settings = data.settings || {};
   let res;
   try {
-    res = await sendVia(settings, phone, text);
+    res = await sendVia(settings, phone, text, target.name);
   } catch (err) {
-    // Log kirim gagal
+    // Log kirim gagal — dicatat di sini karena `sendVia` hanya melacak sukses.
     logSend({ phone, name: target.name, status: 'failed', error: String(err.message || err) });
     return { status: 'failed', reason: String(err.message || err).slice(0, 200) };
   }
 
-  // Simpan log kirim berhasil
-  logSend({ phone, name: target.name, status: 'sent', template: text });
-
+  // Catatan: pencatatan log untuk pesan SUKSES dilakukan `sendVia` — supaya
+  // pesan uji manual dari panel admin juga ikut tercatat (sebelumnya tidak).
   return { status: 'sent', via: res.via };
 }
 
@@ -380,18 +370,43 @@ async function sendText(settings, phoneRaw, text) {
  * perangkat WhatsApp Web di sisi gateway OpenWA, bukan di dalam
  * proses Node.
  *
+ * INI ADALAH SATU-SATUNYA JALUR PENGIRIMAN PESAN. Semua pemanggil (blast,
+ * pengingat, dan uji pesan manual dari panel admin) memakai fungsi ini,
+ * sehingga:
+ *  1. aturan anti-spam (frekuensi per kontak & batas harian global) berlaku
+ *     seragam di semua jalur — tidak bisa dilewati lewat pemicu lain,
+ *  2. hasil pengiriman (sukses maupun gagal) tercatat di `whatsappSendLogs`,
+ *     sehingga riwayat pengiriman selalu bisa dipakai untuk debugging.
+ *
  * @param {object} settings pengaturan aplikasi
  * @param {string} phone nomor tujuan (sudah dinormalisasi)
  * @param {string} text isi pesan
+ * @param {string} [name] nama tampilan target (opsional, untuk log)
  * @returns {Promise<object>} hasil pengiriman
  */
-async function sendVia(settings, phone, text) {
+async function sendVia(settings, phone, text, name) {
+  // Anti-spam: batas per kontak per hari & batas global harian.
+  // Dilempar sebagai error karena pemanggil (mis. uji pesan manual) perlu
+  // tahu alasan pemblokiran, bukan sekadar status "skipped".
+  const capped = checkFrequencyCap(phone, settings || {});
+  const limited = checkDailyLimit(settings || {});
+  if (!capped.allowed || !limited.allowed) {
+    const reason = !capped.allowed ? capped.reason : limited.reason;
+    throw new Error(`Kirim diblokir: ${reason}`);
+  }
+
   // Kanal tunggal: gateway OpenWA. Cache status dibaca lebih dulu supaya
   // tidak ada request jaringan tambahan untuk setiap pesan.
   if (!gateway.isReady()) {
     throw new Error('WhatsApp belum terhubung. Hubungkan dulu lewat menu WhatsApp.');
   }
-  return gateway.sendText(phone, text, settings);
+  const res = await gateway.sendText(phone, text, settings);
+
+  // Catat hasil pengiriman supaya riwayat selalu lengkap — termasuk pesan
+  // uji manual dari panel admin (sebelumnya tidak pernah tercatat).
+  logSend({ phone, name: name || phone, status: 'sent', template: text });
+
+  return res;
 }
 
 function checkFrequencyCap(phone, settings) {
@@ -587,7 +602,6 @@ module.exports = {
   marketableContacts,
   segmentTargets,
   contactFor,
-  sendText,
   sendVia,
   deliverTo,
   createBroadcastJob,

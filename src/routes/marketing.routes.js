@@ -392,7 +392,9 @@ function createMarketingRouter() {
       return res.redirect('/admin/marketing/whatsapp');
     }
     try {
-      await wa.sendText(data.settings, phone, message);
+      // Pakai sendVia (bukan sendText) supaya hasil pengiriman ikut tercatat
+      // di log — penting untuk debugging saat gateway bermasalah.
+      await wa.sendVia(data.settings, phone, message);
       flash('success', `Pesan uji terkirim ke ${phone}.`, req);
     } catch (err) {
       flash('error', `Gagal mengirim: ${err.message}`, req);
