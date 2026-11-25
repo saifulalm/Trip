@@ -8,7 +8,13 @@
     "dev": "node --watch server.js",
     "seed": "node src/seed.js --force",
     "images": "node scripts/generate-images.js",
-    "test:admin-wa-settings": "node scripts/run-e2e.js admin-wa-settings"
+    "test": "node scripts/wa-run-tests.js",
+    "check": "node scripts/wa-check.js",
+    "test:e2e": "node scripts/run-e2e.js all",
+    "test:admin-wa-settings": "node scripts/run-e2e.js admin-wa-settings",
+    "test:admin-audit": "node scripts/run-e2e.js admin-audit",
+    "test:wa-gateway": "node scripts/wa-gateway.test.js",
+    "test:openwa-webhook": "node scripts/verify-openwa-webhook.js"
   },
   "keywords": [
     "wisata",
