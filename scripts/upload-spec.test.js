@@ -152,6 +152,192 @@ t('maxBytes tiap slot <= MAX_FILE_SIZE absolut, kecuali proof', () => {
   assert.ok(image.SLOT_SPECS.proof.maxBytes > image.MAX_FILE_SIZE);
 });
 
+// -- Sisi klien harus sinkron dengan server ------------------------
+console.log('\n== Sinkronisasi spesifikasi sisi klien ==');
+
+function readClientSpec() {
+  const fs = require('fs');
+  const p = path.join(root, 'public', 'js', 'upload-spec.js');
+  if (!fs.existsSync(p)) return null;
+  const src = fs.readFileSync(p, 'utf8');
+  // Parse blok SLOT_SPECS tanpa mengeksekusi browser.
+  const m = src.match(/const SLOT_SPECS\s*=\s*(\{[\s\S]*?\n  \});/);
+  if (!m) return null;
+  // Ganti ekspresi maxBytes/float agar JSON-izable.
+  const json = m[1]
+    .replace(/(\d+)\s*\*\s*1024\s*\*\s*1024/g, (s, n) => String(n * 1024 * 1024))
+    .replace(/(\d+)\s*\*\s*1024\b/g, (s, n) => String(n * 1024))
+    .replace(/'/g, '"');
+  try {
+    return JSON.parse(json);
+  } catch (e) {
+    return null;
+  }
+}
+
+t('public/js/upload-spec.js ada', () => {
+  assert.ok(readClientSpec(), 'file klien atau blok SLOT_SPECS tidak ditemukan');
+});
+
+t('slot sisi klien sama persis dengan server', () => {
+  const client = readClientSpec();
+  const server = image.SLOT_SPECS;
+  assert.deepStrictEqual(
+    Object.keys(client).sort(),
+    Object.keys(server).sort(),
+    'daftar slot berbeda'
+  );
+  Object.keys(server).forEach((k) => {
+    assert.strictEqual(client[k].maxBytes, server[k].maxBytes, 'maxBytes slot ' + k);
+    assert.strictEqual(client[k].width, server[k].width, 'width slot ' + k);
+    assert.strictEqual(client[k].height, server[k].height, 'height slot ' + k);
+    assert.strictEqual(client[k].fit, server[k].fit, 'fit slot ' + k);
+    assert.strictEqual(client[k].minShortSide, server[k].minShortSide, 'minShortSide slot ' + k);
+    assert.deepStrictEqual(client[k].ratio, server[k].ratio, 'ratio slot ' + k);
+    assert.deepStrictEqual(client[k].mime, server[k].mime, 'mime slot ' + k);
+  });
+});
+
+t('hints di sisi klien menyebut ukuran maksimum yang benar', () => {
+  const client = readClientSpec();
+  assert.ok(/500 KB/.test(client.logo.hint), client.logo.hint);
+  assert.ok(/2 MB/.test(client.card.hint), client.card.hint);
+  assert.ok(/8 MB/.test(client.proof.hint), client.proof.hint);
+});
+
+// -- API sisi klien (dijalankan di sandbox browser) ----------------
+console.log('\n== API sisi klien ==');
+
+/**
+ * Muat `public/js/upload-spec.js` di konteks sandbox yang meniru browser:
+ * ada global `window`, dan skrip.IIFE jalan seperti di halaman.
+ */
+function loadClientModule() {
+  const fs = require('fs');
+  const vm = require('vm');
+  const p = path.join(root, 'public', 'js', 'upload-spec.js');
+  const src = fs.readFileSync(p, 'utf8');
+  const ctx = vm.createContext({});
+  vm.runInContext('var window = this;', ctx);
+  vm.runInContext(src, ctx);
+  return ctx.SylUploadSpec;
+}
+
+t('SylUploadSpec terekspos di window dengan API yang lengkap', () => {
+  const S = loadClientModule();
+  assert.ok(S, 'SylUploadSpec harus ada');
+  ['SLOTS', 'get', 'formatBytes', 'validate', 'acceptAttr'].forEach((k) => {
+    assert.ok(S[k] !== undefined, 'API SylUploadSpec.' + k + ' harus ada');
+  });
+});
+
+/**
+ * Bandingkan dua nilai secara struktural (toleran lintas realm `vm`).
+ *
+ * `assert.deepStrictEqual` menolak objek yang berasal dari realm berbeda
+ * karena prototipe `Object`-nya berbeda — padahal nilainya sama persis.
+ * Pembanding ini memeriksa kunci dan nilai tanpaabhängi prototipe.
+ */
+function sameValue(a, b) {
+  if (a === b) return true;
+  if (typeof a !== typeof b) return false;
+  if (a === null || b === null) return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    return a.every(function (v, i) { return sameValue(v, b[i]); });
+  }
+  if (typeof a !== 'object') return false;
+  const ka = Object.keys(a).sort();
+  const kb = Object.keys(b).sort();
+  if (ka.length !== kb.length) return false;
+  if (ka.some(function (k, i) { return k !== kb[i]; })) return false;
+  return ka.every(function (k) { return sameValue(a[k], b[k]); });
+}
+
+t('SylUploadSpec.SLOTS sama nilainya dengan SLOT_SPECS server', () => {
+  const S = loadClientModule();
+  assert.ok(
+    sameValue(S.SLOTS, image.SLOT_SPECS),
+    'SLOTS klien harus identik server'
+  );
+});
+
+t('get() fallback ke card dan aman terhadap kunci prototype', () => {
+  const S = loadClientModule();
+  assert.strictEqual(S.get('tidak-ada').label, image.SLOT_SPECS.card.label);
+  ['constructor', 'toString', '__proto__'].forEach((k) => {
+    assert.strictEqual(S.get(k), S.SLOTS.card, 'get("' + k + '") harus fallback ke card');
+  });
+});
+
+t('formatBytes di klien sama dengan server', () => {
+  const S = loadClientModule();
+  assert.strictEqual(S.formatBytes(512), '512 B');
+  assert.strictEqual(S.formatBytes(500 * 1024), '500 KB');
+  assert.strictEqual(S.formatBytes(2 * 1024 * 1024), '2 MB');
+  assert.strictEqual(S.formatBytes(8 * 1024 * 1024), '8 MB');
+});
+
+t('acceptAttr mengembalikan daftar MIME untuk slot', () => {
+  const S = loadClientModule();
+  assert.strictEqual(S.acceptAttr('logo'), 'image/png,image/webp');
+  assert.strictEqual(
+    S.acceptAttr('card'),
+    'image/jpeg,image/png,image/webp'
+  );
+});
+
+t('validate menolak format di luar daftar slot', () => {
+  const S = loadClientModule();
+  const r = S.validate({ type: 'image/gif', size: 100, width: 1000, height: 1000 }, 'card');
+  assert.strictEqual(r.ok, false);
+  assert.ok(r.error, 'harus ada pesan error');
+  assert.strictEqual(r.warning, null);
+});
+
+t('validate menolak berkas melebihi maxBytes slot', () => {
+  const S = loadClientModule();
+  const r = S.validate(
+    { type: 'image/png', size: 600 * 1024, width: 512, height: 512 },
+    'logo'
+  );
+  assert.strictEqual(r.ok, false);
+  assert.ok(/500 KB/.test(r.error), r.error);
+});
+
+t('validate menolak dimensi terlalu kecil', () => {
+  const S = loadClientModule();
+  const r = S.validate(
+    { type: 'image/png', size: 100, width: 100, height: 100 },
+    'card'
+  );
+  assert.strictEqual(r.ok, false);
+  assert.ok(/800/.test(r.error), r.error);
+});
+
+t('validate hanya memberi PERINGATAN untuk rasio menyimpang', () => {
+  const S = loadClientModule();
+  const r = S.validate(
+    { type: 'image/png', size: 100, width: 1000, height: 1000 },
+    'card'
+  );
+  assert.strictEqual(r.ok, true, 'rasio menyimpang tidak boleh menolak berkas');
+  assert.strictEqual(r.error, null);
+  assert.ok(r.warning, 'harus ada peringatan');
+});
+
+t('validate menerima berkas yang memenuhi syarat', () => {
+  const S = loadClientModule();
+  const r = S.validate(
+    { type: 'image/png', size: 100, width: 1280, height: 800 },
+    'card'
+  );
+  assert.strictEqual(r.ok, true);
+  assert.strictEqual(r.error, null);
+  assert.strictEqual(r.warning, null);
+});
+
 // -- Validasi backend per-slot -----------------------------------
 const upload = require(path.join(root, 'src', 'middleware', 'upload'));
 const sharpLib = require(path.join(root, 'node_modules', 'sharp'));

@@ -1,66 +1,175 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="<%= themeMode === 'auto' ? 'light' : themeMode %>" style="<%= themeStyle %>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><%= title %> · Admin JJE</title>
-  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <title><%= title %> · Admin <%= brandName %></title>
+  <link rel="icon" type="image/svg+xml" href="/img/logo-admin.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/admin.css">
+  <link rel="stylesheet" href="/css/admin-design.css">
+  <link rel="stylesheet" href="/css/admin-components.css">
+  <link rel="stylesheet" href="/css/admin-gallery.css">
+  <link rel="stylesheet" href="/css/admin-v2.css">
+  <link rel="stylesheet" href="/css/admin-social.css">
+  <link rel="stylesheet" href="/css/admin-v3.css">
   <% if (typeof mapData !== 'undefined' && mapData) { %>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <% } %>
 </head>
 <body class="admin-body">
+  <%#
+    Sprite ikon garis (SVG symbol). Dipakai lewat <use href="#i-nama">.
+    Semua ikon memakai stroke="currentColor" sehingga warnanya ikut mode terang/gelap.
+  %>
+  <svg class="a-sprite" aria-hidden="true" focusable="false" width="0" height="0">
+    <defs>
+      <g id="i-dashboard"><path d="M3.5 3.5h6v6h-6zM12.5 3.5h6v9h-6zM3.5 12.5h6v6h-6zM12.5 15.5h6v3h-6z"/></g>
+      <g id="i-island"><path d="M2 17c3.2-5.6 7-8.4 8-8.4S14.8 11.4 18 17zM3 19.5h14M5.5 22h9"/></g>
+      <g id="i-gallery"><rect x="3" y="4.5" width="16" height="13" rx="2"/><path d="M3 14l4.5-4.5 4 4 3-3L21 16"/><circle cx="8.5" cy="8.5" r="1.3"/></g>
+      <g id="i-ticket"><path d="M3 8.5V6.5A1.5 1.5 0 0 1 4.5 5h13A1.5 1.5 0 0 1 19 6.5v2a2.5 2.5 0 0 0 0 5v2a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 3 15.5v-2a2.5 2.5 0 0 0 0-5zM11 5v12"/></g>
+      <g id="i-article"><path d="M5 3.5h7l4.5 4.5v10.5A1.5 1.5 0 0 1 15 20H5a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 5 3.5z"/><path d="M12 3.5V8h4.5M7 12h8M7 15.5h6"/></g>
+      <g id="i-booking"><rect x="3.5" y="4.5" width="15" height="15" rx="2"/><path d="M7.5 3v3M14.5 3v3M3.5 9.5h15M7.5 13.5l2 2 4-4"/></g>
+      <g id="i-radar"><circle cx="11" cy="11" r="7.5"/><circle cx="11" cy="11" r="3"/><path d="M11 11l6-4M11 3.5v1.2M11 17.3v1.2M3.5 11h1.2M17.3 11h1.2"/></g>
+      <g id="i-users"><circle cx="8" cy="8" r="3.2"/><path d="M2.5 19c0-3.2 2.5-5.2 5.5-5.2S13.5 15.8 13.5 19"/><path d="M14.5 5.4a3.2 3.2 0 0 1 0 6.2M16 13.9c2.6.5 4.5 2.3 4.5 5.1"/></g>
+      <g id="i-mail"><rect x="2.5" y="5" width="17" height="12" rx="2"/><path d="M3 6.5l7.5 5.5 7.5-5.5"/></g>
+      <g id="i-star"><path d="M11 3.2l2.4 5.1 5.6.7-4.1 3.9 1.1 5.5-5-2.8-5 2.8 1.1-5.5L3 9l5.6-.7z"/></g>
+      <g id="i-contacts"><rect x="4.5" y="3" width="13" height="16" rx="2"/><path d="M7.5 6.5h7M7.5 10h7M7.5 13.5h4"/></g>
+      <g id="i-broadcast"><path d="M4 9.5v3a1.5 1.5 0 0 0 1.5 1.5H8l4.5 4V5L8 9H5.5A1.5 1.5 0 0 0 4 9.5z"/><path d="M15.5 8.5a4 4 0 0 1 0 5"/></g>
+      <g id="i-device"><rect x="6" y="2.5" width="10" height="17" rx="2"/><path d="M9.5 5.5h3M10 16.5h2"/></g>
+      <g id="i-bell"><path d="M5.5 9a5.5 5.5 0 0 1 11 0c0 4 1.5 5.5 1.5 5.5H4S5.5 13 5.5 9z"/><path d="M9 17.5a2 2 0 0 0 2 2 2 2 0 0 0 2-2"/></g>
+      <g id="i-share"><circle cx="16.5" cy="5.5" r="2.5"/><circle cx="5.5" cy="11" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/><path d="M7.8 9.8l6.4-3M7.8 12.2l6.4 3"/></g>
+      <g id="i-pen"><path d="M16.2 3.8l2 2L8 16H6v-2z"/><path d="M4.5 19.5h15"/></g>
+      <g id="i-calendar"><rect x="3.5" y="5" width="15" height="13.5" rx="2"/><path d="M7.5 3v3.5M14.5 3v3.5M3.5 9.5h15"/></g>
+      <g id="i-seo"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5l4 4"/><path d="M8 12.5c1-.6 1.6-2 1.6-3.2 0-1-.6-1.6-1.5-1.6-.9 0-1.6.7-1.6 1.8"/></g>
+      <g id="i-settings"><circle cx="11" cy="11" r="2.8"/><path d="M11 2.8v2.4M11 16.8v2.4M4.2 6.4l2 1.2M15.8 13.4l2 1.2M4.2 15.6l2-1.2M15.8 7.6l2-1.2"/></g>
+      <g id="i-user"><circle cx="11" cy="7.5" r="3.5"/><path d="M4 19c0-3.6 3.1-5.8 7-5.8s7 2.2 7 5.8"/></g>
+      <g id="i-search"><circle cx="9.8" cy="9.8" r="5.8"/><path d="M14.2 14.2l4 4"/></g>
+      <g id="i-logout"><path d="M13 6.5V5A1.5 1.5 0 0 0 11.5 3.5h-6A1.5 1.5 0 0 0 4 5v12a1.5 1.5 0 0 0 1.5 1.5h6A1.5 1.5 0 0 0 13 17v-1.5"/><path d="M8.5 11h9M15 8.5l2.5 2.5-2.5 2.5"/></g>
+      <g id="i-external"><path d="M12 4.5h3.5V8"/><path d="M15.5 4.5L10 10"/><path d="M16 11.5v6A1.5 1.5 0 0 1 14.5 19h-9A1.5 1.5 0 0 1 4 17.5v-9A1.5 1.5 0 0 1 5.5 7h6"/></g>
+      <g id="i-menu"><path d="M3.5 6h15M3.5 11h15M3.5 16h15"/></g>
+      <g id="i-chevron"><path d="M6 9l5 5 5-5"/></g>
+      <g id="i-sun"><circle cx="11" cy="11" r="4"/><path d="M11 2.5v2M11 17.5v2M2.5 11h2M17.5 11h2M5 5l1.4 1.4M15.6 15.6L17 17M17 5l-1.4 1.4M6.4 15.6L5 17"/></g>
+      <g id="i-moon"><path d="M17 12.5A7 7 0 0 1 8.5 4a7 7 0 1 0 8.5 8.5z"/></g>
+      <g id="i-clock"><circle cx="11" cy="11" r="7.5"/><path d="M11 6.5V11l3 2"/></g>
+      <g id="i-money"><rect x="2.5" y="5.5" width="17" height="11" rx="2"/><circle cx="11" cy="11" r="2.8"/></g>
+      <g id="i-pin"><path d="M11 20s6-5.6 6-9.5A6 6 0 0 0 5 10.5C5 14.4 11 20 11 20z"/><circle cx="11" cy="10.5" r="2.2"/></g>
+      <g id="i-plus"><path d="M11 4.5v13M4.5 11h13"/></g>
+      <g id="i-trash"><path d="M4 6.5h14M9 6.5V4.5h4v2M6.5 6.5l.8 12h7.4l.8-12M9.5 9.5v6M12.5 9.5v6"/></g>
+      <g id="i-eye"><path d="M2.5 11S6 5.5 11 5.5 19.5 11 19.5 11 16 16.5 11 16.5 2.5 11 2.5 11Z"/><circle cx="11" cy="11" r="2.6"/></g>
+      <g id="i-copy"><rect x="7" y="7" width="11" height="11" rx="1.6"/><path d="M14 7V5.6A1.6 1.6 0 0 0 12.4 4H5.6A1.6 1.6 0 0 0 4 5.6v6.8A1.6 1.6 0 0 0 5.6 14H7"/></g>
+      <g id="i-refresh"><path d="M18 11a7 7 0 1 1-2.1-5"/><path d="M16.5 3.5V6h-2.6"/></g>
+      <g id="i-alert"><path d="M11 3.5 19 18H3z"/><path d="M11 8.5v4M11 15h.01"/></g>
+      <g id="i-check"><path d="M4 11.5 9 16.5 18 6.5"/></g>
+    </defs>
+  </svg>
+
   <div class="admin-shell">
     <aside class="admin-sidebar" id="adminSidebar">
       <div class="admin-brand">
-        <img src="/img/logo.svg" alt="Logo">
-        <div>
-          <strong>JalanJalanEnak</strong>
-          <small>Panel Admin</small>
-        </div>
+        <span class="admin-brand__mark">
+          <img src="/img/logo-admin.svg" alt="" width="40" height="40">
+        </span>
+        <span class="admin-brand__text">
+          <strong class="admin-brand__name"><%= brandHead %><% if (brandTail) { %><span class="admin-brand__tail"><%= brandTail %></span><% } %></strong>
+          <small class="admin-brand__eyebrow">Panel Admin</small>
+        </span>
+        <button type="button" class="admin-sidebar__close" id="adminSidebarClose" aria-label="Tutup menu">✕</button>
       </div>
-      <nav class="admin-nav">
+
+      <div class="admin-nav-search">
+        <span class="admin-nav-search__icon" aria-hidden="true">
+          <svg viewBox="0 0 22 22"><use href="#i-search"/></svg>
+        </span>
+        <input type="search" id="adminNavSearch" placeholder="Cari menu…" aria-label="Cari menu admin" autocomplete="off">
+      </div>
+
+      <nav class="admin-nav" id="adminNav">
         <span class="admin-nav__label">Ringkasan</span>
-        <a href="/admin" class="<%= currentPath === '/admin' ? 'active' : '' %>"><span class="ico">◈</span> Dashboard</a>
+        <a href="/admin" class="<%= adminPath === '/' ? 'active' : '' %>" data-nav-item data-nav-text="dashboard beranda ringkasan"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-dashboard"/></svg></span> Dashboard</a>
         <span class="admin-nav__label">Konten</span>
-        <a href="/admin/destinasi" class="<%= currentPath.startsWith('/destinasi') ? 'active' : '' %>"><span class="ico">🏝</span> Destinasi</a>
-        <a href="/admin/paket" class="<%= currentPath.startsWith('/paket') ? 'active' : '' %>"><span class="ico">🎫</span> Paket Wisata</a>
-        <a href="/admin/artikel" class="<%= currentPath.startsWith('/artikel') ? 'active' : '' %>"><span class="ico">✍</span> Artikel</a>
+        <a href="/admin/destinasi" class="<%= adminPath.startsWith('/destinasi') ? 'active' : '' %>" data-nav-item data-nav-text="destinasi pulau"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-island"/></svg></span> Destinasi</a>
+        <a href="/admin/galeri" class="<%= adminPath.startsWith('/galeri') ? 'active' : '' %>" data-nav-item data-nav-text="galeri foto"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-gallery"/></svg></span> Galeri Destinasi</a>
+        <a href="/admin/paket" class="<%= adminPath.startsWith('/paket') ? 'active' : '' %>" data-nav-item data-nav-text="paket wisata tour"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-ticket"/></svg></span> Paket Wisata</a>
+        <a href="/admin/artikel" class="<%= adminPath.startsWith('/artikel') ? 'active' : '' %>" data-nav-item data-nav-text="artikel tulisan blog"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-article"/></svg></span> Artikel</a>
         <span class="admin-nav__label">Operasional</span>
-        <a href="/admin/booking" class="<%= currentPath.startsWith('/booking') ? 'active' : '' %>"><span class="ico">📌</span> Booking</a>
-        <a href="/admin/pelanggan" class="<%= currentPath.startsWith('/pelanggan') ? 'active' : '' %>"><span class="ico">👥</span> Pelanggan</a>
-        <a href="/admin/pesan" class="<%= currentPath.startsWith('/pesan') ? 'active' : '' %>"><span class="ico">✉</span> Pesan Masuk</a>
-        <a href="/admin/testimoni" class="<%= currentPath.startsWith('/testimoni') ? 'active' : '' %>"><span class="ico">⭐</span> Testimoni</a>
+        <a href="/admin/booking" class="<%= adminPath.startsWith('/booking') ? 'active' : '' %>" data-nav-item data-nav-text="booking pesanan"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-booking"/></svg></span> Booking</a>
+        <a href="/admin/lokasi" class="<%= adminPath.startsWith('/lokasi') ? 'active' : '' %>" data-nav-item data-nav-text="lokasi posisi presence"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-radar"/></svg></span> Lokasi Langsung</a>
+        <a href="/admin/pelanggan" class="<%= adminPath.startsWith('/pelanggan') ? 'active' : '' %>" data-nav-item data-nav-text="pelanggan customer"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-users"/></svg></span> Pelanggan</a>
+        <a href="/admin/pesan" class="<%= adminPath.startsWith('/pesan') ? 'active' : '' %>" data-nav-item data-nav-text="pesan masuk kontak inbox"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-mail"/></svg></span> Pesan Masuk</a>
+        <a href="/admin/testimoni" class="<%= adminPath.startsWith('/testimoni') ? 'active' : '' %>" data-nav-item data-nav-text="testimoni review ulasan"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-star"/></svg></span> Testimoni</a>
         <span class="admin-nav__label">Marketing</span>
-        <a href="/admin/marketing/kontak" class="<%= currentPath.startsWith('/marketing/kontak') ? 'active' : '' %>"><span class="ico">📇</span> Kontak</a>
-        <a href="/admin/marketing/blast" class="<%= currentPath.startsWith('/marketing/blast') ? 'active' : '' %>"><span class="ico">📣</span> Blast WhatsApp</a>
+        <a href="/admin/marketing/kontak" class="<%= adminPath.startsWith('/marketing/kontak') ? 'active' : '' %>" data-nav-item data-nav-text="kontak contact"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-contacts"/></svg></span> Kontak</a>
+        <a href="/admin/marketing/blast" class="<%= adminPath.startsWith('/marketing/blast') ? 'active' : '' %>" data-nav-item data-nav-text="blast whatsapp kirim pesan"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-broadcast"/></svg></span> Blast WhatsApp</a>
+        <a href="/admin/marketing/whatsapp" class="<%= adminPath.startsWith('/marketing/whatsapp') ? 'active' : '' %>" data-nav-item data-nav-text="perangkat whatsapp qr device"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-device"/></svg></span> Perangkat WhatsApp</a>
+        <a href="/admin/marketing/pengingat" class="<%= adminPath.startsWith('/marketing/pengingat') ? 'active' : '' %>" data-nav-item data-nav-text="pengingat reminder otomatis"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-bell"/></svg></span> Pengingat</a>
+        <span class="admin-nav__label">Media Sosial</span>
+        <a href="/admin/social" class="<%= adminPath === '/social' ? 'active' : '' %>" data-nav-item data-nav-text="social hub connect media"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-share"/></svg></span> Connect Social Media</a>
+        <a href="/admin/social/tulis" class="<%= adminPath.startsWith('/social/tulis') ? 'active' : '' %>" data-nav-item data-nav-text="tulis publikasikan posting"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-pen"/></svg></span> Tulis &amp; Publikasikan</a>
+        <a href="/admin/social/riwayat" class="<%= adminPath.startsWith('/social/riwayat') ? 'active' : '' %>" data-nav-item data-nav-text="riwayat publikasi history"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-calendar"/></svg></span> Riwayat Publikasi</a>
         <span class="admin-nav__label">Sistem</span>
-        <a href="/admin/seo" class="<%= currentPath.startsWith('/seo') ? 'active' : '' %>"><span class="ico">🔎</span> SEO &amp; Peta Situs</a>
-        <a href="/admin/pengaturan" class="<%= currentPath.startsWith('/pengaturan') ? 'active' : '' %>"><span class="ico">⚙</span> Pengaturan</a>
-        <a href="/admin/akun" class="<%= currentPath.startsWith('/akun') ? 'active' : '' %>"><span class="ico">👤</span> Akun Saya</a>
+        <a href="/admin/seo" class="<%= adminPath.startsWith('/seo') ? 'active' : '' %>" data-nav-item data-nav-text="seo peta sitemap"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-seo"/></svg></span> SEO &amp; Peta Situs</a>
+        <a href="/admin/pengaturan" class="<%= adminPath.startsWith('/pengaturan') ? 'active' : '' %>" data-nav-item data-nav-text="pengaturan setelan theme"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-settings"/></svg></span> Pengaturan</a>
+        <a href="/admin/akun" class="<%= adminPath.startsWith('/akun') ? 'active' : '' %>" data-nav-item data-nav-text="akun saya profil password"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-user"/></svg></span> Akun Saya</a>
+        <p class="admin-nav__empty" id="adminNavEmpty" hidden>Tidak ada menu yang cocok.</p>
       </nav>
-      <form action="/admin/logout" method="post">
+
+      <form action="/admin/logout" method="post" class="admin-sidebar__logout">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button type="submit" class="btn-a btn-a--ghost" style="width:100%; justify-content:center; color:rgba(246,240,230,0.8); border-color:rgba(246,240,230,0.25)">Keluar</button>
+        <button type="submit" class="btn-a btn-a--ghost btn-a--block">
+          <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-logout"/></svg></span> Keluar
+        </button>
       </form>
-      <div class="admin-sidebar__foot">v1.0 · jalanjalanenak.com</div>
+      <div class="admin-sidebar__foot">v2.0 · <%= brandName %></div>
     </aside>
+
+    <div class="admin-sidebar-overlay" id="adminSidebarOverlay"></div>
 
     <div class="admin-main">
       <header class="admin-topbar">
-        <div style="display:flex; align-items:center; gap:0.8rem">
-          <button class="btn-a btn-a--ghost menu-btn" onclick="document.getElementById('adminSidebar').classList.toggle('open')">☰</button>
-          <h1><%= title %></h1>
+        <div class="admin-topbar__lead">
+          <button class="btn-a btn-a--ghost menu-btn" id="adminMenuBtn" aria-label="Buka menu" aria-expanded="false" aria-controls="adminSidebar">
+            <svg viewBox="0 0 22 22"><use href="#i-menu"/></svg>
+          </button>
+          <div class="admin-topbar__title">
+            <span class="admin-breadcrumb">
+              <span class="admin-breadcrumb__root">Panel Admin</span>
+              <span class="admin-breadcrumb__sep" aria-hidden="true">/</span>
+              <span class="admin-breadcrumb__current"><%= title %></span>
+            </span>
+            <h1><%= title %></h1>
+          </div>
         </div>
         <div class="admin-topbar__actions">
-          <a href="/" target="_blank" rel="noopener" class="btn-a btn-a--ghost btn-a--sm">Lihat Situs ↗</a>
-          <div class="admin-user">
-            <span class="avatar"><%= initials(currentUser ? currentUser.name : 'A') %></span>
-            <span><%= currentUser ? currentUser.name : 'Admin' %></span>
+          <button class="theme-toggle" id="themeToggle" type="button" title="Ganti mode terang/gelap" aria-label="Ganti tema terang/gelap">
+            <svg class="theme-toggle__sun" viewBox="0 0 22 22"><use href="#i-sun"/></svg>
+            <svg class="theme-toggle__moon" viewBox="0 0 22 22"><use href="#i-moon"/></svg>
+          </button>
+          <a href="/" target="_blank" rel="noopener" class="btn-a btn-a--ghost btn-a--sm admin-topbar__site">
+            <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-external"/></svg></span> Lihat Situs
+          </a>
+          <div class="admin-user-menu" id="adminUserMenu">
+            <button type="button" class="admin-user" id="adminUserBtn" aria-haspopup="true" aria-expanded="false">
+              <span class="avatar"><%= initials(currentUser ? currentUser.name : 'A') %></span>
+              <span class="admin-user__name"><%= currentUser ? currentUser.name : 'Admin' %></span>
+              <span class="admin-user__chevron" aria-hidden="true"><svg viewBox="0 0 22 22"><use href="#i-chevron"/></svg></span>
+            </button>
+            <div class="admin-user-menu__pop" id="adminUserPop" hidden>
+              <a href="/admin/akun" class="admin-user-menu__item">
+                <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-user"/></svg></span> Akun Saya
+              </a>
+              <a href="/admin/pengaturan" class="admin-user-menu__item">
+                <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-settings"/></svg></span> Pengaturan
+              </a>
+              <form action="/admin/logout" method="post">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button type="submit" class="admin-user-menu__item admin-user-menu__item--danger">
+                  <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-logout"/></svg></span> Keluar
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </header>
@@ -74,6 +183,123 @@
       </div>
     </div>
   </div>
+  <script src="/js/upload-spec.js" defer></script>
+  <script src="/js/admin-upload.js" defer></script>
+  <script src="/js/admin-gallery-widget.js" defer></script>
+  <script src="/js/admin-tables.js" defer></script>
+  <script src="/js/admin-v2.js" defer></script>
+  <script src="/js/admin-realtime.js" defer></script>
+  <script>
+    /* ---------- Pratinjau langsung warna aksen ---------- */
+    (function () {
+      var picker = document.getElementById('themeAccentPicker');
+      var valueEl = document.getElementById('themeAccentValue');
+      if (!picker) return;
+
+      /** Ubah hex menjadi komponen RGB. */
+      function toRgb(hex) {
+        var clean = String(hex || '').replace('#', '');
+        if (clean.length === 3) clean = clean.split('').map(function (c) { return c + c; }).join('');
+        var n = parseInt(clean, 16);
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+      }
+
+      /** Campur warna dengan putih/black untuk membuat turunan. */
+      function mix(c, target, amount) {
+        return 'rgb(' + Math.round(c.r + (target.r - c.r) * amount) + ', ' +
+          Math.round(c.g + (target.g - c.g) * amount) + ', ' +
+          Math.round(c.b + (target.b - c.b) * amount) + ')';
+      }
+
+      function applyPreview(hex) {
+        var c = toRgb(hex);
+        var root = document.documentElement;
+        root.style.setProperty('--accent', hex);
+        root.style.setProperty('--accent-strong', mix(c, { r: 0, g: 0, b: 0 }, 0.22));
+        root.style.setProperty('--accent-deep', mix(c, { r: 0, g: 0, b: 0 }, 0.42));
+        root.style.setProperty('--accent-darkest', mix(c, { r: 0, g: 0, b: 0 }, 0.58));
+        root.style.setProperty('--accent-soft', mix(c, { r: 255, g: 255, b: 255 }, 0.78));
+        root.style.setProperty('--accent-glow', 'rgba(' + c.r + ', ' + c.g + ', ' + c.b + ', 0.22)');
+        root.style.setProperty('--accent-line', 'rgba(' + c.r + ', ' + c.g + ', ' + c.b + ', 0.38)');
+        if (valueEl) valueEl.textContent = hex;
+      }
+
+      picker.addEventListener('input', function () { applyPreview(picker.value); });
+    })();
+  </script>
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var sidebar = document.getElementById('adminSidebar');
+      var overlay = document.getElementById('adminSidebarOverlay');
+      var menuBtn = document.getElementById('adminMenuBtn');
+
+      /* ---------- Sidebar mobile ---------- */
+      function isMobile() { return window.matchMedia('(max-width: 900px)').matches; }
+      function setSidebar(open) {
+        if (!sidebar) return;
+        sidebar.classList.toggle('open', open);
+        if (overlay) overlay.classList.toggle('open', open);
+        document.body.style.overflow = open && isMobile() ? 'hidden' : '';
+        if (menuBtn) menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      if (menuBtn) {
+        menuBtn.addEventListener('click', function () {
+          setSidebar(!sidebar.classList.contains('open'));
+        });
+      }
+      if (overlay) overlay.addEventListener('click', function () { setSidebar(false); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') setSidebar(false);
+      });
+      // Tutup sidebar setelah navigasi di layar kecil
+      document.querySelectorAll('.admin-nav a').forEach(function (a) {
+        a.addEventListener('click', function () { if (isMobile()) setSidebar(false); });
+      });
+      window.addEventListener('resize', function () {
+        if (!isMobile()) setSidebar(false);
+      });
+
+      /* ---------- Tema terang/gelap ---------- */
+      var toggle = document.getElementById('themeToggle');
+      var OVERRIDE_KEY = 'syl-admin-theme-override';
+      var baseMode = '<%= themeMode %>';
+
+      // Terapkan mode ke elemen <html>.
+      // `persist` menentukan apakah pilihan ini disimpan sebagai override lokal.
+      function applyTheme(mode, persist) {
+        var dark = mode === 'dark' ||
+          (mode === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        root.setAttribute('data-theme', dark ? 'dark' : 'light');
+        if (persist) {
+          try { localStorage.setItem(OVERRIDE_KEY, mode); } catch (err) {}
+        }
+      }
+
+      // Mode dasar berasal dari Pengaturan (sumber kebenaran admin).
+      // Override lokal hanya dipakai bila admin memakai tombol tema di topbar.
+      var override = null;
+      try { override = localStorage.getItem(OVERRIDE_KEY); } catch (err) {}
+      applyTheme(override || baseMode, false);
+
+      if (toggle) {
+        toggle.addEventListener('click', function () {
+          var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+          applyTheme(next, true);
+        });
+      }
+
+      // Ikuti perubahan preferensi sistem bila mode = auto.
+      var mq = window.matchMedia('(prefers-color-scheme: dark)');
+      var onChange = function () {
+        var mode = override || baseMode;
+        try { mode = localStorage.getItem(OVERRIDE_KEY) || mode; } catch (err) {}
+        if (mode === 'auto') applyTheme('auto', false);
+      };
+      if (mq.addEventListener) mq.addEventListener('change', onChange);
+      else if (mq.addListener) mq.addListener(onChange);
+    })();
+  </script>
   <% if (typeof mapData !== 'undefined' && mapData) { %>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="/js/map.js"></script>

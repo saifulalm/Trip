@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" data-theme="<%= themeMode === 'auto' ? 'light' : themeMode %>" style="<%= themeStyle %>">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +8,7 @@
   <% const ogImage = (seo && seo.image) ? seo.image : (settings.ogImageUrl || settings.heroImageUrl || '/img/dest-sabesi.svg'); %>
   <% const ogType = (seo && seo.type) ? seo.type : 'website'; %>
   <% const canonical = absoluteUrl(currentPath); %>
-  <title><%= ogTitle %> · <%= settings.siteName || 'jalanjalanenak.com' %></title>
+  <title><%= ogTitle %> · <%= brandName %></title>
   <meta name="description" content="<%= ogDesc %>">
   <% if (canonical) { %><link rel="canonical" href="<%= canonical %>"><% } %>
   <% if (settings.seoIndex === false) { %><meta name="robots" content="noindex, nofollow"><% } %>
@@ -31,16 +31,31 @@
   <% jsonLdItems.forEach((ld) => { %>
   <script type="application/ld+json"><%- JSON.stringify(ld).replace(/</g, '\\u003c') %></script>
   <% }); %>
-  <link rel="icon" type="image/svg+xml" href="/img/logo.svg">
+  <link rel="icon" type="image/svg+xml" href="<%= settings.logo || '/img/logo.svg' %>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/splash.css">
+  <link rel="stylesheet" href="/css/onepage.css">
+  <!-- Portal pelanggan: juga menyediakan definisi .badge yang dipakai
+       halaman publik (home, pembayaran, akun). -->
+  <link rel="stylesheet" href="/css/portal.css">
+  <noscript><style>.splash{display:none !important;}body.splash-active{overflow:auto !important;}</style></noscript>
+  <link rel="stylesheet" href="/css/hero-animated.css">
+  <link rel="stylesheet" href="/css/cinematic.presentation.css">
+  <link rel="stylesheet" href="/css/gallery-bento.css">
+  <!-- home-motion.css HARUS dimuat TERAKHIR di antara CSS publik:
+       file ini mengatur transition-delay untuk animasi stagger, sementara
+       gallery-bento.css memakai shorthand `transition` pada .reveal yang
+       me-reset transition-delay menjadi 0. -->
+  <link rel="stylesheet" href="/css/home-motion.css">
   <% if (typeof mapData !== 'undefined' && mapData) { %>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <% } %>
 </head>
 <body>
+  <%- include('../partials/splash') %>
   <%- include('../partials/flash') %>
   <%- include('../partials/header') %>
   <main>
@@ -49,17 +64,195 @@
   <%- include('../partials/footer') %>
   <%- include('../partials/wa-float') %>
   <script>
-    document.querySelector('.nav-toggle')?.addEventListener('click', function () {
-      document.querySelector('.nav')?.classList.toggle('open');
-    });
+    /* ---------- Tema otomatis (ikuti preferensi perangkat) ---------- */
+    (function () {
+      var mode = '<%= themeMode %>';
+      if (mode !== 'auto') return;
+      var root = document.documentElement;
+      var mq = window.matchMedia('(prefers-color-scheme: dark)');
+      var apply = function (dark) { root.setAttribute('data-theme', dark ? 'dark' : 'light'); };
+      apply(mq.matches);
+      if (mq.addEventListener) mq.addEventListener('change', function (e) { apply(e.matches); });
+      else if (mq.addListener) mq.addListener(function (e) { apply(e.matches); });
+    })();
+
+    /* ---------- Navigasi mobile ---------- */
+    (function () {
+      var nav = document.querySelector('.nav');
+      var toggle = document.querySelector('.nav-toggle');
+      var scrim = document.querySelector('.nav-scrim');
+      var closeBtn = document.querySelector('.nav__close');
+      var header = document.querySelector('.site-header');
+      if (!nav || !toggle) return;
+
+      var lastFocused = null;
+
+      function openMenu() {
+        lastFocused = document.activeElement;
+        nav.classList.add('open');
+        if (header) header.classList.add('is-nav-open');
+        toggle.setAttribute('aria-expanded', 'true');
+        toggle.setAttribute('aria-label', 'Tutup menu');
+        if (scrim) {
+          scrim.hidden = false;
+          // Paksa reflow supaya transisi opacity berjalan.
+          void scrim.offsetWidth;
+          scrim.classList.add('is-visible');
+        }
+        document.body.style.overflow = 'hidden';
+        var first = nav.querySelector('.nav__link');
+        if (first) first.focus({ preventScroll: true });
+      }
+
+      function closeMenu() {
+        nav.classList.remove('open');
+        if (header) header.classList.remove('is-nav-open');
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.setAttribute('aria-label', 'Buka menu');
+        if (scrim) {
+          scrim.classList.remove('is-visible');
+          // Tunggu transisi selesai baru sembunyikan dari alur tab.
+          setTimeout(function () { if (!nav.classList.contains('open')) scrim.hidden = true; }, 300);
+        }
+        document.body.style.overflow = '';
+        if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus({ preventScroll: true });
+      }
+
+      function isOpen() { return nav.classList.contains('open'); }
+
+      toggle.addEventListener('click', function () {
+        if (isOpen()) closeMenu(); else openMenu();
+      });
+      if (closeBtn) closeBtn.addEventListener('click', closeMenu);
+      if (scrim) scrim.addEventListener('click', closeMenu);
+
+      // Tutup dengan tombol Escape.
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && isOpen()) closeMenu();
+      });
+
+      // Cegah fokus keluar dari drawer saat terbuka (focus trap sederhana).
+      nav.addEventListener('keydown', function (e) {
+        if (e.key !== 'Tab' || !isOpen()) return;
+        var focusables = nav.querySelectorAll('a[href], button:not([disabled])');
+        if (!focusables.length) return;
+        var first = focusables[0];
+        var last = focusables[focusables.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault(); last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault(); first.focus();
+        }
+      });
+
+      // Tutup menu navigasi mobile ketika layar membesar kembali.
+      // Ambang 1000px harus sama dengan breakpoint drawer di style.css.
+      window.addEventListener('resize', function () {
+        if (window.innerWidth > 1000 && isOpen()) closeMenu();
+      });
+
+      /* ---------- Onepage: tutup drawer saat anchor section diklik ----------
+         Tanpa ini, menggulir ke section di belakang drawer akan sia-sia:
+         drawer tetap menutupi layar dan scroll terkunci. */
+      nav.addEventListener('click', function (e) {
+        var target = e.target;
+        if (!target || !target.closest) return;
+        var link = target.closest('a[href^="#"]');
+        if (!link) return;
+        if (isOpen()) closeMenu();
+      });
+    })();
     const io = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
         if (e.isIntersecting) { e.target.classList.add('is-visible'); io.unobserve(e.target); }
       });
     }, { threshold: 0.12 });
     document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+    /* ---------- Reveal-on-scroll untuk elemen [data-reveal] ----------
+       Hanya diaktifkan bila JS berjalan (kelas .js-reveal pada <html>),
+       sehingga tanpa JS seluruh konten tetap terlihat. */
+    (function () {
+      var targets = document.querySelectorAll('[data-reveal]');
+      if (!targets.length) return;
+      document.documentElement.classList.add('js-reveal');
+      var ro = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) {
+            e.target.classList.add('is-revealed');
+            ro.unobserve(e.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+      targets.forEach(function (el) { ro.observe(el); });
+    })();
   </script>
+  <script src="/js/upload-spec.js" defer></script>
+  <script src="/js/splash.js" defer></script>
+  <script src="/js/onepage.js" defer></script>
   <script src="/js/depth.js" defer></script>
+  <script src="/js/destinations-gallery.js" defer></script>
+  <script src="/js/hero-animated.js" defer></script>
+  <script>
+    /* ---------- Unggah bukti transfer (halaman pembayaran) ---------- */
+    (function () {
+      var input = document.getElementById('proof');
+      var drop = document.querySelector('[data-proof-drop]');
+      if (!input || !drop) return;
+      var nameEl = document.querySelector('[data-proof-name]');
+      var preview = document.querySelector('[data-proof-preview]');
+      var MAX = 5 * 1024 * 1024;
+
+      function apply(file) {
+        if (!file) return;
+        if (!/^image\/(jpeg|png|webp|gif)$/.test(file.type)) {
+          drop.style.borderColor = 'var(--a-red, #d64545)';
+          if (nameEl) nameEl.textContent = 'Format harus JPG, PNG, WEBP, atau GIF.';
+          return;
+        }
+        if (file.size > MAX) {
+          drop.style.borderColor = 'var(--a-red, #d64545)';
+          if (nameEl) nameEl.textContent = 'Ukuran maksimal 5 MB.';
+          return;
+        }
+        drop.style.borderColor = '';
+        if (nameEl) nameEl.textContent = file.name + ' · ' + (file.size / 1024 / 1024).toFixed(2) + ' MB';
+        if (preview) {
+          var reader = new FileReader();
+          reader.onload = function (e) {
+            preview.src = e.target.result;
+            preview.hidden = false;
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+
+      input.addEventListener('change', function () { apply(input.files && input.files[0]); });
+
+      ['dragenter', 'dragover'].forEach(function (evt) {
+        drop.addEventListener(evt, function (e) {
+          e.preventDefault();
+          drop.classList.add('is-dragover');
+        });
+      });
+      ['dragleave', 'drop'].forEach(function (evt) {
+        drop.addEventListener(evt, function (e) {
+          e.preventDefault();
+          drop.classList.remove('is-dragover');
+        });
+      });
+      drop.addEventListener('drop', function (e) {
+        var files = e.dataTransfer && e.dataTransfer.files;
+        if (!files || !files.length) return;
+        try {
+          var dt = new DataTransfer();
+          dt.items.add(files[0]);
+          input.files = dt.files;
+        } catch (err) { /* browser lama */ }
+        apply(files[0]);
+      });
+    })();
+  </script>
   <% if (typeof mapData !== 'undefined' && mapData) { %>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="/js/map.js"></script>
