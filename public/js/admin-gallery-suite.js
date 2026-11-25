@@ -43,17 +43,52 @@
     return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
   }
 
+  /**
+   * Escape teks supaya aman disisipkan ke dalam `innerHTML`.
+   *
+   * Semua nilai dinamis (nama berkas, URL, ID destinasi, pesan error
+   * server) bisa memuat karakter HTML. Tanpa escape, markup itu
+   * dieksekusi browser — sumber self-XSS / injeksi HTML.
+   *
+   * @param {*} value nilai apa pun
+   * @returns {string} teks yang aman untuk `innerHTML`
+   */
+  function escapeHtml(value) {
+    if (value === undefined || value === null) return '';
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function showToast(type, message) {
     const container = document.getElementById('galleryToastContainer');
     if (!container) return;
     const toast = document.createElement('div');
     toast.className = `gallery-toast gallery-toast--${type}`;
     const icons = { success: '✓', error: '✕', info: 'ℹ' };
-    toast.innerHTML = `
-      <span class="gallery-toast__icon">${icons[type] || 'ℹ'}</span>
-      <span class="gallery-toast__msg">${message}</span>
-      <button class="gallery-toast__close" aria-label="Tutup">&times;</button>
-    `;
+
+    // `message` bisa berisi pesan error dari server. Isi lewat
+    // `textContent` (bukan `innerHTML`) supaya karakter HTML apa pun
+    // tidak pernah dieksekusi browser — sumber self-XSS / injeksi HTML.
+    const ikon = document.createElement('span');
+    ikon.className = 'gallery-toast__icon';
+    ikon.textContent = icons[type] || 'ℹ';
+
+    const pesan = document.createElement('span');
+    pesan.className = 'gallery-toast__msg';
+    pesan.textContent = message === undefined || message === null ? '' : String(message);
+
+    const tutup = document.createElement('button');
+    tutup.className = 'gallery-toast__close';
+    tutup.setAttribute('aria-label', 'Tutup');
+    tutup.innerHTML = '&times;';
+
+    toast.appendChild(ikon);
+    toast.appendChild(pesan);
+    toast.appendChild(tutup);
     toast.querySelector('.gallery-toast__close').addEventListener('click', () => toast.remove());
     container.appendChild(toast);
     setTimeout(() => {
@@ -173,18 +208,24 @@
       const kartu = list.map((f) => {
         const size = f.bytes ? formatBytes(f.bytes) : '';
         const dims = f.width && f.height ? f.width + '×' + f.height : '';
+        // Semua nilai dinamis (URL, nama berkas, dimensi, ukuran) DI-escape
+        // sebelum masuk `innerHTML`. URL & nama berkas berasal dari server
+        // / input admin — tanpa escape keduanya vektor injeksi HTML.
+        const url = escapeHtml(f.url);
+        const filename = escapeHtml(f.filename);
+        const meta = escapeHtml([dims, size].filter(Boolean).join(' · '));
         return `
           <figure class="upload-result">
-            <img src="${f.url}" alt="${f.filename}" loading="lazy">
+            <img src="${url}" alt="${filename}" loading="lazy">
             <figcaption>
-              <a href="${f.url}" target="_blank" rel="noopener">${f.url}</a>
-              <span>${[dims, size].filter(Boolean).join(' · ')}</span>
+              <a href="${url}" target="_blank" rel="noopener">${url}</a>
+              <span>${meta}</span>
             </figcaption>
           </figure>`;
       }).join('');
 
       const catatan = destinationId
-        ? ` Berkas ditempel ke destinasi <code>${destinationId}</code>.`
+        ? ` Berkas ditempel ke destinasi <code>${escapeHtml(destinationId)}</code>.`
         : ' Berkas tersimpan di folder uploads (galeri umum).';
 
       resultsEl.innerHTML =
@@ -301,17 +342,22 @@
       const div = document.createElement('div');
       div.className = 'reorder-canvas__item';
       div.dataset.id = item.id || `item-${Date.now()}-${rank}`;
+      // `item.name` & `item.image` berasal dari basis data — escape
+      // keduanya sebelum masuk `innerHTML` supaya tidak jadi vektor
+      // injeksi HTML (nama destinations bisa berisi karakter HTML).
+      const nama = escapeHtml(item.name);
+      const gambar = escapeHtml(item.image);
       div.innerHTML = `
         <div class="reorder-canvas__handle">☰</div>
         <div class="reorder-canvas__thumbnail">
-          ${item.image ? `<img src="${item.image}" alt="${item.name}">` : '<span class="gallery-empty">📷</span>'}
+          ${item.image ? `<img src="${gambar}" alt="${nama}">` : '<span class="gallery-empty">📷</span>'}
         </div>
         <div class="reorder-canvas__body">
           <div class="reorder-canvas__title">
-            <span>${item.name}</span>
+            <span>${nama}</span>
             <span class="reorder-canvas__rank">Posisi ${rank}</span>
           </div>
-          <div class="reorder-canvas__caption">${item.tagline || ''}</div>
+          <div class="reorder-canvas__caption">${escapeHtml(item.tagline || '')}</div>
         </div>
       `;
       return div;

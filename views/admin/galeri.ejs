@@ -1,3 +1,65 @@
+<!--
+  Gaya hasil unggahan.
+
+  Ruling: blok <style> ini DILETakkan DI DALAM partial
+  `views/admin/galeri.ejs` (file ini milik Task 6). Layout
+  `views/layouts/admin.ejs` dirty milik task lain, dan `public/css/admin.css`
+  punya perubahan lama repo yang belum ter-commit — jadi tidak boleh
+  disentuh.
+
+  Tanpa aturan di bawah, `<img>` pratinjau tampil pada lebar natural
+  (1280 px) sehingga halaman melebar horizontal:
+    desktop 1280 -> scrollWidth 1598 (melebar 318 px)
+    mobile  390 -> scrollWidth 1332 (melebar 942 px)
+-->
+<style>
+  /* Pratinjau tidak boleh melebihi lebar wadahnya. */
+  .upload-result img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Kisi hasil unggah: responsif, kolom otomatis. */
+  .upload-results__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+  }
+
+  /* Catatan hasil unggah: teks panjang tidak boleh melebar. */
+  .upload-results__note {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  /* Wadah input & hasil pada zona unggah galeri. */
+  .gallery-upload-bundle__dest,
+  .gallery-upload-bundle__results {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  /* Kartu satu hasil unggah. */
+  .upload-result {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .upload-result figcaption {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .upload-result figcaption a {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+</style>
+
 <div class="gallery-management">
   <div class="a-card">
     <div class="a-card__head">

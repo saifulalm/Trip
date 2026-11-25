@@ -1439,11 +1439,333 @@ async function runGalleryUploadSuite() {
   }
 }
 
+// -- Uji escape HTML pada hasil unggah ------------------------------
+console.log('\n== Escape HTML hasil unggah ==');
+
+/**
+ * Uji bahwa nilai dinamis pada hasil unggah DI-escape sebelum masuk
+ * `innerHTML`.
+ *
+ * Yang dibuktikan:
+ *  1. `filename` & `url` berisi payload HTML TIDAK menghasilkan elemen
+ *     baru di DOM (tidak ada self-XSS),
+ *  2. `destinationId` berisi payload HTML juga aman,
+ *  3. pesan error dari server (masuk ke toast) aman.
+ *
+ * Server uji di sini sengaja membalas `filename`/`url` berisi payload
+ * injeksi supaya perilaku suite terlihat jelas.
+ */
+async function runGalleryEscapeSuite() {
+  const browser = await openBrowser('suite escape hasil unggah (browser)');
+  if (!browser) return;
+
+  const http = require('http');
+
+  const PAYLOAD = '"><img src=x onerror="window.__xss = 1">';
+
+  const MARKUP = [
+    '<!doctype html><html><body>',
+    '<input type="hidden" name="_csrf" value="token-uji-escape">',
+    '<div id="galleryToastContainer"></div>',
+    '<section class="gallery-upload-bundle" id="galleryUploadZone" data-slot="gallery">',
+    '  <div class="gallery-upload-bundle__drop" data-drop>',
+    '    <p data-gallery-hint></p>',
+    '    <input type="text" data-destination-id value="">',
+    '    <button data-upload disabled>Upload All (WebP)</button>',
+    '  </div>',
+    '  <div class="gallery-upload-bundle__dots"><span data-dot></span><span data-dot></span></div>',
+    '  <input type="file" id="galleryUploadInput" accept="image/jpeg,image/png,image/webp" multiple>',
+    '  <div class="gallery-upload-bundle__meta"><span data-filename></span><span data-meta></span></div>',
+    '  <div data-upload-results></div>',
+    '</section>',
+    '</body></html>'
+  ].join('\n');
+
+  const server = http.createServer((req, res) => {
+    if (req.method === 'POST' && req.url === '/admin/galeri/unggah') {
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        const body = Buffer.concat(chunks).toString('latin1');
+        const gagal = body.indexOf('filename="gagal-') > -1;
+        res.writeHead(gagal ? 400 : 200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(gagal
+          ? { ok: false, error: PAYLOAD + ' <b>bold</b>' }
+          : {
+              ok: true,
+              files: [{
+                filename: PAYLOAD,
+                url: PAYLOAD,
+                width: 1280,
+                height: 800,
+                bytes: 100
+              }]
+            }));
+      });
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(MARKUP);
+  });
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+
+  try {
+    const page = await browser.newPage();
+    await page.goto(base + '/admin/galeri', { waitUntil: 'load' });
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-spec.js') });
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-batch.js') });
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'admin-gallery-suite.js') });
+
+    await ta('payload HTML pada filename/url tidak dieksekusi (tidak ada elemen baru)', async () => {
+      await page.evaluate((p) => {
+        window.__xss = 0;
+        document.querySelector('[data-destination-id]').value = p;
+      }, PAYLOAD);
+
+      await pilihFiles(page, '#galleryUploadInput', [
+        { name: 'aman.png', type: 'image/png' }
+      ]);
+      await page.click('[data-upload]');
+      await new Promise((r) => setTimeout(r, 800));
+
+      const hasil = await page.evaluate(() => {
+        const root = document.querySelector('[data-upload-results]');
+        return {
+          xss: window.__xss,
+          jumlahImg: root ? root.querySelectorAll('img').length : -1,
+          jumlahScript: root ? root.querySelectorAll('script').length : -1,
+          jumlahOjek: root ? root.querySelectorAll('object, iframe, svg').length : -1,
+          html: root ? root.innerHTML : ''
+        };
+      });
+
+      assert.strictEqual(hasil.xss, 0, 'payload HTML dieksekusi (self-XSS)');
+      assert.strictEqual(hasil.jumlahImg, 1, 'harus hanya ada 1 <img> pratinjau, dapat ' + hasil.jumlahImg);
+      assert.strictEqual(hasil.jumlahScript, 0, 'payload menyuntikkan <script>');
+      assert.strictEqual(hasil.jumlahOjek, 0, 'payload menyuntikkan elemen berbahaya lain');
+      assert.ok(
+        hasil.html.indexOf('&lt;img') > -1 || hasil.html.indexOf('&quot;') > -1,
+        'payload seharusnya ter-escape di HTML: ' + hasil.html
+      );
+    });
+
+    await ta('destinationId berisi payload HTML tidak dieksekusi', async () => {
+      const xss = await page.evaluate(() => window.__xss);
+      assert.strictEqual(xss, 0, 'payload destinationId dieksekusi');
+      const note = await page.$eval('.upload-results__note', (el) => el.innerHTML);
+      assert.ok(
+        note.indexOf('&lt;img') > -1 || note.indexOf('&quot;') > -1,
+        'destinationId seharusnya ter-escape: ' + note
+      );
+    });
+
+    await ta('pesan error server berisi payload HTML tidak dieksekusi di toast', async () => {
+      await pilihFiles(page, '#galleryUploadInput', [
+        { name: 'gagal-satu.png', type: 'image/png' }
+      ]);
+      await page.click('[data-upload]');
+      await new Promise((r) => setTimeout(r, 800));
+
+      const hasil = await page.evaluate(() => {
+        const toast = document.getElementById('galleryToastContainer');
+        return {
+          xss: window.__xss,
+          jumlahBold: toast ? toast.querySelectorAll('b').length : -1,
+          html: toast ? toast.innerHTML : ''
+        };
+      });
+      assert.strictEqual(hasil.xss, 0, 'payload pesan error dieksekusi');
+      assert.strictEqual(hasil.jumlahBold, 0, 'pesan error menyuntikkan <b>');
+      assert.ok(
+        hasil.html.indexOf('&lt;b&gt;') > -1,
+        'pesan error seharusnya ter-escape: ' + hasil.html
+      );
+    });
+
+    await page.close();
+  } finally {
+    await browser.close();
+    await new Promise((r) => server.close(r));
+  }
+}
+
+// -- Uji layout: hasil unggah tidak boleh melebar horizontal ---------
+console.log('\n== Layout hasil unggah (halaman /admin/galeri) ==');
+
+/**
+ * Uji layout halaman `/admin/galeri` setelah unggahan nyata.
+ *
+ * Yang dibuktikan:
+ *  1. `document.documentElement.scrollWidth <= clientWidth` pada
+ *     viewport desktop 1280 dan mobile 390 — halaman TIDAK melebar
+ *     horizontal karena pratinjau `<img>` pada lebar natural 1280 px,
+ *  2. aturan CSS untuk hasil unggah benar-benar termuat di halaman ini.
+ *
+ * Server uji memakai basis data terisolasi (`SABESI_DATA_DIR`) sehingga
+ * `data/db.json` produksi tidak tersentuh.
+ */
+async function runGalleryLayoutSuite() {
+  const browser = await openBrowser('suite layout hasil unggah (browser)');
+  if (!browser) return;
+
+  const fsMod = require('fs');
+  const osMod = require('os');
+
+  // `src/db` sudah ter-isolasi oleh `SABESI_DATA_DIR` yang disetel di
+  // bagian atas skrip ini (sebelum modul dimuat).
+  const db = require(path.join(root, 'src', 'db'));
+  const seed = require(path.join(root, 'src', 'seed'));
+  const appFactory = require(path.join(root, 'src', 'app'));
+
+  assert.ok(
+    db.DB_FILE !== path.join(root, 'data', 'db.json'),
+    'ISOLASI GAGAL: db.DB_FILE menunjuk data/db.json produksi'
+  );
+  assert.ok(
+    db.isProductionDataDir(path.dirname(db.DB_FILE)) === false,
+    'ISOLASI GAGAL: folder data uji berada di dalam folder data produksi'
+  );
+
+  db.reset(seed.buildSeed());
+
+  // Berkas PNG 1280x800 (slot gallery: rasio 16:10) untuk diunggah nyata.
+  const sharpLib = require(path.join(root, 'node_modules', 'sharp'));
+  const tmpDir = fsMod.mkdtempSync(path.join(osMod.tmpdir(), 'sabesi-layout-'));
+  const pngPath = path.join(tmpDir, 'layout.png');
+  await sharpLib({
+    create: { width: 1280, height: 800, channels: 3, background: { r: 20, g: 90, b: 160 } }
+  }).png().toFile(pngPath);
+
+  const app = appFactory.createApp();
+
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
+  });
+  const base = 'http://127.0.0.1:' + server.address().port;
+
+  const dibuat = [];
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 900 });
+
+    // Login sebagai admin seed (akun uji di basis data terisolasi) supaya
+    // halaman `/admin/galeri` benar-benar ter-render dengan layout admin
+    // (termasuk blok <style> hasil unggah).
+    await page.goto(base + '/admin/login', { waitUntil: 'load' });
+    await page.type('#username', 'admin');
+    await page.type('#password', 'admin123');
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'load' }),
+      page.click('button[type="submit"]')
+    ]);
+
+    await page.goto(base + '/admin/galeri', { waitUntil: 'load' });
+
+    await ta('halaman /admin/galeri memuat aturan CSS hasil unggah', async () => {
+      const ada = await page.evaluate(() => {
+        const style = Array.from(document.querySelectorAll('style'))
+          .map((s) => s.textContent)
+          .join('\n');
+        return {
+          diLogin: !!document.querySelector('#galleryUploadInput'),
+          adaAturan: /\.upload-result img/.test(style) &&
+            /max-width:\s*100%/.test(style),
+          adaGrid: /\.upload-results__grid/.test(style)
+        };
+      });
+      assert.ok(ada.diLogin, 'halaman /admin/galeri tidak termuat (login gagal?)');
+      assert.ok(ada.adaAturan, 'blok <style> hasil unggah tidak termuat di halaman');
+      assert.ok(ada.adaGrid, 'aturan .upload-results__grid tidak termuat di halaman');
+    });
+
+    // Unggah satu berkas nyata lewat UI.
+    const input = await page.$('#galleryUploadInput');
+    assert.ok(input, 'input berkas unggah tidak ditemukan di halaman');
+    await input.uploadFile(pngPath);
+    await new Promise((r) => setTimeout(r, 300));
+    await page.click('[data-upload]');
+    await page.waitForFunction(
+      () => {
+        const root = document.querySelector('[data-upload-results]');
+        return !!root && !root.hidden && root.querySelectorAll('img').length > 0;
+      },
+      { timeout: 20000 }
+    );
+
+    const files = await page.evaluate(() => {
+      const root = document.querySelector('[data-upload-results]');
+      return Array.from(root.querySelectorAll('img')).map((img) => img.getAttribute('src'));
+    });
+    dibuat.push(...files.map((src) => String(src).replace(/^\/uploads\//, '')));
+
+    /**
+     * Ukur lebar dokumen pada satu viewport.
+     * @param {number} width lebar viewport
+     * @returns {Promise<object>} hasil pengukuran
+     */
+    async function ukur(width) {
+      await page.setViewport({ width: width, height: 900 });
+      await new Promise((r) => setTimeout(r, 300));
+      return page.evaluate(() => {
+        const img = document.querySelector('.upload-result img');
+        return {
+          scrollWidth: document.documentElement.scrollWidth,
+          clientWidth: document.documentElement.clientWidth,
+          imgWidth: img ? img.getBoundingClientRect().width : -1
+        };
+      });
+    }
+
+    await ta('desktop 1280: halaman TIDAK melebar horizontal', async () => {
+      const m = await ukur(1280);
+      console.log('        [ukur] viewport 1280 -> scrollWidth ' + m.scrollWidth +
+        ', clientWidth ' + m.clientWidth + ', lebar <img> ' + Math.round(m.imgWidth) + 'px');
+      assert.ok(
+        m.scrollWidth <= m.clientWidth,
+        'halaman melebar: scrollWidth ' + m.scrollWidth + ' > clientWidth ' + m.clientWidth
+      );
+    });
+
+    await ta('mobile 390: halaman TIDAK melebar horizontal', async () => {
+      const m = await ukur(390);
+      console.log('        [ukur] viewport 390 -> scrollWidth ' + m.scrollWidth +
+        ', clientWidth ' + m.clientWidth + ', lebar <img> ' + Math.round(m.imgWidth) + 'px');
+      assert.ok(
+        m.scrollWidth <= m.clientWidth,
+        'halaman melebar: scrollWidth ' + m.scrollWidth + ' > clientWidth ' + m.clientWidth
+      );
+    });
+
+    await page.close();
+  } finally {
+    await new Promise((r) => server.close(r));
+    // Bersihkan berkas hasil uji (jangan sentuh berkas repo lain).
+    dibuat.forEach((f) => {
+      if (!f) return;
+      try {
+        fsMod.unlinkSync(path.join(root, 'public', 'uploads', f));
+      } catch (err) {
+        /* abaikan */
+      }
+    });
+    try {
+      fsMod.rmSync(tmpDir, { recursive: true, force: true });
+    } catch (err) {
+      /* abaikan */
+    }
+  }
+}
+
 runBackendSuite()
   .then(runDimensionSuite)
   .then(runWidgetSuite)
   .then(runGalleryWidgetSuite)
   .then(runGalleryUploadSuite)
+  .then(runGalleryEscapeSuite)
+  .then(runGalleryLayoutSuite)
   .then(() => {
     console.log('\n' + (fail === 0
       ? 'OK - ' + pass + ' pemeriksaan lulus' + (skip ? ', ' + skip + ' dilewati (SKIP)' : '')
