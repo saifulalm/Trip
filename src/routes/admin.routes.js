@@ -5,11 +5,39 @@ const bcrypt = require('bcryptjs');
 
 const db = require('../db');
 const helpers = require('../utils/helpers');
-const { upload, removeUpload } = require('../multer');
+const { singleImage, multiImage, imageFields, galleryImages, cleanupUploads } = require('../middleware/upload');
+const { removeUploadByUrl } = require('../services/image');
+const themeService = require('../services/theme');
+const brandService = require('../services/brand');
 const { flash } = require('../middleware/context');
 const { requireLogin, loginLimiter } = require('../middleware/security');
+const trip = require('../services/trip');
+const geo = require('../services/geo');
 
 const router = express.Router();
+
+/**
+ * Ambil URL gambar hasil proses dari middleware upload.
+ *
+ * `req.processedImages[field]` bisa berupa object (satu berkas) atau array
+ * (beberapa berkas, mis. galeri). Untuk kasus array, yang dikembalikan
+ * adalah berkas pertama.
+ *
+ * Fallback ke req.file bila middleware tidak memproses (mis. tidak ada berkas).
+ */
+function imageUrl(req, field) {
+  const processed = req.processedImages && req.processedImages[field];
+  if (Array.isArray(processed)) {
+    if (processed[0] && processed[0].url) return processed[0].url;
+    return null;
+  }
+  if (processed && processed.url) return processed.url;
+  if (req.file && req.file.filename) return `/uploads/${req.file.filename}`;
+  // Fallback untuk upload.fields(): req.files[field][0].
+  const list = req.files && req.files[field];
+  if (list && list[0] && list[0].path) return list[0].path;
+  return null;
+}
 
 function load(req, res, next) {
   req.data = db.read();
@@ -51,6 +79,9 @@ router.use((req, res, next) => {
 // Modul marketing (kontak + blast WhatsApp) di bawah /admin/marketing
 router.use('/marketing', require('./marketing.routes').createMarketingRouter());
 
+// Modul integrasi media sosial (Connect Social Media + Postiz) di bawah /admin/social
+router.use('/social', require('./social.routes').createSocialRouter());
+
 /* ------------------------------------------------------------------ */
 /* Dashboard                                                           */
 /* ------------------------------------------------------------------ */
@@ -74,6 +105,86 @@ router.get('/', (req, res) => {
 });
 
 /* ------------------------------------------------------------------ */
+/* Lokasi Langsung (presence)                                          */
+/* ------------------------------------------------------------------ */
+/**
+ * Halaman admin untuk melihat posisi langsung semua partisipan yang
+ * sedang membagikan lokasi (tim + pelanggan), dengan jarak dari admin.
+ *
+ * Data diambil dari `src/services/presence.js` (penyimpanan terpisah di
+ * data/presence.json) — tidak menyentuh alur booking yang sudah ada.
+ */
+router.get('/lokasi', (req, res) => {
+  const data = req.data;
+  const settings = data.settings || {};
+  const presence = require('../services/presence');
+
+  const enabled = presence.isEnabled(settings);
+  const me = presence.get('admin', req.session.userId);
+
+  // Gunakan peersOf() agar konsisten dengan /api/presence/state:
+  // posisi admin sendiri TIDAK ikut ditampilkan sebagai "peer".
+  const entries = enabled
+    ? presence.peersOf(
+      me
+        ? { role: 'admin', refId: req.session.userId, lat: me.lat, lng: me.lng }
+        : { role: 'admin', refId: req.session.userId, lat: null, lng: null },
+      data,
+      settings
+    )
+    : [];
+
+  const peers = entries
+    .map((e) => {
+      const distance = e.distance;
+      const customer = e.role === 'customer'
+        ? (data.customers || []).find((c) => c.id === e.refId)
+        : null;
+      const user = e.role === 'admin'
+        ? (data.users || []).find((u) => u.id === e.refId)
+        : null;
+      return {
+        ...e,
+        distance,
+        distanceLabel: Number.isFinite(distance) ? geo.formatDistance(distance) : null,
+        phone: customer ? customer.phone : null,
+        email: customer ? customer.email : null,
+        displayName: customer ? customer.name : (user ? user.name : e.name)
+      };
+    })
+    .sort((a, b) => {
+      const da = Number.isFinite(a.distance) ? a.distance : Infinity;
+      const dbb = Number.isFinite(b.distance) ? b.distance : Infinity;
+      return da - dbb;
+    });
+
+  res.render('admin/lokasi', {
+    title: 'Lokasi Langsung',
+    enabled,
+    peers,
+    myPosition: me,
+    ttlLabel: Math.round(presence.ttlMs(settings) / 60000) + ' menit',
+    mapData: JSON.stringify({
+      dest: null,
+      checkIn: null,
+      track: [],
+      // Posisi admin sendiri ditampilkan sebagai marker "live".
+      live: me
+        ? { lat: me.lat, lng: me.lng, accuracy: me.accuracy }
+        : null,
+      peers: peers.map((p) => ({
+        role: p.role,
+        name: p.displayName,
+        label: p.label,
+        lat: p.lat,
+        lng: p.lng,
+        distance: p.distance
+      }))
+    })
+  });
+});
+
+/* ------------------------------------------------------------------ */
 /* Destinasi                                                           */
 /* ------------------------------------------------------------------ */
 router.get('/destinasi', (req, res) => {
@@ -88,7 +199,7 @@ router.get('/destinasi/baru', (req, res) => {
   res.render('admin/destination-form', { title: 'Tambah Destinasi', item: null, action: '/admin/destinasi' });
 });
 
-function destFromBody(body, oldImage) {
+function destFromBody(body, oldImage, oldGallery) {
   return {
     name: String(body.name || '').trim(),
     region: String(body.region || '').trim(),
@@ -109,27 +220,55 @@ function destFromBody(body, oldImage) {
     lat: body.lat !== '' && body.lat != null ? parseFloat(body.lat) : null,
     lng: body.lng !== '' && body.lng != null ? parseFloat(body.lng) : null,
     image: oldImage || '/img/dest-default.svg',
-    gallery: [],
-    featured: body.featured === 'on',
+    gallery: Array.isArray(oldGallery) ? oldGallery.slice() : [],
+    featured: helpers.isChecked(body.featured),
     status: body.status === 'published' ? 'published' : 'draft'
   };
 }
 
-router.post('/destinasi', upload.single('imageFile'), (req, res) => {
+/**
+ * Susun daftar galeri final dari gambar utama + berkas galeri baru.
+ * @param {string} mainImage URL gambar utama
+ * @param {string[]} existing URL galeri lama
+ * @param {string[]} added URL berkas galeri baru
+ * @returns {string[]} daftar URL galeri
+ */
+function buildGallery(mainImage, existing, added) {
+  const list = [];
+  if (mainImage) list.push(mainImage);
+  (existing || []).forEach((u) => {
+    if (u && !list.includes(u)) list.push(u);
+  });
+  (added || []).forEach((u) => {
+    if (u && !list.includes(u)) list.push(u);
+  });
+  return list;
+}
+
+router.post(
+  '/destinasi',
+  ...imageFields([
+    { name: 'imageFile', slot: 'card', maxCount: 1 },
+    { name: 'galleryFiles', slot: 'gallery', maxCount: 8 }
+  ]),
+  (req, res) => {
   const body = req.body;
   const errors = [];
   if (!body.name || body.name.trim().length < 3) errors.push('Nama destinasi wajib diisi.');
   if (!body.region || body.region.trim().length < 3) errors.push('Lokasi/region wajib diisi.');
   if (!body.description || body.description.trim().length < 20) errors.push('Deskripsi minimal 20 karakter.');
   if (errors.length) {
+    // Berkas gambar sudah diproses middleware upload; hapus agar tidak yatim.
+    cleanupUploads(req);
     flash('error', errors.join(' '), req);
     return res.redirect('/admin/destinasi/baru');
   }
   const data = req.data;
-  const record = destFromBody(body, req.file ? `/uploads/${req.file.filename}` : null);
+  const record = destFromBody(body, imageUrl(req, 'imageFile'), []);
   record.id = db.uid('dst');
   record.slug = db.uniqueSlug(data.destinations, db.slugify(body.name));
-  record.gallery = record.image ? [record.image] : [];
+  const galleryAdded = (req.processedImages && req.processedImages.galleryFiles) || [];
+  record.gallery = buildGallery(record.image, [], galleryAdded.map((g) => g.url));
   record.createdAt = new Date().toISOString();
   data.destinations.unshift(record);
   db.write();
@@ -147,17 +286,52 @@ router.get('/destinasi/:id/edit', (req, res, next) => {
   });
 });
 
-router.post('/destinasi/:id', upload.single('imageFile'), (req, res, next) => {
+router.post(
+  '/destinasi/:id',
+  ...imageFields([
+    { name: 'imageFile', slot: 'card', maxCount: 1 },
+    { name: 'galleryFiles', slot: 'gallery', maxCount: 8 }
+  ]),
+  (req, res, next) => {
   const data = req.data;
   const item = data.destinations.find((x) => x.id === req.params.id);
-  if (!item) return next();
-  const oldImage = item.image;
-  const updated = destFromBody(req.body, oldImage);
-  if (req.file) {
-    if (oldImage && oldImage.startsWith('/uploads/')) removeUpload(oldImage.replace('/uploads/', ''));
-    updated.image = `/uploads/${req.file.filename}`;
-    updated.gallery = [updated.image];
+  if (!item) {
+    cleanupUploads(req);
+    return next();
   }
+  const oldImage = item.image;
+  const oldGallery = Array.isArray(item.gallery) ? item.gallery.slice() : [];
+
+  // Galeri lama yang masih dipertahankan (admin bisa mencentang untuk dihapus).
+  // CATATAN: field "removeGallery" muncul sebagai string bila hanya satu
+  // checkbox yang dicentang, dan sebagai array bila lebih dari satu.
+  const removedRaw = req.body.removeGallery;
+  const removedGallery = Array.isArray(removedRaw)
+    ? removedRaw
+    : (removedRaw ? [removedRaw] : []);
+  const keptGallery = oldGallery.filter((u) => !removedGallery.includes(u));
+
+  const updated = destFromBody(req.body, oldImage, keptGallery);
+  // Deteksi gambar utama baru dari hasil proses upload (bukan req.file,
+  // karena upload.fields() mengisi req.files, bukan req.file).
+  const newMainImage = imageUrl(req, 'imageFile');
+  if (newMainImage && newMainImage !== oldImage) {
+    updated.image = newMainImage;
+  }
+  const galleryAdded = (req.processedImages && req.processedImages.galleryFiles) || [];
+  // Galeri lama yang memuat gambar utama yang kini diganti harus ikut
+  // dibuang. Kalau tidak, galeri akan tetap menunjuk berkas lama yang
+  // sudah dihapus dari disk → gambar rusak di strip galeri beranda.
+  const carriedGallery = keptGallery.filter((u) => u !== oldImage);
+  updated.gallery = buildGallery(updated.image, carriedGallery, galleryAdded.map((g) => g.url));
+
+  // Hapus berkas gambar yang tidak lagi dipakai.
+  const stillUsed = new Set(updated.gallery);
+  oldGallery.forEach((u) => {
+    if (u && !stillUsed.has(u)) removeUploadByUrl(u);
+  });
+  if (oldImage && !stillUsed.has(oldImage)) removeUploadByUrl(oldImage);
+
   Object.assign(item, updated);
   item.slug = db.uniqueSlug(data.destinations, db.slugify(req.body.name || item.name), item.id);
   db.write();
@@ -170,11 +344,95 @@ router.post('/destinasi/:id/hapus', (req, res, next) => {
   const idx = data.destinations.findIndex((x) => x.id === req.params.id);
   if (idx < 0) return next();
   const [removed] = data.destinations.splice(idx, 1);
-  if (removed.image && removed.image.startsWith('/uploads/')) removeUpload(removed.image.replace('/uploads/', ''));
+  removeUploadByUrl(removed.image);
+  // Hapus semua berkas foto pada galeri.
+  (removed.gallery || []).forEach((u) => {
+    if (u && u !== removed.image) removeUploadByUrl(u);
+  });
   db.write();
   flash('success', `Destinasi "${removed.name}" dihapus.`, req);
   res.redirect('/admin/destinasi');
 });
+
+/* ------------------------------------------------------------------ */
+/* Galeri Destinasi (Admin Management Suite)                          */
+/* ------------------------------------------------------------------ */
+router.get('/galeri', (req, res) => {
+  const d = req.data;
+  const featuredCount = d.destinations.filter((x) => x.featured).length;
+  res.render('admin/galeri', {
+    title: 'Kelola Galeri Destinasi',
+    stats: { total: d.destinations.length, featured: featuredCount },
+    destinations: d.destinations,
+    settings: d.settings || {}
+  });
+});
+
+/**
+ * Unggah batch foto galeri (Gallery Management Suite).
+ *
+ * Route ini dipakai widget batch upload di /admin/galeri. Widget tersebut
+ * sebelumnya hanya mensimulasikan konversi WebP tanpa pernah mengirim
+ * berkas ke server — sekarang jadi nyata.
+ *
+ * Body: multipart/form-data
+ *  - galleryFiles  : file[]  (maks 8)
+ *  - destinationId : text   (opsional — ID destinasi tujuan)
+ *  - kind          : text   ('gallery' default | 'main')
+ *
+ * Respons: JSON { ok, files[], error? }
+ */
+router.post(
+  '/galeri/unggah',
+  ...galleryImages('galleryFiles', 'gallery', 8),
+  (req, res) => {
+    const processed = (req.processedImages && req.processedImages.galleryFiles) || [];
+    if (!processed.length) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Tidak ada berkas gambar yang diunggah.'
+      });
+    }
+
+    const data = req.data;
+    const destId = String(req.body.destinationId || '').trim();
+    const kind = String(req.body.kind || 'gallery').trim();
+
+    // Kalau destinationId diberikan, langsung pasang berkasnya ke destinasi.
+    let dest = null;
+    if (destId) {
+      dest = (data.destinations || []).find((d) => d.id === destId);
+      if (!dest) {
+        cleanupUploads(req);
+        return res.status(404).json({ ok: false, error: 'Destinasi tidak ditemukan.' });
+      }
+    }
+
+    const files = processed.map((p) => ({
+      filename: p.filename,
+      url: p.url,
+      width: p.width || null,
+      height: p.height || null,
+      bytes: p.bytes || null
+    }));
+
+    if (dest) {
+      if (kind === 'main') {
+        const oldImage = dest.image;
+        dest.image = files[0].url;
+        if (oldImage && oldImage !== dest.image) removeUploadByUrl(oldImage);
+      } else {
+        dest.gallery = Array.isArray(dest.gallery) ? dest.gallery : [];
+        files.forEach((f) => {
+          if (!dest.gallery.includes(f.url)) dest.gallery.push(f.url);
+        });
+      }
+      db.write();
+    }
+
+    return res.json({ ok: true, files });
+  }
+);
 
 /* ------------------------------------------------------------------ */
 /* Paket                                                               */
@@ -224,22 +482,23 @@ function pkgFromBody(body, oldImage) {
     includes: parseList(body.includes),
     excludes: parseList(body.excludes),
     image: oldImage || '/img/dest-default.svg',
-    featured: body.featured === 'on',
+    featured: helpers.isChecked(body.featured),
     status: body.status === 'published' ? 'published' : 'draft'
   };
 }
 
-router.post('/paket', upload.single('imageFile'), (req, res) => {
+router.post('/paket', ...singleImage('imageFile', 'card'), (req, res) => {
   const errors = [];
   if (!req.body.title || req.body.title.trim().length < 3) errors.push('Judul paket wajib diisi.');
   if (!req.body.destinationSlug) errors.push('Destinasi wajib dipilih.');
   if (!(parseInt(req.body.price, 10) > 0)) errors.push('Harga harus lebih dari 0.');
   if (errors.length) {
+    cleanupUploads(req);
     flash('error', errors.join(' '), req);
     return res.redirect('/admin/paket/baru');
   }
   const data = req.data;
-  const record = pkgFromBody(req.body, req.file ? `/uploads/${req.file.filename}` : null);
+  const record = pkgFromBody(req.body, imageUrl(req, 'imageFile'));
   record.id = db.uid('pkg');
   record.slug = db.uniqueSlug(data.packages, db.slugify(req.body.title));
   record.createdAt = new Date().toISOString();
@@ -260,15 +519,18 @@ router.get('/paket/:id/edit', (req, res, next) => {
   });
 });
 
-router.post('/paket/:id', upload.single('imageFile'), (req, res, next) => {
+router.post('/paket/:id', ...singleImage('imageFile', 'card'), (req, res, next) => {
   const data = req.data;
   const item = data.packages.find((x) => x.id === req.params.id);
-  if (!item) return next();
+  if (!item) {
+    cleanupUploads(req);
+    return next();
+  }
   const oldImage = item.image;
   const updated = pkgFromBody(req.body, oldImage);
   if (req.file) {
-    if (oldImage && oldImage.startsWith('/uploads/')) removeUpload(oldImage.replace('/uploads/', ''));
-    updated.image = `/uploads/${req.file.filename}`;
+    removeUploadByUrl(oldImage);
+    updated.image = imageUrl(req, 'imageFile');
   }
   Object.assign(item, updated);
   item.slug = db.uniqueSlug(data.packages, db.slugify(req.body.title || item.title), item.id);
@@ -282,7 +544,7 @@ router.post('/paket/:id/hapus', (req, res, next) => {
   const idx = data.packages.findIndex((x) => x.id === req.params.id);
   if (idx < 0) return next();
   const [removed] = data.packages.splice(idx, 1);
-  if (removed.image && removed.image.startsWith('/uploads/')) removeUpload(removed.image.replace('/uploads/', ''));
+  removeUploadByUrl(removed.image);
   db.write();
   flash('success', `Paket "${removed.title}" dihapus.`, req);
   res.redirect('/admin/paket');
@@ -303,29 +565,44 @@ router.get('/artikel/baru', (req, res) => {
   res.render('admin/article-form', { title: 'Tambah Artikel', item: null, action: '/admin/artikel' });
 });
 
-function artFromBody(body, oldImage) {
+/**
+ * Susun data artikel dari body form.
+ *
+ * Catatan: parameter `settings` WAJIB diteruskan eksplisit. Versi lama
+ * menulis `req.data.settings` di dalam fungsi ini, padahal `req` tidak
+ * ada di scope fungsi → ReferenceError "req is not defined" setiap kali
+ * admin membuat artikel.
+ *
+ * @param {object} body body request
+ * @param {string} oldImage URL gambar lama (kalau ada)
+ * @param {object} settings object settings situs (untuk nama penulis bawaan)
+ * @returns {object} data artikel
+ */
+function artFromBody(body, oldImage, settings) {
+  const fallbackAuthor = brandService.authorName(settings || {});
   return {
     title: String(body.title || '').trim(),
     excerpt: String(body.excerpt || '').trim(),
     body: String(body.body || '').trim(),
     category: String(body.category || 'Umum').trim() || 'Umum',
-    author: String(body.author || 'Tim JJE').trim() || 'Tim JJE',
+    author: String(body.author || fallbackAuthor).trim() || fallbackAuthor,
     coverImage: oldImage || '/img/dest-default.svg',
     status: body.status === 'published' ? 'published' : 'draft',
     publishedAt: body.status === 'published' ? new Date().toISOString() : null
   };
 }
 
-router.post('/artikel', upload.single('imageFile'), (req, res) => {
+router.post('/artikel', ...singleImage('imageFile', 'article'), (req, res) => {
   const errors = [];
   if (!req.body.title || req.body.title.trim().length < 5) errors.push('Judul artikel wajib minimal 5 karakter.');
   if (!req.body.body || req.body.body.trim().length < 50) errors.push('Isi artikel minimal 50 karakter.');
   if (errors.length) {
+    cleanupUploads(req);
     flash('error', errors.join(' '), req);
     return res.redirect('/admin/artikel/baru');
   }
   const data = req.data;
-  const record = artFromBody(req.body, req.file ? `/uploads/${req.file.filename}` : null);
+  const record = artFromBody(req.body, imageUrl(req, 'imageFile'), data.settings);
   record.id = db.uid('art');
   record.slug = db.uniqueSlug(data.articles, db.slugify(req.body.title));
   record.createdAt = new Date().toISOString();
@@ -345,15 +622,18 @@ router.get('/artikel/:id/edit', (req, res, next) => {
   });
 });
 
-router.post('/artikel/:id', upload.single('imageFile'), (req, res, next) => {
+router.post('/artikel/:id', ...singleImage('imageFile', 'article'), (req, res, next) => {
   const data = req.data;
   const item = data.articles.find((x) => x.id === req.params.id);
-  if (!item) return next();
+  if (!item) {
+    cleanupUploads(req);
+    return next();
+  }
   const oldImage = item.coverImage;
-  const updated = artFromBody(req.body, oldImage);
+  const updated = artFromBody(req.body, oldImage, data.settings);
   if (req.file) {
-    if (oldImage && oldImage.startsWith('/uploads/')) removeUpload(oldImage.replace('/uploads/', ''));
-    updated.coverImage = `/uploads/${req.file.filename}`;
+    removeUploadByUrl(oldImage);
+    updated.coverImage = imageUrl(req, 'imageFile');
   }
   if (item.status === 'published' && updated.status === 'published') updated.publishedAt = item.publishedAt;
   Object.assign(item, updated);
@@ -368,7 +648,7 @@ router.post('/artikel/:id/hapus', (req, res, next) => {
   const idx = data.articles.findIndex((x) => x.id === req.params.id);
   if (idx < 0) return next();
   const [removed] = data.articles.splice(idx, 1);
-  if (removed.coverImage && removed.coverImage.startsWith('/uploads/')) removeUpload(removed.coverImage.replace('/uploads/', ''));
+  removeUploadByUrl(removed.coverImage);
   db.write();
   flash('success', `Artikel "${removed.title}" dihapus.`, req);
   res.redirect('/admin/artikel');
@@ -396,16 +676,25 @@ router.get('/booking/:id', (req, res, next) => {
   const data = req.data;
   const booking = data.bookings.find((x) => x.id === req.params.id);
   if (!booking) return next();
-  const destination = (data.destinations || []).find((d) => d.slug === booking.packageSlug);
+  // Resolusi destinasi via paket (booking.packageSlug = slug paket).
+  // Kode lama salah membandingkan packageSlug dengan d.slug.
+  const destination = trip.resolveDestination(data, booking);
   const customer = (data.customers || []).find((c) => c.id === booking.customerId) || null;
+  const distance = trip.distanceToDestination(booking, destination);
   res.render('admin/booking-detail', {
     title: `Booking ${booking.code}`,
     booking,
     destination,
     customer,
+    distance,
+    distanceLabel: distance === null ? null : geo.formatDistance(distance),
     mapData: JSON.stringify({
-      dest: destination && destination.lat ? { lat: destination.lat, lng: destination.lng, name: destination.name } : null,
-      checkIn: booking.checkIn || null,
+      dest: destination && geo.isValidLatLng(destination.lat, destination.lng)
+        ? { lat: destination.lat, lng: destination.lng, name: destination.name }
+        : null,
+      checkIn: booking.checkIn && geo.isValidLatLng(booking.checkIn.lat, booking.checkIn.lng)
+        ? booking.checkIn
+        : null,
       track: booking.track || []
     })
   });
@@ -457,7 +746,7 @@ router.post('/booking/:id/status', (req, res, next) => {
   res.redirect(`/admin/booking/${item.id}`);
 });
 
-/* Verifikasi pembayaran manual (bukti transfer dari tamu). */
+/* Verifikasi pembayaran manual (mis. transfer dimuat dari luar iPaymu). */
 router.post('/booking/:id/bayar', (req, res, next) => {
   const data = req.data;
   const item = data.bookings.find((x) => x.id === req.params.id);
@@ -476,9 +765,8 @@ router.post('/booking/:id/tolak-bayar', (req, res, next) => {
   const item = data.bookings.find((x) => x.id === req.params.id);
   if (!item) return next();
   item.paymentStatus = 'unpaid';
-  item.proofImage = null;
   db.write();
-  flash('error', `Bukti pembayaran booking ${item.code} ditolak. Tamu diminta mengunggah ulang.`, req);
+  flash('error', `Pembayaran booking ${item.code} ditolak. Tamu diminta membayar ulang.`, req);
   res.redirect(`/admin/booking/${item.id}`);
 });
 
@@ -525,18 +813,26 @@ router.post('/pesan/:id/hapus', (req, res, next) => {
 router.get('/pelanggan', (req, res) => {
   const q = String(req.query.q || '').trim().toLowerCase();
   const data = req.data;
+  const presence = require('../services/presence');
+  const settings = data.settings || {};
+  const presenceOn = presence.isEnabled(settings);
+
   let list = (data.customers || []).map((c) => {
     const bookings = (data.bookings || []).filter((b) => b.customerId === c.id);
+    // Posisi terakhir yang dibagikan (jika fitur aktif & pelanggan sedang offline).
+    const live = presenceOn ? presence.get('customer', c.id) : null;
     return {
       ...c,
       bookingCount: bookings.length,
-      lastBooking: bookings.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0] || null
+      lastBooking: bookings.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))[0] || null,
+      livePosition: live,
+      isOnline: !!live
     };
   });
   if (q) list = list.filter((c) => c.name.toLowerCase().includes(q) || c.email.includes(q) || (c.phone || '').includes(q));
   list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
   const pg = helpers.paginate(list, req.query.page, 10);
-  res.render('admin/customers', { title: 'Pelanggan', pg, q: req.query.q || '' });
+  res.render('admin/customers', { title: 'Pelanggan', pg, q: req.query.q || '', presenceOn });
 });
 
 router.post('/pelanggan/:id/hapus', (req, res, next) => {
@@ -593,46 +889,245 @@ router.post('/testimoni/:id/hapus', (req, res, next) => {
 /* ------------------------------------------------------------------ */
 /* Pengaturan & akun                                                   */
 /* ------------------------------------------------------------------ */
+/**
+ * Kelompok field pada halaman Pengaturan.
+ *
+ * Halaman ini memuat 5 form terpisah yang semuanya POST ke /admin/pengaturan.
+ * Kalau route memperlakukan semua field sekaligus, setiap form menimpa field
+ * milik form lain dengan nilai kosong (mis. "Simpan Tema" mematikan tombol
+ * WhatsApp mengambang). Karena itu tiap form menyertakan field tersembunyi
+ * `form` dan route hanya menerapkan field milik kelompok tersebut.
+ */
+const SETTINGS_GROUPS = {
+  site: [
+    'siteName', 'tagline', 'heroTitle', 'heroSubtitle', 'whatsapp', 'email',
+    'phone', 'address', 'instagram', 'facebook', 'about', 'waFloatEnabled',
+    'waFloatMessage', 'logoFile', 'logoImageReset', 'heroFile', 'heroImageReset',
+    'heroMode'
+  ],
+  theme: ['themeMode', 'themeAccent'],
+  gateway: ['ipaymuVa', 'ipaymuApiKey', 'ipaymuProduction'],
+  // Profil publik media sosial + konfigurasi Postiz (self-hosted).
+  social: require('../services/social').settingsFields(),
+  wa: [
+    'waDefaultTemplate',
+    'waQuietStart', 'waQuietEnd', 'waReminderIntervalMin'
+  ],
+  // Gateway WhatsApp OpenWA (self-hosted REST API).
+  // Kredensial API key & webhook secret boleh diisi di sini; kalau dikosongkan
+  // saat disimpan, nilai lama dipertahankan (input password tidak selalu
+  // terkirim ulang oleh browser).
+  openwa: [
+    'openwaBaseUrl', 'openwaApiKey', 'openwaSessionName',
+    'openwaWebhookUrl', 'openwaWebhookSecret'
+  ],
+  // Lokasi langsung (presence): toggle fitur + masa berlaku posisi.
+  presence: ['presenceEnabled', 'presenceTtlMin']
+};
+
+/**
+ * Ambil daftar field yang boleh diproses oleh form yang sedang dikirim.
+ *
+ * Bila field `form` tidak dikenal (permintaan lama / pihak ketiga), semua
+ * field diperlakukan sebagai kelompok "site" — perilaku lama.
+ *
+ * @param {object} body body request
+ * @returns {Set<string>} nama field yang boleh diubah
+ */
+function settingsScope(body) {
+  const group = SETTINGS_GROUPS[body.form];
+  if (group) return new Set(group);
+  return new Set(SETTINGS_GROUPS.site);
+}
+
+/**
+ * Baca nilai teks dari body, tapi hanya bila field-nya termasuk dalam scope.
+ * @param {object} b body request
+ * @param {Set<string>} scope field yang boleh diubah
+ * @param {string} key nama field
+ * @param {string} fallback nilai lama bila field tidak dikirim
+ * @returns {string} nilai baru
+ */
+function scopedText(b, scope, key, fallback) {
+  if (!scope.has(key)) return fallback;
+  return String(b[key] === undefined ? fallback : b[key]).trim();
+}
+
+/**
+ * Baca nilai jam (0–23) dari body, hanya bila field-nya termasuk scope.
+ *
+ * Nilai di luar rentang ditolak dan fallback dipakai supaya jam tenang
+ * tidak pernah berisi angka nonsense (mis. 99) yang membuat logika
+ * pengingat diam-diam tidak berjalan.
+ *
+ * @param {object} b body request
+ * @param {Set<string>} scope field yang boleh diubah
+ * @param {string} key nama field
+ * @param {number} fallback nilai lama / bawaan
+ * @returns {number} jam valid 0–23
+ */
+function scopedHour(b, scope, key, fallback, defaultHour) {
+  if (!scope.has(key)) return fallback === undefined ? defaultHour : fallback;
+  const raw = b[key];
+  if (raw === undefined || String(raw).trim() === '') {
+    return fallback === undefined ? defaultHour : fallback;
+  }
+  const n = Number.parseInt(String(raw).trim(), 10);
+  if (!Number.isInteger(n) || n < 0 || n > 23) {
+    return fallback === undefined ? defaultHour : fallback;
+  }
+  return n;
+}
+
+/**
+ * Baca nilai bulat dari body dengan batas minimum & maksimum.
+ *
+ * @param {object} b body request
+ * @param {Set<string>} scope field yang boleh diubah
+ * @param {string} key nama field
+ * @param {number} fallback nilai lama
+ * @param {number} def nilai bawaan bila belum pernah diisi
+ * @param {number} min batas bawah
+ * @param {number} max batas atas
+ * @returns {number} nilai valid
+ */
+function scopedInt(b, scope, key, fallback, def, min, max) {
+  if (!scope.has(key)) return fallback === undefined ? def : fallback;
+  const raw = b[key];
+  if (raw === undefined || String(raw).trim() === '') {
+    return fallback === undefined ? def : fallback;
+  }
+  const n = Number.parseInt(String(raw).trim(), 10);
+  if (!Number.isInteger(n)) return fallback === undefined ? def : fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
 router.get('/pengaturan', (req, res) => {
-  res.render('admin/settings', { title: 'Pengaturan Situs', item: req.data.settings });
+  res.render('admin/settings', {
+    title: 'Pengaturan Situs',
+    item: req.data.settings,
+    // Daftar platform media sosial untuk form tautan profil.
+    socialPlatforms: require('../services/social').PROFILE_PLATFORMS
+  });
 });
 
-router.post('/pengaturan', upload.fields([{ name: 'logoFile', maxCount: 1 }, { name: 'heroFile', maxCount: 1 }]), (req, res) => {
+router.post(
+  '/pengaturan',
+  ...multiImage([
+    { name: 'logoFile', slot: 'logo' },
+    { name: 'heroFile', slot: 'hero' }
+  ]),
+  (req, res) => {
   const data = req.data;
   const b = req.body;
   const s = data.settings;
-  s.siteName = String(b.siteName || s.siteName).trim();
-  s.tagline = String(b.tagline || s.tagline).trim();
-  s.whatsapp = String(b.whatsapp || s.whatsapp).replace(/[^0-9]/g, '');
-  s.email = String(b.email || s.email).trim();
-  s.phone = String(b.phone || s.phone).trim();
-  s.address = String(b.address || s.address).trim();
-  s.instagram = String(b.instagram || s.instagram).trim();
-  s.facebook = String(b.facebook || s.facebook).trim();
-  s.about = String(b.about || s.about).trim();
-  s.heroTitle = String(b.heroTitle || s.heroTitle).trim();
-  s.heroSubtitle = String(b.heroSubtitle || s.heroSubtitle).trim();
-  // Pembayaran
-  s.paymentBank = String(b.paymentBank || s.paymentBank || 'BCA').trim();
-  s.paymentAccount = String(b.paymentAccount || s.paymentAccount || '').trim();
-  s.paymentAccountName = String(b.paymentAccountName || s.paymentAccountName || '').trim();
-  s.midtransServerKey = String(b.midtransServerKey || s.midtransServerKey || '').trim();
-  s.midtransClientKey = String(b.midtransClientKey || s.midtransClientKey || '').trim();
-  if ('midtransProduction' in b) s.midtransProduction = b.midtransProduction === 'on';
-  s.tripayMerchantCode = String(b.tripayMerchantCode || s.tripayMerchantCode || '').trim();
-  s.tripayPrivateKey = String(b.tripayPrivateKey || s.tripayPrivateKey || '').trim();
-  s.tripayApiKey = String(b.tripayApiKey || s.tripayApiKey || '').trim();
-  if ('tripayProduction' in b) s.tripayProduction = b.tripayProduction === 'on';
-  // WhatsApp marketing (hanya token & phone id resmi Cloud API)
-  s.waToken = String(b.waToken || s.waToken || '').trim();
-  s.waPhoneId = String(b.waPhoneId || s.waPhoneId || '').trim();
-  s.waDefaultTemplate = String(b.waDefaultTemplate || s.waDefaultTemplate || '').trim();
-  if (req.files && req.files.logoFile && req.files.logoFile[0]) s.logo = `/uploads/${req.files.logoFile[0].filename}`;
-  if (req.files && req.files.heroFile && req.files.heroFile[0]) s.heroImageUrl = `/uploads/${req.files.heroFile[0].filename}`;
-  if (b.heroImageReset === '1') s.heroImageUrl = '';
-  // Menu WhatsApp mengambang
-  s.waFloatEnabled = b.waFloatEnabled === 'on';
-  s.waFloatMessage = String(b.waFloatMessage || s.waFloatMessage || '').trim();
+  const scope = settingsScope(b);
+
+  if (scope.has('siteName')) s.siteName = scopedText(b, scope, 'siteName', s.siteName);
+  if (scope.has('tagline')) s.tagline = scopedText(b, scope, 'tagline', s.tagline);
+  if (scope.has('heroTitle')) s.heroTitle = scopedText(b, scope, 'heroTitle', s.heroTitle);
+  if (scope.has('heroSubtitle')) s.heroSubtitle = scopedText(b, scope, 'heroSubtitle', s.heroSubtitle);
+  if (scope.has('whatsapp')) s.whatsapp = scopedText(b, scope, 'whatsapp', s.whatsapp).replace(/[^0-9]/g, '');
+  if (scope.has('email')) s.email = scopedText(b, scope, 'email', s.email);
+  if (scope.has('phone')) s.phone = scopedText(b, scope, 'phone', s.phone);
+  if (scope.has('address')) s.address = scopedText(b, scope, 'address', s.address);
+  if (scope.has('instagram')) s.instagram = scopedText(b, scope, 'instagram', s.instagram);
+  if (scope.has('facebook')) s.facebook = scopedText(b, scope, 'facebook', s.facebook);
+  if (scope.has('about')) s.about = scopedText(b, scope, 'about', s.about);
+  // Menu WhatsApp mengambang.
+  // Hanya diubah bila field-nya benar-benar terkirim — kalau tidak, form
+  // lain (mis. "Simpan Tema") akan mematikan tombol ini sebagai efek samping.
+  if (scope.has('waFloatEnabled') && 'waFloatEnabled' in b) {
+    s.waFloatEnabled = helpers.isChecked(b.waFloatEnabled);
+  }
+  if (scope.has('waFloatMessage')) s.waFloatMessage = scopedText(b, scope, 'waFloatMessage', s.waFloatMessage);
+  // Payment gateway iPaymu — nilai kosong berarti admin sengaja
+  // menonaktifkan gateway, jadi TIDAK memakai `|| nilai lama`.
+  if (scope.has('ipaymuVa')) s.ipaymuVa = scopedText(b, scope, 'ipaymuVa', '');
+  if (scope.has('ipaymuApiKey')) s.ipaymuApiKey = scopedText(b, scope, 'ipaymuApiKey', '');
+  if (scope.has('ipaymuProduction')) s.ipaymuProduction = helpers.isChecked(b.ipaymuProduction);
+  // Media sosial: tautan profil publik + konfigurasi Postiz.
+  // Hanya field milik kelompok "social" yang boleh berubah agar form lain
+  // (mis. "Simpan Tema") tidak menimpa tautan profil.
+  const socialScope = require('../services/social');
+  const socialUpdates = socialScope.normalizeSettings(b, s);
+  Object.keys(socialUpdates).forEach((key) => {
+    if (!scope.has(key)) return;
+    s[key] = socialUpdates[key];
+  });
+  // WhatsApp marketing (template blast + aturan etika pengiriman)
+  if (scope.has('waDefaultTemplate')) s.waDefaultTemplate = scopedText(b, scope, 'waDefaultTemplate', '');
+  // Jam tenang: nilai 0–23. Start == end berarti jam tenang dimatikan.
+  if (scope.has('waQuietStart')) s.waQuietStart = scopedHour(b, scope, 'waQuietStart', s.waQuietStart, 21);
+  if (scope.has('waQuietEnd')) s.waQuietEnd = scopedHour(b, scope, 'waQuietEnd', s.waQuietEnd, 8);
+  // Interval pemeriksaan pengingat (menit), minimal 5 menit.
+  if (scope.has('waReminderIntervalMin')) {
+    s.waReminderIntervalMin = scopedInt(b, scope, 'waReminderIntervalMin', s.waReminderIntervalMin, 30, 5, 1440);
+  }
+  // Gateway WhatsApp OpenWA (self-hosted).
+  // Field kosong berarti "pertahankan yang lama" — kecuali `openwaClear`,
+  // yang dipakai admin untuk melepas konfigurasi gateway lama.
+  if (scope.has('openwaBaseUrl')) {
+    if (b.openwaClear === '1' || b.openwaClear === 'on') {
+      s.openwaBaseUrl = '';
+      s.openwaApiKey = '';
+      s.openwaSessionName = '';
+      s.openwaWebhookUrl = '';
+      s.openwaWebhookSecret = '';
+    } else {
+      const baseUrl = scopedText(b, scope, 'openwaBaseUrl', '');
+      if (baseUrl) s.openwaBaseUrl = baseUrl.replace(/\/+$/, '');
+      const apiKey = scopedText(b, scope, 'openwaApiKey', '');
+      if (apiKey) s.openwaApiKey = apiKey;
+      const sessionName = scopedText(b, scope, 'openwaSessionName', '');
+      if (sessionName) s.openwaSessionName = sessionName;
+      const webhookUrl = scopedText(b, scope, 'openwaWebhookUrl', '');
+      if (webhookUrl) s.openwaWebhookUrl = webhookUrl;
+      const webhookSecret = scopedText(b, scope, 'openwaWebhookSecret', '');
+      if (webhookSecret) s.openwaWebhookSecret = webhookSecret;
+    }
+  }
+  // Lokasi langsung (presence): toggle fitur & masa berlaku posisi (menit).
+  // Checkbox yang tidak dicentang berarti admin sengaja mematikan fitur.
+  if (scope.has('presenceEnabled')) {
+    s.presenceEnabled = helpers.isChecked(b.presenceEnabled);
+  }
+  if (scope.has('presenceTtlMin')) {
+    s.presenceTtlMin = scopedInt(b, scope, 'presenceTtlMin', s.presenceTtlMin, 5, 1, 120);
+  }
+
+  // Logo: berkas lama dihapus ketika diganti agar tidak ada berkas yatim.
+  const logoUrl = imageUrl(req, 'logoFile');
+  if (logoUrl && logoUrl !== s.logo) {
+    removeUploadByUrl(s.logo);
+    s.logo = logoUrl;
+  }
+  // Kembalikan logo ke berkas bawaan (/img/logo.svg). Berkas unggahan
+  // sebelumnya ikut dihapus supaya tidak ada berkas yatim.
+  if (b.logoImageReset === '1' && s.logo && s.logo.startsWith('/uploads/')) {
+    removeUploadByUrl(s.logo);
+    s.logo = '/img/logo.svg';
+  }
+  // Gambar hero: sama — berkas lama dihapus saat diganti atau dikembalikan
+  // ke gambar default.
+  const heroUrl = imageUrl(req, 'heroFile');
+  if (heroUrl && heroUrl !== s.heroImageUrl) {
+    removeUploadByUrl(s.heroImageUrl);
+    s.heroImageUrl = heroUrl;
+  }
+  if (b.heroImageReset === '1' && s.heroImageUrl) {
+    removeUploadByUrl(s.heroImageUrl);
+    s.heroImageUrl = '';
+  }
+  // Mode hero: auto | video | image. Nilai tak dikenal diabaikan (tetap auto).
+  if (scope.has('heroMode') && ['auto', 'video', 'image'].includes(String(b.heroMode || ''))) {
+    s.heroMode = String(b.heroMode);
+  }
+  // Tema tampilan: mode terang/gelap + warna aksen
+  if (scope.has('themeMode') && themeService.THEME_MODES.includes(String(b.themeMode || ''))) {
+    s.themeMode = b.themeMode;
+  }
+  if (scope.has('themeAccent') && b.themeAccent) s.themeAccent = themeService.normalizeAccent(b.themeAccent);
   db.write();
   flash('success', 'Pengaturan situs berhasil disimpan.', req);
   res.redirect('/admin/pengaturan');
@@ -654,13 +1149,14 @@ router.get('/seo', (req, res) => {
   });
 });
 
-router.post('/seo', upload.fields([{ name: 'ogFile', maxCount: 1 }]), (req, res) => {
+router.post('/seo', ...multiImage([{ name: 'ogFile', slot: 'og' }]), (req, res) => {
   const s = req.data.settings;
   const b = req.body;
   s.siteUrl = String(b.siteUrl || '').trim().replace(/\/+$/, '');
   s.seoDescription = String(b.seoDescription || '').trim().slice(0, 300);
-  s.seoIndex = b.seoIndex === 'on';
-  if (req.files && req.files.ogFile && req.files.ogFile[0]) s.ogImageUrl = `/uploads/${req.files.ogFile[0].filename}`;
+  s.seoIndex = helpers.isChecked(b.seoIndex);
+  const ogUrl = imageUrl(req, 'ogFile');
+  if (ogUrl) s.ogImageUrl = ogUrl;
   if (b.ogImageReset === '1') s.ogImageUrl = '';
   db.write();
   flash('success', 'Pengaturan SEO berhasil disimpan.', req);

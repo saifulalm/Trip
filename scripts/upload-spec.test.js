@@ -10,6 +10,15 @@
 const assert = require('assert');
 const path = require('path');
 const root = path.join(__dirname, '..');
+
+// PENTING: basis data uji harus dipisah dari data produksi SEBELUM modul
+// `src/db.js` dimuat (.env-nya dibaca saat require). Semua berkas db.json
+// yang ditulis skrip ini berakhir di folder sementara.
+const os = require('os');
+const fs = require('fs');
+const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sabesi-upload-test-'));
+process.env.SABESI_DATA_DIR = TEST_DATA_DIR;
+
 const image = require(path.join(root, 'src', 'services', 'image'));
 
 let pass = 0;
@@ -1147,10 +1156,230 @@ t('widget menolak dengan pesan jelas bila spesifikasi tidak termuat', () => {
   });
 });
 
+// -- Backend memakai slot yang benar ---------------------------------
+const fsMod = require('fs');
+
+console.log('\n== Slot backend ==');
+
+t('galleryFiles memakai slot gallery di admin.routes.js', () => {
+  const src = fsMod.readFileSync(
+    path.join(root, 'src', 'routes', 'admin.routes.js'), 'utf8');
+  const m = src.match(/\{ name: 'galleryFiles', slot: '([^']+)'/g) || [];
+  assert.ok(m.length >= 2, 'harus ada 2 pemakaian galleryFiles');
+  m.forEach((s) => {
+    assert.ok(
+      s.includes("slot: 'gallery'"),
+      'galleryFiles harus slot gallery, dapat ' + s
+    );
+  });
+});
+
+t('app.js tidak lagi menyimpan pesan "maksimal 5 MB" yang usang', () => {
+  const src = fsMod.readFileSync(path.join(root, 'src', 'app.js'), 'utf8');
+  assert.ok(
+    !/Ukuran gambar maksimal 5 MB\./.test(src),
+    'pesan lama masih ada — batas sudah per-slot'
+  );
+});
+
+t('endpoint /admin/galeri/unggah ada', () => {
+  const src = fsMod.readFileSync(
+    path.join(root, 'src', 'routes', 'admin.routes.js'), 'utf8');
+  assert.ok(
+    src.includes("'/galeri/unggah'"),
+    'route POST /admin/galeri/unggah belum ada'
+  );
+});
+
+t('public/js/upload-batch.js ada', () => {
+  assert.ok(
+    fsMod.existsSync(path.join(root, 'public', 'js', 'upload-batch.js')),
+    'upload-batch.js belum ada'
+  );
+});
+
+t('admin-gallery-suite.js tidak lagi mensimulasikan unggah', () => {
+  const src = fsMod.readFileSync(
+    path.join(root, 'public', 'js', 'admin-gallery-suite.js'), 'utf8');
+  assert.ok(
+    !/Simulate WebP conversion/.test(src),
+    'masih ada simulasi konversi WebP'
+  );
+  assert.ok(
+    /SylUploadBatch/.test(src),
+    'suite galeri harus memakai SylUploadBatch'
+  );
+});
+
+// -- Suite galeri: tombol upload benar-benar POST ke server ----------
+console.log('\n== Galeri: tombol upload mengirim berkas (bukan simulasi) ==');
+
+/**
+ * Uji perilaku tombol "Upload All (WebP)" di /admin/galeri memakai
+ * Chromium (puppeteer).
+ *
+ * INI ADALAH UJI PENANGANAN BUG B2: tombol tersebut sebelumnya hanya
+ * memutar animasi dots dan tidak pernah mengirim berkas ke server.
+ *
+ * Yang dibuktikan:
+ *  1. Tombol memanggil `SylUploadBatch.upload()` dengan berkas terpilih,
+ *  2. Permintaan yang dibuat benar-benar POST multipart ke endpoint
+ *     /admin/galeri/unggah (dicek dari isi FormData yang dikirim),
+ *  3. Setelah berhasil, toast sukses muncul dan tombol dinonaktifkan
+ *     lagi (siap untuk batch berikutnya),
+ *  4. Bila server membalas gagal, pesan error dari server ditampilkan.
+ */
+async function runGalleryUploadSuite() {
+  const browser = await openBrowser('suite unggah galeri (browser)');
+  if (!browser) return;
+
+  const http = require('http');
+
+  const MARKUP = [
+    '<!doctype html><html><body>',
+    '<input type="hidden" name="_csrf" value="token-uji-browser">',
+    '<div id="galleryToastContainer"></div>',
+    '<section class="gallery-upload-bundle" id="galleryUploadZone" data-slot="gallery">',
+    '  <div class="gallery-upload-bundle__drop" data-drop>',
+    '    <p data-gallery-hint></p>',
+    '    <button data-upload disabled>Upload All (WebP)</button>',
+    '  </div>',
+    '  <div class="gallery-upload-bundle__dots"><span data-dot></span><span data-dot></span></div>',
+    '  <input type="file" id="galleryUploadInput" accept="image/jpeg,image/png,image/webp" multiple>',
+    '  <div class="gallery-upload-bundle__meta"><span data-filename></span><span data-meta></span></div>',
+    '</section>',
+    '</body></html>'
+  ].join('\n');
+
+  // Permintaan yang benar-benar diterima server uji.
+  const received = [];
+  // Penghitung terpisah: skenario "gagal" adalah permintaan ke-2 dan
+  // seterusnya (permintaan ke-1 = skenario sukses).
+  let totalRequest = 0;
+
+  const server = http.createServer((req, res) => {
+    if (req.method === 'POST' && req.url === '/admin/galeri/unggah') {
+      const chunks = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => {
+        const body = Buffer.concat(chunks).toString('latin1');
+        received.push({
+          url: req.url,
+          method: req.method,
+          contentType: req.headers['content-type'] || '',
+          body: body
+        });
+        totalRequest += 1;
+        const gagal = totalRequest > 1; // permintaan kedua = skenario gagal
+        res.writeHead(gagal ? 400 : 200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(gagal
+          ? { ok: false, error: 'Format file harus JPG, PNG, WEBP, atau GIF.' }
+          : {
+              ok: true,
+              files: [{ filename: 'a.webp', url: '/uploads/a.webp', width: 1280, height: 800, bytes: 100 }]
+            }));
+      });
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(MARKUP);
+  });
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const base = 'http://127.0.0.1:' + server.address().port;
+
+  try {
+    const page = await browser.newPage();
+    await page.goto(base + '/admin/galeri', { waitUntil: 'load' });
+
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-spec.js') });
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-batch.js') });
+    await page.addScriptTag({ path: path.join(root, 'public', 'js', 'admin-gallery-suite.js') });
+
+    await ta('hint ukuran pada zona unggah diambil dari spesifikasi slot', async () => {
+      const hint = await page.$eval('[data-gallery-hint]', (el) => el.textContent);
+      assert.ok(/2 MB/.test(hint), 'hint tidak menyebut batas slot: ' + hint);
+      assert.ok(!/5 MB/.test(hint), 'hint masih menyebut batas lama: ' + hint);
+    });
+
+    await ta('tombol upload mengirim berkas POST ke /admin/galeri/unggah', async () => {
+      received.length = 0;
+      await pilihFiles(page, '#galleryUploadInput', [
+        { name: 'satu.png', type: 'image/png' },
+        { name: 'dua.png', type: 'image/png' }
+      ]);
+      await page.click('[data-upload]');
+      await new Promise((r) => setTimeout(r, 800));
+
+      assert.strictEqual(received.length, 1, 'server harus menerima tepat satu permintaan, dapat ' + received.length);
+      const req = received[0];
+      assert.strictEqual(req.url, '/admin/galeri/unggah', 'URL endpoint salah');
+      assert.strictEqual(req.method, 'POST', 'metode harus POST');
+      assert.ok(/multipart\/form-data/.test(req.contentType), 'content-type harus multipart, dapat ' + req.contentType);
+      assert.ok(req.body.indexOf('name="galleryFiles"') > -1, 'field galleryFiles tidak terkirim');
+      assert.ok(req.body.indexOf('filename="satu.png"') > -1, 'berkas satu.png tidak terkirim');
+      assert.ok(req.body.indexOf('filename="dua.png"') > -1, 'berkas dua.png tidak terkirim');
+      assert.ok(req.body.indexOf('name="_csrf"') > -1, 'token CSRF tidak terkirim');
+    });
+
+    await ta('toast sukses muncul setelah unggah berhasil', async () => {
+      const toast = await page.$eval('#galleryToastContainer', (el) => el.textContent);
+      assert.ok(/berhasil diunggah/.test(toast), 'toast sukses tidak muncul: ' + toast);
+    });
+
+    await ta('server membalas gagal -> pesan error server ditampilkan', async () => {
+      received.length = 0;
+      await pilihFiles(page, '#galleryUploadInput', [
+        { name: 'tiga.png', type: 'image/png' }
+      ]);
+      await page.click('[data-upload]');
+      await new Promise((r) => setTimeout(r, 800));
+
+      assert.strictEqual(received.length, 1, 'permintaan tetap harus dikirim meski server gagal');
+      const toast = await page.$eval('#galleryToastContainer', (el) => el.textContent);
+      assert.ok(/Format file/.test(toast), 'pesan error server tidak ditampilkan: ' + toast);
+    });
+
+    await ta('alur upload tetap jalan saat pengguna memilih "kurangi animasi"', async () => {
+      // Bug laten: init() sebelumnya dilewati sepenuhnya bila
+      // prefers-reduced-motion aktif, sehingga admin dengan setelan itu
+      // TIDAK bisa mengunggah sama sekali. Sekarang upload nyata, jadi
+      // alurnya wajib tetap berfungsi.
+      const page2 = await browser.newPage();
+      await page2.emulateMediaFeatures([
+        { name: 'prefers-reduced-motion', value: 'reduce' }
+      ]);
+      await page2.goto(base + '/admin/galeri', { waitUntil: 'load' });
+      await page2.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-spec.js') });
+      await page2.addScriptTag({ path: path.join(root, 'public', 'js', 'upload-batch.js') });
+      await page2.addScriptTag({ path: path.join(root, 'public', 'js', 'admin-gallery-suite.js') });
+
+      const before = received.length;
+      await pilihFiles(page2, '#galleryUploadInput', [
+        { name: 'redux.png', type: 'image/png' }
+      ]);
+      const disabled = await page2.$eval('[data-upload]', (el) => el.disabled);
+      assert.strictEqual(disabled, false, 'tombol upload harus aktif setelah berkas dipilih');
+
+      await page2.click('[data-upload]');
+      await new Promise((r) => setTimeout(r, 800));
+      assert.ok(
+        received.length > before,
+        'permintaan tidak terkirim saat reduce-motion aktif'
+      );
+      await page2.close();
+    });
+  } finally {
+    await browser.close();
+    await new Promise((r) => server.close(r));
+  }
+}
+
 runBackendSuite()
   .then(runDimensionSuite)
   .then(runWidgetSuite)
   .then(runGalleryWidgetSuite)
+  .then(runGalleryUploadSuite)
   .then(() => {
     console.log('\n' + (fail === 0
       ? 'OK - ' + pass + ' pemeriksaan lulus' + (skip ? ', ' + skip + ' dilewati (SKIP)' : '')

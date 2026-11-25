@@ -1,0 +1,132 @@
+<div class="gallery-management">
+  <div class="a-card">
+    <div class="a-card__head">
+      <h2 class="a-card__title">
+        <span class="ico">▣</span> Galeri Destinasi
+        <span class="a-badge-dot is-on" style="background:var(--a-amber)"></span>
+      </h2>
+      <div class="a-toolbar">
+        <div class="a-toolbar__group">
+          <span class="a-chip"><%= stats.total %> total destinasi</span>
+          <span class="a-chip a-chip--accent"><%= stats.featured %> Featured Hero</span>
+        </div>
+        <div class="a-toolbar__spacer"></div>
+        <div class="a-toolbar__group">
+          <input type="search" id="gallerySearch" placeholder="Cari destinasi…">
+          <button class="btn-a btn-a--primary btn-a--sm" id="gallerySaveOrder">
+            <span class="ico">⇅</span> Simpan Urutan
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 1: REORDER CANVAS (DRAG-TO-SORT GRID) ===== -->
+    <section class="reorder-canvas" id="reorderCanvas">
+      <div class="reorder-canvas__head">
+        <h3>✦ Susun Portfolio</h3>
+        <p class="a-section-subtitle">
+          Sebar satu per satu. Susunan ini dipakai untuk urutan tampilan halaman publik.
+        </p>
+      </div>
+      <div class="reorder-canvas__list" id="reorderCanvasList">
+        <% destinations.forEach(function (d, idx) { %>
+          <div class="reorder-canvas__item" data-id="<%= d.id %>">
+            <div class="reorder-canvas__handle">☰</div>
+            <div class="reorder-canvas__thumbnail">
+              <% if (d.image) { %>
+                <img src="<%= d.image %>" alt="<%= d.name %>">
+              <% } else { %>
+                <span class="gallery-empty">📷</span>
+              <% } %>
+            </div>
+            <div class="reorder-canvas__body">
+              <div class="reorder-canvas__title">
+                <span><%= d.name %></span>
+                <span class="reorder-canvas__rank">Posisi <%= idx + 1 %></span>
+              </div>
+              <div class="reorder-canvas__caption"><%= d.tagline || 'Tanpa tagline' %></div>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </section>
+
+    <!-- ===== SECTION 2: GRANULAR CONTROLS ===== -->
+    <section class="granular-controls">
+      <!-- Featured Hero toggle -->
+      <div class="granular-controls__card" data-target="Featured Hero">
+        <div class="granular-controls__title">★ Featured Hero</div>
+        <div class="granular-controls__desc">
+          Pindahkan item ini ke posisi pertama dan jadikan hero utama halaman.
+        </div>
+        <label class="feature-switch">
+          <input type="checkbox" data-target="Featured Hero" id="featuredHero">
+          <span class="feature-switch__label">
+            <span class="dot"></span>
+            Aktifkan <%= stats.featured > 0 ? 'sebagai' : 'sebagai' %> Featured Hero
+          </span>
+        </label>
+      </div>
+
+      <!-- Caption editor -->
+      <div class="granular-controls__card">
+        <div class="granular-controls__title">✎ Caption</div>
+        <div class="granular-controls__desc">
+          Tambahkan tagline singkat untuk galeri publik. Kosongkan untuk default.
+        </div>
+        <div class="caption-editor">
+          <textarea id="globalCaption" placeholder="Masukkan caption global untuk galeri…"><%= settings.galleryCaption || '' %></textarea>
+          <div class="caption-editor__actions">
+            <button class="btn-a btn-a--ghost btn-a--sm" data-save-caption>Simpan Caption</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Batch delete -->
+      <div class="granular-controls__card">
+        <div class="granular-controls__title">🗑 Batch Delete</div>
+        <div class="granular-controls__desc">
+          Pilih item destinasi yang akan dihapus dalam satu tindakan.
+        </div>
+        <div class="batch-delete">
+          <input type="checkbox" id="selectAll">
+          <label for="selectAll" style="font-size:0.82rem;font-weight:600;color:var(--a-soft)">Pilih semuanya</label>
+          <span class="batch-delete__count">Pilih item</span>
+          <button class="batch-delete__btn"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-trash"/></svg></span>Hapus</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SECTION 3: BATCH MEDIA UPLOAD ===== -->
+    <section class="gallery-upload-bundle" id="galleryUploadZone" data-slot="gallery">
+      <div class="gallery-upload-bundle__drop" data-drop>
+        <span class="ico">☁️</span>
+        <h3>Upload Batch Media</h3>
+        <p>
+          Seret & lepas beberapa gambar secara bersamaan.
+          Setiap file dikonversi ke WebP otomatis di server.
+        </p>
+        <div class="gallery-upload-bundle__dots" id="uploadDots">
+          <span data-dot></span><span data-dot></span><span data-dot></span>
+        </div>
+        <p style="font-size:0.75rem;color:var(--a-soft)" data-gallery-hint>
+          Rasio 16:10 (1280x800) - JPG, PNG, atau WEBP - maksimal 2 MB · maksimal 8 file per unggahan
+        </p>
+        <button class="btn-a btn-a--deep btn-a--sm" data-upload disabled>
+          🖼 Upload All (WebP)
+        </button>
+      </div>
+      <input type="file" id="galleryUploadInput" accept="image/jpeg,image/png,image/webp" multiple>
+      <div class="gallery-upload-bundle__meta">
+        <span data-filename></span>
+        <span data-meta></span>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="galleryToastContainer"></div>
+
+<script src="/js/upload-spec.js" defer></script>
+<script src="/js/upload-batch.js" defer></script>
+<script src="/js/admin-gallery-suite.js" defer></script>

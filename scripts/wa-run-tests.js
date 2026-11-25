@@ -21,6 +21,7 @@ const suites = [
   'social-unit.test.js',
   'geo-trip.test.js',
   'upload-spec.test.js',
+  'gallery-upload.test.js',
   'presence.test.js',
   'hero-mode.test.js',
   'admin-sprite.test.js'
