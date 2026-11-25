@@ -152,7 +152,164 @@ t('maxBytes tiap slot <= MAX_FILE_SIZE absolut, kecuali proof', () => {
   assert.ok(image.SLOT_SPECS.proof.maxBytes > image.MAX_FILE_SIZE);
 });
 
-console.log('\n' + (fail === 0
-  ? 'OK - ' + pass + ' pemeriksaan lulus'
-  : fail + ' dari ' + (pass + fail) + ' pemeriksaan GAGAL'));
-process.exit(fail === 0 ? 0 : 1);
+// -- Validasi backend per-slot -----------------------------------
+const upload = require(path.join(root, 'src', 'middleware', 'upload'));
+const sharpLib = require(path.join(root, 'node_modules', 'sharp'));
+
+console.log('\n== Validasi backend ==');
+
+/**
+ * Uji asinkron: menunggu hasil sebelum menghitung PASS/FAIL.
+ * Fungsi ini terpisah dari `t` (sinkron) supaya kasus yang memakai
+ * `await` benar-benar dieksekusi, bukan hanya dijadwalkan.
+ */
+async function ta(name, fn) {
+  try {
+    await fn();
+    pass += 1;
+    console.log('  PASS  ' + name);
+  } catch (err) {
+    fail += 1;
+    console.log('  FAIL  ' + name + '  ->  ' + err.message);
+  }
+}
+
+async function runBackendSuite() {
+  await ta('SLOT_BY_FIELD memetakan semua field form yang dipakai', () => {
+    assert.ok(upload.SLOT_BY_FIELD, 'SLOT_BY_FIELD harus ada');
+    assert.strictEqual(upload.SLOT_BY_FIELD.imageFile, 'card');
+    assert.strictEqual(upload.SLOT_BY_FIELD.logoFile, 'logo');
+    assert.strictEqual(upload.SLOT_BY_FIELD.heroFile, 'hero');
+    assert.strictEqual(upload.SLOT_BY_FIELD.ogFile, 'og');
+    assert.strictEqual(upload.SLOT_BY_FIELD.mediaFile, 'media');
+    assert.strictEqual(upload.SLOT_BY_FIELD.proof, 'proof');
+    assert.strictEqual(upload.SLOT_BY_FIELD.galleryFiles, 'gallery');
+  });
+
+  await ta('FIELD_SLOTS yang lama sudah dihapus (dead code)', () => {
+    assert.strictEqual(upload.FIELD_SLOTS, undefined, 'FIELD_SLOTS harus dihapus');
+  });
+
+  await ta('errSize menyebut batas slot yang benar', () => {
+    assert.ok(/500 KB/.test(upload.errSize('logo')), upload.errSize('logo'));
+    assert.ok(/2 MB/.test(upload.errSize('card')), upload.errSize('card'));
+    assert.ok(/8 MB/.test(upload.errSize('proof')), upload.errSize('proof'));
+  });
+
+  await ta('errSize menyebut nama slot (label) di pesan', () => {
+    assert.ok(/logo/i.test(upload.errSize('logo')), upload.errSize('logo'));
+    assert.ok(/bukti transfer/i.test(upload.errSize('proof')), upload.errSize('proof'));
+  });
+
+  await ta('formatBytes memformat ukuran dengan benar', () => {
+    assert.strictEqual(upload.formatBytes(512), '512 B');
+    assert.strictEqual(upload.formatBytes(500 * 1024), '500 KB');
+    assert.strictEqual(upload.formatBytes(2 * 1024 * 1024), '2 MB');
+    assert.strictEqual(upload.formatBytes(8 * 1024 * 1024), '8 MB');
+  });
+
+  await ta('validateBuffer menolak berkas lebih besar dari maxBytes slot', async () => {
+    const spec = image.getSlotSpec('logo');
+    const buffer = Buffer.alloc(spec.maxBytes + 1024, 0x41);
+    let err = null;
+    try {
+      await upload.validateBuffer({ buffer, originalname: 'x.png' }, 'logoFile', 'logo');
+    } catch (e) {
+      err = e;
+    }
+    assert.ok(err, 'harus melempar error');
+    assert.strictEqual(err.code, 'LIMIT_FILE_SIZE');
+    assert.ok(/500 KB/.test(err.message), 'pesan harus menyebut batas slot: ' + err.message);
+  });
+
+  await ta('validateBuffer menolak GIF untuk slot card', async () => {
+    const gif = Buffer.concat([Buffer.from('GIF89a', 'ascii'), Buffer.alloc(64, 0x00)]);
+    let err = null;
+    try {
+      await upload.validateBuffer({ buffer: gif, originalname: 'x.gif' }, 'imageFile', 'card');
+    } catch (e) {
+      err = e;
+    }
+    assert.ok(err, 'harus melempar error');
+    assert.strictEqual(err.code, 'INVALID_IMAGE');
+  });
+
+  await ta('validateBuffer menolak JPEG untuk slot logo (MIME per slot)', async () => {
+    const jpeg = Buffer.concat([
+      Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+      Buffer.alloc(64, 0x00)
+    ]);
+    let err = null;
+    try {
+      await upload.validateBuffer({ buffer: jpeg, originalname: 'x.jpg' }, 'logoFile', 'logo');
+    } catch (e) {
+      err = e;
+    }
+    assert.ok(err, 'harus melempar error');
+    assert.strictEqual(err.code, 'INVALID_IMAGE');
+    assert.ok(/logo/i.test(err.message), 'pesan harus menyebut slot: ' + err.message);
+  });
+
+  await ta('validateBuffer menerima PNG valid untuk slot card', async () => {
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+      'base64'
+    );
+    const out = await upload.validateBuffer({ buffer: png, originalname: 'x.png' }, 'imageFile', 'card');
+    assert.strictEqual(out.mime, 'image/png');
+    assert.strictEqual(out.ext, 'png');
+  });
+
+  await ta('validateBuffer 2 argumen tetap sah: slot diturunkan dari field', async () => {
+    const spec = image.getSlotSpec('logo');
+    const buffer = Buffer.alloc(spec.maxBytes + 1024, 0x41);
+    let err = null;
+    try {
+      await upload.validateBuffer({ buffer, originalname: 'x.png' }, 'logoFile');
+    } catch (e) {
+      err = e;
+    }
+    assert.ok(err, 'harus melempar error');
+    assert.strictEqual(err.code, 'LIMIT_FILE_SIZE');
+    assert.ok(/500 KB/.test(err.message), 'pesan harus menyebut batas slot: ' + err.message);
+  });
+
+  await ta('validateBuffer menolak gambar polos untuk hero (guard lama tetap hidup)', async () => {
+    // sharp >= 0.33 memakai `create` untuk membuat gambar solid.
+    const solid = await sharpLib({
+      create: { width: 64, height: 64, channels: 3, background: { r: 255, g: 0, b: 0 } }
+    }).png().toBuffer();
+    let err = null;
+    try {
+      await upload.validateBuffer({ buffer: solid, originalname: 'x.png' }, 'heroFile', 'hero');
+    } catch (e) {
+      err = e;
+    }
+    assert.ok(err, 'harus melempar error');
+    assert.strictEqual(err.code, 'BLANK_IMAGE');
+  });
+
+  await ta('dimensi minimum per slot terdefinisi di SLOT_SPECS', () => {
+    const expected = {
+      card: 800, article: 800, hero: 800, logo: 128,
+      og: 630, media: 600, proof: 800, gallery: 800
+    };
+    Object.keys(expected).forEach((k) => {
+      assert.strictEqual(
+        image.getSlotSpec(k).minShortSide,
+        expected[k],
+        'minShortSide slot ' + k
+      );
+    });
+  });
+}
+
+runBackendSuite().then(() => {
+  console.log('\n' + (fail === 0
+    ? 'OK - ' + pass + ' pemeriksaan lulus'
+    : fail + ' dari ' + (pass + fail) + ' pemeriksaan GAGAL'));
+  process.exit(fail === 0 ? 0 : 1);
+}).catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
