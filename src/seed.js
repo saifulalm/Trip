@@ -688,6 +688,28 @@ function buildSeed() {
     if (owner) b.customerId = owner.id;
   });
 
+  // Rombongan (trip group) demo: menyatukan beberapa kode booking menjadi
+  // satu kapal, supaya peserta satu voyage saling terlihat di peta.
+  // Hanya memakai kode booking yang benar-benar ada di seed ini.
+  const tripGroups = [
+    {
+      id: 'grp_seed_sabesi',
+      name: 'Rombongan Sabesi — 12 Nov 2026',
+      bookingCodes: ['SYL-240501'],
+      meetingPoint: { label: 'Dermaga Waisai', lat: -0.4644, lng: 130.8924 },
+      radiusM: 5000,
+      createdAt: day(5)
+    },
+    {
+      id: 'grp_seed_weh',
+      name: 'Rombongan Weh — 28 Nov 2026',
+      bookingCodes: ['SYL-240504'],
+      meetingPoint: null,
+      radiusM: 5000,
+      createdAt: day(2)
+    }
+  ];
+
   const reviews = [
     {
       id: db.uid('rev'),
@@ -918,7 +940,7 @@ function buildSeed() {
     }
   ];
 
-  return { users, destinations, packages, articles, bookings, messages, contacts, customers, reviews, broadcasts: [], settings, version: 1 };
+  return { users, destinations, packages, articles, bookings, messages, contacts, customers, tripGroups, reviews, broadcasts: [], settings, version: 1 };
 }
 
 function ensureSeed() {
