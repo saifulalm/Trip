@@ -117,6 +117,20 @@ t('getSlotSpec mengembalikan spec, dan fallback ke card', () => {
   assert.strictEqual(image.getSlotSpec('tidak-ada').width, image.SLOT_SPECS.card.width);
 });
 
+t('getSlotSpec aman terhadap kunci prototype (constructor/toString)', () => {
+  // Nama slot bisa berasal dari input pengguna — jangan sampai kunci prototype
+  // Object membocorkan objek non-spec (fungsi) ke pemanggil.
+  ['constructor', 'toString', 'hasOwnProperty', '__proto__'].forEach((k) => {
+    const spec = image.getSlotSpec(k);
+    assert.strictEqual(
+      spec,
+      image.SLOT_SPECS.card,
+      'getSlotSpec("' + k + '") harus fallback ke spec card, bukan ' + typeof spec
+    );
+    assert.strictEqual(typeof spec, 'object');
+  });
+});
+
 t('SLOTS lama tetap sinkron dengan SLOT_SPECS (width/height/fit)', () => {
   Object.keys(image.SLOT_SPECS).forEach((k) => {
     const spec = image.SLOT_SPECS[k];

@@ -133,11 +133,19 @@ const SLOT_SPECS = {
 
 /**
  * Ambil spesifikasi slot, dengan fallback ke `card`.
+ *
+ * Nama slot bisa berasal dari input pengguna, jadi pengecekan memakai
+ * `hasOwnProperty` — bukan `||` biasa. Tanpa itu, kunci prototype seperti
+ * `constructor` atau `toString` akan mengembalikan objek non-spec (fungsi)
+ * dan merusak validasi di pemanggil.
+ *
  * @param {string} slotName kunci slot
  * @returns {object} spesifikasi slot
  */
 function getSlotSpec(slotName) {
-  return SLOT_SPECS[slotName] || SLOT_SPECS.card;
+  return Object.prototype.hasOwnProperty.call(SLOT_SPECS, slotName)
+    ? SLOT_SPECS[slotName]
+    : SLOT_SPECS.card;
 }
 
 /** Magic byte -> format gambar yang diizinkan. */
