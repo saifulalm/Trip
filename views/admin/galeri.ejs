@@ -1,40 +1,27 @@
 <!--
-  Gaya hasil unggahan.
-
-  Ruling: blok <style> ini DILETakkan DI DALAM partial
-  `views/admin/galeri.ejs` (file ini milik Task 6). Layout
-  `views/layouts/admin.ejs` dirty milik task lain, dan `public/css/admin.css`
-  punya perubahan lama repo yang belum ter-commit — jadi tidak boleh
-  disentuh.
-
-  Tanpa aturan di bawah, `<img>` pratinjau tampil pada lebar natural
-  (1280 px) sehingga halaman melebar horizontal:
-    desktop 1280 -> scrollWidth 1598 (melebar 318 px)
-    mobile  390 -> scrollWidth 1332 (melebar 942 px)
+  Pratinjau hasil unggahan tidak boleh melebihi lebar wadahnya.
+  Tanpa aturan ini <img> tampil pada lebar natural (1280 px) dan halaman
+  melebar horizontal di ponsel.
 -->
 <style>
-  /* Pratinjau tidak boleh melebihi lebar wadahnya. */
   .upload-result img {
     max-width: 100%;
     height: auto;
     display: block;
   }
 
-  /* Kisi hasil unggah: responsif, kolom otomatis. */
   .upload-results__grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 12px;
   }
 
-  /* Catatan hasil unggah: teks panjang tidak boleh melebar. */
   .upload-results__note {
     min-width: 0;
     max-width: 100%;
     overflow-wrap: anywhere;
   }
 
-  /* Wadah input & hasil pada zona unggah galeri. */
   .gallery-upload-bundle__dest,
   .gallery-upload-bundle__results {
     min-width: 0;
@@ -42,7 +29,6 @@
     overflow-wrap: anywhere;
   }
 
-  /* Kartu satu hasil unggah. */
   .upload-result {
     min-width: 0;
     max-width: 100%;
@@ -61,137 +47,164 @@
 </style>
 
 <div class="gallery-management">
-  <div class="a-card">
-    <div class="a-card__head">
-      <h2 class="a-card__title">
-        <span class="ico">▣</span> Galeri Destinasi
-        <span class="a-badge-dot is-on" style="background:var(--a-amber)"></span>
-      </h2>
-      <div class="a-toolbar">
-        <div class="a-toolbar__group">
-          <span class="a-chip"><%= stats.total %> total destinasi</span>
-          <span class="a-chip a-chip--accent"><%= stats.featured %> Featured Hero</span>
-        </div>
-        <div class="a-toolbar__spacer"></div>
-        <div class="a-toolbar__group">
-          <input type="search" id="gallerySearch" placeholder="Cari destinasi…">
-          <button class="btn-a btn-a--primary btn-a--sm" id="gallerySaveOrder">
-            <span class="ico">⇅</span> Simpan Urutan
-          </button>
-        </div>
+  <section class="presisi-band" aria-labelledby="galleryTitle">
+    <div class="presisi-band__copy">
+      <span class="presisi-eyebrow">Panel Admin · Galeri</span>
+      <h1 id="galleryTitle">Susun portfolio tanpa ragu</h1>
+      <p>
+        Setiap kartu punya nomor posisi, status publikasi, dan penanda unggulan.
+        Urutan di halaman ini adalah urutan galeri yang dilihat pengunjung.
+      </p>
+      <div class="presisi-band__actions">
+        <button class="btn-a btn-a--primary" id="gallerySaveOrder" type="button">
+          <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-check"/></svg></span>
+          Simpan urutan
+        </button>
+        <a class="btn-a btn-a--ghost" href="/admin/destinasi">
+          <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-island"/></svg></span>
+          Kelola destinasi
+        </a>
       </div>
     </div>
-
-    <!-- ===== SECTION 1: REORDER CANVAS (DRAG-TO-SORT GRID) ===== -->
-    <section class="reorder-canvas" id="reorderCanvas">
-      <div class="reorder-canvas__head">
-        <h3>✦ Susun Portfolio</h3>
-        <p class="a-section-subtitle">
-          Sebar satu per satu. Susunan ini dipakai untuk urutan tampilan halaman publik.
-        </p>
+    <dl class="presisi-band__stats">
+      <div class="presisi-band__stat">
+        <dt>Destinasi</dt>
+        <dd><%= stats.total %><small>kartu portofolio</small></dd>
       </div>
-      <div class="reorder-canvas__list" id="reorderCanvasList">
-        <% destinations.forEach(function (d, idx) { %>
-          <div class="reorder-canvas__item" data-id="<%= d.id %>">
-            <div class="reorder-canvas__handle">☰</div>
-            <div class="reorder-canvas__thumbnail">
-              <% if (d.image) { %>
-                <img src="<%= d.image %>" alt="<%= d.name %>">
-              <% } else { %>
-                <span class="gallery-empty">📷</span>
-              <% } %>
-            </div>
-            <div class="reorder-canvas__body">
-              <div class="reorder-canvas__title">
-                <span><%= d.name %></span>
-                <span class="reorder-canvas__rank">Posisi <%= idx + 1 %></span>
+      <div class="presisi-band__stat">
+        <dt>Unggulan</dt>
+        <dd><%= stats.featured %><small>tampil di beranda</small></dd>
+      </div>
+      <div class="presisi-band__stat">
+        <dt>Foto galeri</dt>
+        <dd><%= stats.photos %><small>berkas terpasang</small></dd>
+      </div>
+    </dl>
+  </section>
+
+  <!-- ===== 01 — SUSUN URUTAN ===== -->
+  <section class="presisi-section" aria-labelledby="reorderTitle">
+    <header class="presisi-section__head">
+      <span class="presisi-step" aria-hidden="true">01</span>
+      <div>
+        <h3 id="reorderTitle">Susun urutan portofolio</h3>
+        <p>Geser kartu, atau pakai tombol naik/turun. Kartu bertepi biru berarti unggulan.</p>
+      </div>
+      <div class="presisi-section__tools">
+        <input type="search" id="gallerySearch" placeholder="Cari destinasi…" aria-label="Cari destinasi di portofolio">
+        <span class="a-chip" id="galleryOrderState" role="status">Tersimpan</span>
+      </div>
+    </header>
+    <div class="presisi-section__body">
+      <% if (!destinations.length) { %>
+        <div class="a-empty">
+          <span class="a-empty__icon"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-gallery"/></svg></span>
+          <h3>Belum ada destinasi untuk disusun</h3>
+          <p>Tambahkan destinasi pertama, lalu kembali ke halaman ini untuk mengatur urutan portofolio.</p>
+          <a class="btn-a btn-a--primary btn-a--sm" href="/admin/destinasi/baru">
+            <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-plus"/></svg></span>
+            Tambah destinasi
+          </a>
+        </div>
+      <% } else { %>
+        <div class="reorder-canvas__list" id="reorderCanvasList">
+          <% destinations.forEach(function (d, idx) { %>
+            <article class="portfolio-card<%= d.featured ? ' is-featured' : '' %>"
+                     data-id="<%= d.id %>"
+                     data-name="<%= d.name %>"
+                     draggable="true">
+              <div class="portfolio-card__media">
+                <% if (d.image) { %>
+                  <img src="<%= d.image %>" alt="Foto utama <%= d.name %>" loading="lazy" width="640" height="400">
+                <% } else { %>
+                  <span class="a-empty__icon" style="position:absolute;inset:0;margin:auto;width:44px;height:44px"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-gallery"/></svg></span>
+                <% } %>
+                <span class="portfolio-card__rank" data-rank aria-label="Posisi <%= idx + 1 %>">P<%= String(idx + 1).padStart(2, '0') %></span>
+                <span class="portfolio-card__status">
+                  <span class="badge badge--<%= d.status === 'published' ? 'completed' : 'cancelled' %>">
+                    <%= d.status === 'published' ? 'Terbit' : 'Draf' %>
+                  </span>
+                </span>
+                <span class="portfolio-card__handle" data-handle title="Geser untuk memindah" aria-hidden="true">
+                  <svg viewBox="0 0 22 22"><use href="#i-grip"/></svg>
+                </span>
               </div>
-              <div class="reorder-canvas__caption"><%= d.tagline || 'Tanpa tagline' %></div>
-            </div>
-          </div>
-        <% }); %>
-      </div>
-    </section>
-
-    <!-- ===== SECTION 2: GRANULAR CONTROLS ===== -->
-    <section class="granular-controls">
-      <!-- Featured Hero toggle -->
-      <div class="granular-controls__card" data-target="Featured Hero">
-        <div class="granular-controls__title">★ Featured Hero</div>
-        <div class="granular-controls__desc">
-          Pindahkan item ini ke posisi pertama dan jadikan hero utama halaman.
+              <div class="portfolio-card__body">
+                <h4><%= d.name %></h4>
+                <p class="portfolio-card__region"><%= d.region || 'Tanpa wilayah' %></p>
+              </div>
+              <div class="portfolio-card__foot">
+                <button type="button" class="portfolio-card__star" data-featured
+                        aria-pressed="<%= d.featured ? 'true' : 'false' %>"
+                        aria-label="<%= d.featured ? 'Lepas ' + d.name + ' dari unggulan' : 'Tandai ' + d.name + ' sebagai unggulan' %>"
+                        title="Tandai <%= d.name %> sebagai unggulan">
+                  <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-star"/></svg>
+                  <%= d.featured ? 'Unggulan' : 'Jadikan unggulan' %>
+                </button>
+                <div class="portfolio-card__move">
+                  <button type="button" data-move="up" aria-label="Naikkan <%= d.name %>" <%= idx === 0 ? 'disabled' : '' %>>
+                    <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-arrow-up"/></svg>
+                  </button>
+                  <button type="button" data-move="down" aria-label="Turunkan <%= d.name %>" <%= idx === destinations.length - 1 ? 'disabled' : '' %>>
+                    <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-arrow-down"/></svg>
+                  </button>
+                </div>
+                <a class="btn-a btn-a--ghost btn-a--sm" href="/admin/destinasi/<%= d.id %>/edit">Edit</a>
+              </div>
+            </article>
+          <% }); %>
         </div>
-        <label class="feature-switch">
-          <input type="checkbox" data-target="Featured Hero" id="featuredHero">
-          <span class="feature-switch__label">
-            <span class="dot"></span>
-            Aktifkan <%= stats.featured > 0 ? 'sebagai' : 'sebagai' %> Featured Hero
-          </span>
-        </label>
-      </div>
-
-      <!-- Caption editor -->
-      <div class="granular-controls__card">
-        <div class="granular-controls__title">✎ Caption</div>
-        <div class="granular-controls__desc">
-          Tambahkan tagline singkat untuk galeri publik. Kosongkan untuk default.
-        </div>
-        <div class="caption-editor">
-          <textarea id="globalCaption" placeholder="Masukkan caption global untuk galeri…"><%= settings.galleryCaption || '' %></textarea>
-          <div class="caption-editor__actions">
-            <button class="btn-a btn-a--ghost btn-a--sm" data-save-caption>Simpan Caption</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Batch delete -->
-      <div class="granular-controls__card">
-        <div class="granular-controls__title">🗑 Batch Delete</div>
-        <div class="granular-controls__desc">
-          Pilih item destinasi yang akan dihapus dalam satu tindakan.
-        </div>
-        <div class="batch-delete">
-          <input type="checkbox" id="selectAll">
-          <label for="selectAll" style="font-size:0.82rem;font-weight:600;color:var(--a-soft)">Pilih semuanya</label>
-          <span class="batch-delete__count">Pilih item</span>
-          <button class="batch-delete__btn"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-trash"/></svg></span>Hapus</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== SECTION 3: BATCH MEDIA UPLOAD ===== -->
-    <section class="gallery-upload-bundle" id="galleryUploadZone" data-slot="gallery">
-      <div class="gallery-upload-bundle__drop" data-drop>
-        <span class="ico">☁️</span>
-        <h3>Upload Batch Media</h3>
-        <p>
-          Seret & lepas beberapa gambar secara bersamaan.
-          Setiap file dikonversi ke WebP otomatis di server.
+        <p class="presisi-hint">
+          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info"/></svg>
+          <span id="galleryHint">Perubahan urutan dan unggulan baru tersimpan setelah kamu menekan “Simpan urutan”.</span>
         </p>
-        <div class="gallery-upload-bundle__dots" id="uploadDots">
-          <span data-dot></span><span data-dot></span><span data-dot></span>
+      <% } %>
+    </div>
+  </section>
+
+  <!-- ===== 02 — UNGGAH MEDIA ===== -->
+  <section class="presisi-section" aria-labelledby="uploadTitle">
+    <header class="presisi-section__head">
+      <span class="presisi-step" aria-hidden="true">02</span>
+      <div>
+        <h3 id="uploadTitle">Unggah foto ke galeri</h3>
+        <p>Seret beberapa foto sekaligus; server mengubahnya ke WebP dan menempelkannya ke destinasi.</p>
+      </div>
+    </header>
+    <div class="presisi-section__body">
+      <div class="gallery-upload-bundle" id="galleryUploadZone" data-slot="gallery">
+        <div class="gallery-upload-bundle__drop" data-drop>
+          <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-gallery"/></svg></span>
+          <h3>Seret foto ke sini</h3>
+          <p>
+            Rasio 16:10 (1280×800) · JPG, PNG, atau WEBP · maksimal 2 MB per berkas · maksimal 8 berkas.
+          </p>
+          <div class="gallery-upload-bundle__dots" id="uploadDots">
+            <span data-dot></span><span data-dot></span><span data-dot></span>
+          </div>
+          <label class="gallery-upload-bundle__dest" for="galleryDestinationId">
+            <span>Tempelkan ke ID destinasi (opsional)</span>
+            <input type="text" id="galleryDestinationId" data-destination-id
+                   placeholder="mis. dst_abc123" autocomplete="off">
+          </label>
+          <button class="btn-a btn-a--primary btn-a--sm" data-upload disabled>
+            <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-gallery"/></svg></span>
+            Unggah semua (WebP)
+          </button>
+          <p class="presisi-hint">
+            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info"/></svg>
+            <span>Belum ada berkas dipilih.</span>
+          </p>
         </div>
-        <p style="font-size:0.75rem;color:var(--a-soft)" data-gallery-hint>
-          Rasio 16:10 (1280x800) - JPG, PNG, atau WEBP - maksimal 2 MB · maksimal 8 file per unggahan
-        </p>
-        <label class="gallery-upload-bundle__dest" for="galleryDestinationId">
-          <span>Tempelkan ke ID destinasi (opsional)</span>
-          <input type="text" id="galleryDestinationId" data-destination-id
-                 placeholder="mis. dst_abc123" autocomplete="off">
-        </label>
-        <button class="btn-a btn-a--deep btn-a--sm" data-upload disabled>
-          🖼 Upload All (WebP)
-        </button>
+        <input type="file" id="galleryUploadInput" accept="image/jpeg,image/png,image/webp" multiple>
+        <div class="gallery-upload-bundle__meta">
+          <span data-filename></span>
+          <span data-meta></span>
+        </div>
+        <div class="gallery-upload-bundle__results" data-upload-results hidden></div>
       </div>
-      <input type="file" id="galleryUploadInput" accept="image/jpeg,image/png,image/webp" multiple>
-      <div class="gallery-upload-bundle__meta">
-        <span data-filename></span>
-        <span data-meta></span>
-      </div>
-      <!-- Hasil unggahan: pratinjau + URL berkas -->
-      <div class="gallery-upload-bundle__results" data-upload-results hidden></div>
-    </section>
-  </div>
+    </div>
+  </section>
 </div>
 
 <div id="galleryToastContainer"></div>
@@ -199,3 +212,4 @@
 <script src="/js/upload-spec.js" defer></script>
 <script src="/js/upload-batch.js" defer></script>
 <script src="/js/admin-gallery-suite.js" defer></script>
+<script src="/js/admin-gallery-board.js" defer></script>

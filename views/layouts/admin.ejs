@@ -7,7 +7,7 @@
   <link rel="icon" type="image/svg+xml" href="/img/logo-admin.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/admin.css">
   <link rel="stylesheet" href="/css/admin-design.css">
   <link rel="stylesheet" href="/css/admin-components.css">
@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/css/admin-v2.css">
   <link rel="stylesheet" href="/css/admin-social.css">
   <link rel="stylesheet" href="/css/admin-v3.css">
+  <link rel="stylesheet" href="/css/admin-presisi.css">
   <% if (typeof mapData !== 'undefined' && mapData) { %>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
   <% } %>
@@ -63,6 +64,11 @@
       <g id="i-refresh"><path d="M18 11a7 7 0 1 1-2.1-5"/><path d="M16.5 3.5V6h-2.6"/></g>
       <g id="i-alert"><path d="M11 3.5 19 18H3z"/><path d="M11 8.5v4M11 15h.01"/></g>
       <g id="i-check"><path d="M4 11.5 9 16.5 18 6.5"/></g>
+      <g id="i-bus"><rect x="4" y="3.5" width="14" height="12.5" rx="2.2"/><path d="M4 10.5h14M7.5 16v2.5M14.5 16v2.5M7.5 13h.01M14.5 13h.01"/></g>
+      <g id="i-grip"><path d="M8 6h.01M14 6h.01M8 11h.01M14 11h.01M8 16h.01M14 16h.01"/></g>
+      <g id="i-arrow-up"><path d="M11 17V5M5.5 10.5 11 5l5.5 5.5"/></g>
+      <g id="i-arrow-down"><path d="M11 5v12M5.5 11.5 11 17l5.5-5.5"/></g>
+      <g id="i-info"><circle cx="11" cy="11" r="7.5"/><path d="M11 10v5M11 7.2h.01"/></g>
     </defs>
   </svg>
 
@@ -97,6 +103,7 @@
         <span class="admin-nav__label">Operasional</span>
         <a href="/admin/booking" class="<%= adminPath.startsWith('/booking') ? 'active' : '' %>" data-nav-item data-nav-text="booking pesanan"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-booking"/></svg></span> Booking</a>
         <a href="/admin/lokasi" class="<%= adminPath.startsWith('/lokasi') ? 'active' : '' %>" data-nav-item data-nav-text="lokasi posisi presence"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-radar"/></svg></span> Lokasi Langsung</a>
+        <a href="/admin/angkutan" class="<%= adminPath.startsWith('/angkutan') ? 'active' : '' %>" data-nav-item data-nav-text="angkutan umum transportasi halte stasiun dermaga terdekat"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-bus"/></svg></span> Angkutan Umum</a>
         <a href="/admin/pelanggan" class="<%= adminPath.startsWith('/pelanggan') ? 'active' : '' %>" data-nav-item data-nav-text="pelanggan customer"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-users"/></svg></span> Pelanggan</a>
         <a href="/admin/pesan" class="<%= adminPath.startsWith('/pesan') ? 'active' : '' %>" data-nav-item data-nav-text="pesan masuk kontak inbox"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-mail"/></svg></span> Pesan Masuk</a>
         <a href="/admin/testimoni" class="<%= adminPath.startsWith('/testimoni') ? 'active' : '' %>" data-nav-item data-nav-text="testimoni review ulasan"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-star"/></svg></span> Testimoni</a>

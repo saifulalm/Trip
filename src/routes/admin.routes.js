@@ -13,6 +13,7 @@ const { flash } = require('../middleware/context');
 const { requireLogin, loginLimiter } = require('../middleware/security');
 const trip = require('../services/trip');
 const geo = require('../services/geo');
+const osm = require('../services/osm');
 const gateway = require('../services/wa-gateway');
 const waService = require('../services/wa');
 
@@ -362,12 +363,149 @@ router.post('/destinasi/:id/hapus', (req, res, next) => {
 router.get('/galeri', (req, res) => {
   const d = req.data;
   const featuredCount = d.destinations.filter((x) => x.featured).length;
+  const photoCount = d.destinations.reduce(
+    (sum, x) => sum + (Array.isArray(x.gallery) ? x.gallery.length : 0),
+    0
+  );
   res.render('admin/galeri', {
     title: 'Kelola Galeri Destinasi',
-    stats: { total: d.destinations.length, featured: featuredCount },
+    stats: { total: d.destinations.length, featured: featuredCount, photos: photoCount },
     destinations: d.destinations,
     settings: d.settings || {}
   });
+});
+
+/**
+ * Simpan urutan portofolio.
+ * Urutan array `destinations` adalah urutan tampil di situs publik, jadi
+ * menyimpan = menyusun ulang array lalu menulis DB. Body JSON:
+ * { order: ["id1", "id2", ...] } — harus permutasi lengkap.
+ */
+router.post('/galeri/urutan', (req, res) => {
+  const d = req.data;
+  const order = Array.isArray(req.body && req.body.order) ? req.body.order.map(String) : [];
+  if (order.length !== d.destinations.length) {
+    return res.status(400).json({ ok: false, error: 'Urutan harus memuat semua destinasi.' });
+  }
+  const byId = new Map(d.destinations.map((x) => [String(x.id), x]));
+  const seen = new Set();
+  const next = [];
+  for (const id of order) {
+    if (!byId.has(id) || seen.has(id)) {
+      return res.status(400).json({ ok: false, error: 'Urutan berisi ID tidak dikenal atau ganda.' });
+    }
+    seen.add(id);
+    next.push(byId.get(id));
+  }
+  d.destinations = next;
+  db.write();
+  res.json({ ok: true, order: next.map((x) => x.id) });
+});
+
+/** Tandai/lepas destinasi sebagai unggulan (dipakai kartu portofolio). */
+router.post('/galeri/unggulan', (req, res) => {
+  const d = req.data;
+  const id = String((req.body && req.body.id) || '');
+  const dest = d.destinations.find((x) => String(x.id) === id);
+  if (!dest) return res.status(404).json({ ok: false, error: 'Destinasi tidak ditemukan.' });
+  dest.featured = req.body.featured === true || req.body.featured === 'true';
+  db.write();
+  res.json({ ok: true, id: dest.id, featured: dest.featured });
+});
+
+/* ------------------------------------------------------------------ */
+/* Angkutan umum sekitar (OpenStreetMap / Overpass)                    */
+/* ------------------------------------------------------------------ */
+router.get('/angkutan', async (req, res) => {
+  const d = req.data;
+  const categories = osm.CATEGORIES;
+  const keys = Object.keys(categories);
+  const rawCategory = String(req.query.kategori || 'transport');
+  const category = keys.includes(rawCategory) ? rawCategory : 'transport';
+  const radius = Math.min(5000, Math.max(300, Number(req.query.radius) || 1200));
+
+  const destinations = d.destinations.map((x) => ({
+    id: x.id,
+    name: x.name,
+    region: x.region || '',
+    lat: Number(x.lat),
+    lng: Number(x.lng)
+  }));
+  const withCoords = destinations.filter(
+    (x) => Number.isFinite(x.lat) && Number.isFinite(x.lng)
+  );
+
+  const hasQuery =
+    req.query.cari === '1' || req.query.lat !== undefined || req.query.lng !== undefined;
+  const origin = { label: '', lat: null, lng: null, destId: '' };
+  const baseView = {
+    title: 'Cari Angkutan Umum',
+    categories,
+    category,
+    radius,
+    destinations: withCoords,
+    origin
+  };
+
+  if (!hasQuery) {
+    return res.render('admin/angkutan', {
+      ...baseView,
+      query: { dest: '', lat: '', lng: '' },
+      result: null,
+      searchError: null
+    });
+  }
+
+  const destId = String(req.query.dest || '');
+  const picked = destId ? withCoords.find((x) => String(x.id) === destId) : null;
+  let lat = Number(req.query.lat);
+  let lng = Number(req.query.lng);
+
+  if (picked) {
+    lat = picked.lat;
+    lng = picked.lng;
+    origin.destId = String(picked.id);
+    origin.label = picked.name + (picked.region ? ` · ${picked.region}` : '');
+  } else if (
+    Number.isFinite(lat) && Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+  ) {
+    origin.label = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  } else {
+    lat = null;
+    lng = null;
+  }
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(400).render('admin/angkutan', {
+      ...baseView,
+      query: { dest: origin.destId, lat: req.query.lat || '', lng: req.query.lng || '' },
+      result: null,
+      searchError: 'Pilih destinasi atau isi koordinat yang valid lebih dulu.'
+    });
+  }
+
+  origin.lat = lat;
+  origin.lng = lng;
+
+  try {
+    const result = await osm.nearby({ lat, lng, category, radius, limit: 30 });
+    return res.render('admin/angkutan', {
+      ...baseView,
+      query: { dest: origin.destId, lat, lng },
+      result,
+      searchError: null
+    });
+  } catch (err) {
+    return res.status(502).render('admin/angkutan', {
+      ...baseView,
+      query: { dest: origin.destId, lat, lng },
+      result: null,
+      searchError: err && err.code === 'invalid_query'
+        ? err.message
+        : 'Layanan peta OpenStreetMap sedang tidak merespons. Coba lagi sebentar lagi.'
+    });
+  }
 });
 
 /**

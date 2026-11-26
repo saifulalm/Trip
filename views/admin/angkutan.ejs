@@ -1,0 +1,257 @@
+<%
+  const ringkasJarak = (m) => {
+    const n = Number(m) || 0;
+    if (n >= 1000) return (n / 1000).toFixed(1).replace('.', ',') + ' km';
+    return Math.round(n) + ' m';
+  };
+  const menitJalan = (m) => Math.max(1, Math.round((Number(m) || 0) / 75));
+  const cat = categories[category];
+  const places = result && Array.isArray(result.places) ? result.places : [];
+  const isSearch = !!(origin && origin.label);
+  const formAction = '/admin/angkutan';
+%>
+
+<section class="presisi-band" aria-labelledby="transportTitle">
+  <div class="presisi-band__copy">
+    <span class="presisi-eyebrow">Operasional · Lokasi</span>
+    <h1 id="transportTitle">Cari angkutan umum terdekat</h1>
+    <p>
+      Halte, terminal, stasiun, dan dermaga di sekitar destinasi — datanya dari
+      OpenStreetMap, gratis dan terbuka. Pilih destinasi atau isi koordinat sendiri.
+    </p>
+    <div class="presisi-band__actions">
+      <a class="btn-a btn-a--ghost" href="/admin/destinasi">
+        <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-island"/></svg></span>
+        Daftar destinasi
+      </a>
+      <a class="btn-a btn-a--ghost" href="/admin/lokasi">
+        <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-radar"/></svg></span>
+        Lokasi pelanggan
+      </a>
+    </div>
+  </div>
+  <dl class="presisi-band__stats">
+    <div class="presisi-band__stat">
+      <dt>Kategori</dt>
+      <dd><%= cat ? cat.label : 'Angkutan Umum' %><small><%= cat ? cat.hint : '' %></small></dd>
+    </div>
+    <div class="presisi-band__stat">
+      <dt>Radius</dt>
+      <dd><%= ringkasJarak(radius) %><small>dari titik awal</small></dd>
+    </div>
+    <div class="presisi-band__stat">
+      <dt>Hasil</dt>
+      <dd><%= result ? places.length : '—' %><small><%= result ? 'titik ditemukan' : 'belum mencari' %></small></dd>
+    </div>
+  </dl>
+</section>
+
+<div class="transport-layout">
+  <!-- ===== FORM PENCARIAN ===== -->
+  <section class="presisi-section transport-form" aria-labelledby="transportFormTitle">
+    <header class="presisi-section__head">
+      <span class="presisi-step" aria-hidden="true">01</span>
+      <div>
+        <h3 id="transportFormTitle">Titik awal</h3>
+        <p>Pilih destinasi, atau isi koordinat dan tekan tombol lokasi.</p>
+      </div>
+    </header>
+    <form class="transport-form__body" method="get" action="<%= formAction %>" id="transportForm">
+      <input type="hidden" name="cari" value="1">
+
+      <div class="a-field">
+        <label for="transportDest">Destinasi</label>
+        <select id="transportDest" name="dest">
+          <option value="">— Pilih destinasi —</option>
+          <% destinations.forEach(function (x) { %>
+            <option value="<%= x.id %>" <%= String(query.dest) === String(x.id) ? 'selected' : '' %>>
+              <%= x.name %> · <%= x.lat.toFixed(4) %>, <%= x.lng.toFixed(4) %>
+            </option>
+          <% }); %>
+        </select>
+        <% if (!destinations.length) { %>
+          <p class="presisi-muted">Belum ada destinasi dengan koordinat. Isi latitude/longitude di bawah.</p>
+        <% } %>
+      </div>
+
+      <div class="a-field">
+        <label for="transportLat">Koordinat (boleh manual)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
+          <input type="number" step="any" min="-90" max="90" id="transportLat" name="lat"
+                 value="<%= query.lat === '' || query.lat === null || query.lat === undefined ? '' : query.lat %>"
+                 placeholder="Latitude, mis. -0.4719" inputmode="decimal">
+          <input type="number" step="any" min="-180" max="180" id="transportLng" name="lng"
+                 value="<%= query.lng === '' || query.lng === null || query.lng === undefined ? '' : query.lng %>"
+                 placeholder="Longitude, mis. 130.7515" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="transport-actions">
+        <button type="button" class="btn-a btn-a--ghost btn-a--sm" id="useLocation">
+          <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-pin"/></svg></span>
+          Gunakan lokasi saya
+        </button>
+        <span class="presisi-muted" id="geoStatus" role="status" aria-live="polite"></span>
+      </div>
+
+      <fieldset class="transport-fieldset">
+        <legend>Cari apa?</legend>
+        <div class="transport-chips">
+          <% Object.keys(categories).forEach(function (key) {
+               const c = categories[key];
+               const iconId = key === 'transport' ? 'i-bus' : key === 'hotel' ? 'i-island' : key === 'restaurant' ? 'i-star' : 'i-money';
+          %>
+            <label class="transport-chip">
+              <input type="radio" name="kategori" value="<%= key %>" <%= category === key ? 'checked' : '' %>>
+              <span>
+                <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#<%= iconId %>"/></svg>
+                <%= c.label %>
+              </span>
+            </label>
+          <% }); %>
+        </div>
+      </fieldset>
+
+      <div class="a-field">
+        <label for="transportRadius">Radius pencarian</label>
+        <select id="transportRadius" name="radius">
+          <% [500, 1200, 2500, 5000].forEach(function (r) { %>
+            <option value="<%= r %>" <%= Number(radius) === r ? 'selected' : '' %>><%= ringkasJarak(r) %></option>
+          <% }); %>
+        </select>
+      </div>
+
+      <div class="transport-actions">
+        <button type="submit" class="btn-a btn-a--primary" id="transportSubmit">
+          <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-search"/></svg></span>
+          Cari sekarang
+        </button>
+        <span class="transport-busy" aria-hidden="true"><span class="spinner"></span> Mencari…</span>
+        <% if (isSearch) { %>
+          <a class="btn-a btn-a--ghost btn-a--sm" href="/admin/angkutan">Reset</a>
+        <% } %>
+      </div>
+
+      <% if (isSearch) { %>
+        <div class="transport-origin">
+          <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-pin"/></svg>
+          <div>
+            <strong><%= origin.label %></strong>
+            Titik awal pencarian · <%= origin.lat.toFixed(5) %>, <%= origin.lng.toFixed(5) %>
+          </div>
+        </div>
+      <% } %>
+    </form>
+  </section>
+
+  <!-- ===== HASIL ===== -->
+  <section class="presisi-section transport-results" aria-labelledby="transportResultsTitle">
+    <header class="transport-results__intro">
+      <h3 id="transportResultsTitle">
+        <%= result ? 'Hasil pencarian' : 'Hasil' %>
+      </h3>
+      <% if (result) { %>
+        <p>
+          <%= places.length %> titik · <%= cat ? cat.label : 'fasilitas' %> ·
+          radius <%= ringkasJarak(result.radius || radius) %>
+          <% if (result.cached) { %> · dari cache<% } %>
+          <% if (result.fallback) { %> · sumber cadangan<% } %>
+        </p>
+      <% } else if (!searchError) { %>
+        <p>Pilih titik awal, lalu tekan “Cari sekarang”.</p>
+      <% } %>
+    </header>
+
+    <div class="transport-results__body" id="transportResultsBody">
+      <% if (searchError) { %>
+        <div class="a-empty" role="alert">
+          <span class="a-empty__icon" style="background:#fbe9e7;color:#9a2a24">
+            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-alert"/></svg>
+          </span>
+          <h3>Pencarian belum berhasil</h3>
+          <p><%= searchError %></p>
+          <% if (isSearch) { %>
+            <a class="btn-a btn-a--primary btn-a--sm" href="<%= formAction %>?cari=1&amp;dest=<%= encodeURIComponent(origin.destId || '') %>&amp;lat=<%= encodeURIComponent(origin.lat) %>&amp;lng=<%= encodeURIComponent(origin.lng) %>&amp;kategori=<%= encodeURIComponent(category) %>&amp;radius=<%= encodeURIComponent(radius) %>">
+              <span class="ico"><svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-refresh"/></svg></span>
+              Coba lagi
+            </a>
+          <% } %>
+        </div>
+      <% } else if (!result) { %>
+        <div class="a-empty">
+          <span class="a-empty__icon">
+            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-bus"/></svg>
+          </span>
+          <h3>Belum ada hasil untuk ditampilkan</h3>
+          <p>Pilih destinasi wisata, atau tekan “Gunakan lokasi saya” bila kamu sedang di lokasi. Hasil muncul di sini.</p>
+        </div>
+      <% } else if (!places.length) { %>
+        <div class="a-empty">
+          <span class="a-empty__icon">
+            <svg viewBox="0 0 22 22" aria-hidden="true"><use href="#i-info"/></svg>
+          </span>
+          <h3>Tidak ada <%= cat ? cat.label.toLowerCase() : 'fasilitas' %> dalam <%= ringkasJarak(radius) %></h3>
+          <p>
+            OpenStreetMap belum mencatat titik di radius ini. Perbesar radius atau pindah titik awal.
+          </p>
+          <a class="btn-a btn-a--primary btn-a--sm"
+             href="<%= formAction %>?cari=1&amp;dest=<%= encodeURIComponent(origin.destId || '') %>&amp;lat=<%= encodeURIComponent(origin.lat) %>&amp;lng=<%= encodeURIComponent(origin.lng) %>&amp;kategori=<%= encodeURIComponent(category) %>&amp;radius=5000">
+            Cari dalam radius 5 km
+          </a>
+        </div>
+      <% } else { %>
+        <ol class="transport-results__list transport-results__stale">
+          <% places.forEach(function (p, i) { %>
+            <li class="transport-result">
+              <span class="transport-result__icon" aria-hidden="true">
+                <svg viewBox="0 0 22 22"><use href="#<%= category === 'transport' ? 'i-bus' : category === 'hotel' ? 'i-island' : category === 'restaurant' ? 'i-star' : 'i-money' %>"/></svg>
+              </span>
+              <div style="min-width:0">
+                <p class="transport-result__name"><%= p.name %></p>
+                <p class="transport-result__meta">
+                  <span><%= p.typeLabel || p.type %></span>
+                  <% if (p.address) { %><span class="dot" aria-hidden="true"></span><span><%= p.address %></span><% } %>
+                  <% if (p.openingHours) { %><span class="dot" aria-hidden="true"></span><span>Buka <%= p.openingHours %></span><% } %>
+                  <% if (p.operator) { %><span class="dot" aria-hidden="true"></span><span><%= p.operator %></span><% } %>
+                </p>
+                <p class="transport-result__meta">
+                  <a class="transport-result__link"
+                     href="https://www.openstreetmap.org/?mlat=<%= p.lat %>&amp;mlon=<%= p.lng %>#map=18/<%= p.lat %>/<%= p.lng %>"
+                     target="_blank" rel="noopener noreferrer">
+                    Buka peta OSM<span class="sr-only"> untuk <%= p.name %></span>
+                  </a>
+                  <% if (p.website) { %><span class="dot" aria-hidden="true"></span><a class="transport-result__link" href="<%= p.website %>" target="_blank" rel="noopener noreferrer nofollow">Situs</a><% } %>
+                  <% if (p.phone) { %><span class="dot" aria-hidden="true"></span><span><%= p.phone %></span><% } %>
+                </p>
+              </div>
+              <div class="transport-result__dist">
+                <%= ringkasJarak(p.distance) %>
+                <small>± <%= menitJalan(p.distance) %> mnt jalan</small>
+              </div>
+            </li>
+          <% }); %>
+        </ol>
+      <% } %>
+
+      <div id="transportSkeleton" hidden aria-hidden="true">
+        <div class="transport-results__list">
+          <% [0, 1, 2].forEach(function () { %>
+            <div class="transport-skeleton">
+              <span></span>
+              <div class="transport-skeleton__group"><span></span><span></span></div>
+              <span></span>
+            </div>
+          <% }); %>
+        </div>
+      </div>
+    </div>
+
+    <p class="transport-attribution">
+      <%= result && result.attribution ? result.attribution : 'Data peta © kontributor OpenStreetMap (ODbL)' %>.
+      Hasil bisa tidak lengkap bila pemetaan setempat belum rapi —
+      <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener noreferrer">tambahkan data</a>.
+    </p>
+  </section>
+</div>
+
+<script src="/js/admin-angkutan.js" defer></script>
