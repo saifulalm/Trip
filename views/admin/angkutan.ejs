@@ -76,7 +76,7 @@
 
       <div class="a-field">
         <label for="transportLat">Koordinat (boleh manual)</label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
+        <div class="transport-coords">
           <input type="number" step="any" min="-90" max="90" id="transportLat" name="lat"
                  value="<%= query.lat === '' || query.lat === null || query.lat === undefined ? '' : query.lat %>"
                  placeholder="Latitude, mis. -0.4719" inputmode="decimal">

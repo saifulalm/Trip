@@ -1181,6 +1181,21 @@
   gap: 1rem;
 }
 
+.transport-coords {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.transport-coords input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 480px) {
+  .transport-coords { grid-template-columns: 1fr; }
+}
+
 .transport-fieldset {
   border: 0;
   margin: 0;

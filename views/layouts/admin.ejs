@@ -245,10 +245,12 @@
       function isMobile() { return window.matchMedia('(max-width: 900px)').matches; }
       function setSidebar(open) {
         if (!sidebar) return;
+        var hadFocus = sidebar.contains(document.activeElement);
         sidebar.classList.toggle('open', open);
         if (overlay) overlay.classList.toggle('open', open);
         document.body.style.overflow = open && isMobile() ? 'hidden' : '';
         if (menuBtn) menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (!open && hadFocus && menuBtn) menuBtn.focus();
       }
       if (menuBtn) {
         menuBtn.addEventListener('click', function () {
