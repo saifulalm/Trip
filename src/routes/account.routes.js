@@ -244,6 +244,7 @@ router.get('/akun/booking/:id', requireCustomer, (req, res) => {
     mapData: JSON.stringify({
       dest: destination && destination.lat ? { lat: destination.lat, lng: destination.lng, name: destination.name } : null,
       checkIn: booking.checkIn || null,
+      lastLocation: booking.lastLocation || null,
       track: booking.track || []
     })
   });

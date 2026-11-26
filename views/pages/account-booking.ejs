@@ -88,8 +88,45 @@
         <script id="map-data" type="application/json"><%- mapData %></script>
       </section>
     </div>
+
+    <section class="panel" style="margin-top:1.4rem">
+      <div class="loc-sync" id="locSync"
+           data-booking-id="<%= booking.id %>"
+           data-csrf="<%= csrfToken %>">
+        <h3>📍 Pembaruan Lokasi Perjalanan</h3>
+        <p>
+          Sinyal hilang di tengah perjalanan? Tidak masalah. Titik GPS tetap disimpan di ponsel
+          Anda dan dikirim otomatis begitu sinyal kembali — tim kami melihat posisi terbaru,
+          bukan posisi terakhir saat Anda masih online.
+        </p>
+        <div class="loc-sync__row">
+          <button type="button" class="btn btn--deep btn--sm" id="locSendBtn">Kirim lokasi sekarang</button>
+          <label class="loc-sync__toggle">
+            <input type="checkbox" id="locWatch">
+            Bagikan otomatis selama perjalanan
+          </label>
+        </div>
+        <p class="loc-sync__state" role="status" aria-live="polite">
+          <span class="loc-sync__dot" id="locDot"></span>
+          <span id="locStateText">Menyiapkan…</span>
+        </p>
+        <p class="loc-sync__meta" id="locMeta">
+          <% if (booking.lastLocation) { %>
+            Lokasi terakhir: <strong><%= Number(booking.lastLocation.lat).toFixed(5) %>, <%= Number(booking.lastLocation.lng).toFixed(5) %></strong>
+            · <%= formatDateLong(booking.lastLocation.at) %>
+            <%= booking.lastLocation.accuracy ? '· akurasi ± ' + Math.round(booking.lastLocation.accuracy) + ' m' : '' %>
+          <% } else { %>
+            Belum ada pembaruan lokasi.
+          <% } %>
+        </p>
+        <p class="loc-sync__meta" id="locQueue" hidden></p>
+      </div>
+    </section>
   </div>
 </section>
+
+<script src="/js/loc-queue.js"></script>
+<script src="/js/location-sync.js"></script>
 
 <script>
 (function () {

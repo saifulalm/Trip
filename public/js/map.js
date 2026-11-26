@@ -67,6 +67,21 @@
       bounds.push([data.checkIn.lat, data.checkIn.lng]);
     }
 
+    if (data.lastLocation && typeof data.lastLocation.lat === 'number') {
+      var llMarker = L.circleMarker([data.lastLocation.lat, data.lastLocation.lng], {
+        radius: 8,
+        color: '#1f7a8c',
+        fillColor: '#2f9fb0',
+        fillOpacity: 0.95
+      }).addTo(map);
+      llMarker.bindPopup(
+        '<strong>📡 Lokasi terbaru</strong><br>' +
+          (data.lastLocation.at ? new Date(data.lastLocation.at).toLocaleString('id-ID') : '') +
+          (data.lastLocation.accuracy ? '<br>Akurasi ± ' + Math.round(data.lastLocation.accuracy) + ' m' : '')
+      );
+      bounds.push([data.lastLocation.lat, data.lastLocation.lng]);
+    }
+
     if (bounds.length > 1) {
       map.fitBounds(bounds, { padding: [40, 40] });
     }

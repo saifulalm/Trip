@@ -633,3 +633,70 @@ npm run migrate:brand:dry  # pratinjau migrasi brand
 npm run migrate:brand      # jalankan migrasi brand (+ backup)
 npm run images             # buat ulang gambar SVG aset
 ```
+
+## 14. Fitur Lokasi — "Sekitar Saya" & Sinkronisasi Lokasi Offline
+
+Fitur ini membantu pelanggan menemukan fasilitas di sekitar titik mereka dan
+tetap mengirim posisi terbaru meski sempat kehilangan sinyal.
+
+### 14.1 Sumber data (open source, tanpa API key)
+
+- **Overpass API** (https://overpass-api.de) — POI OpenStreetMap: angkutan
+  umum, hotel/penginapan, restoran/kafe, ATM/bank, kesehatan, darurat, BBM,
+  toko/pasar. Lisensi data ODbL.
+- **Nominatim** (https://nominatim.openstreetmap.org) — reverse geocoding dan
+  pencarian nama tempat.
+- **Leaflet 1.9.4** disajikan lokal dari `public/vendor/leaflet/` (BSD-2),
+  jadi peta tidak bergantung pada CDN pihak ketiga.
+
+Kebijakan layanan dipatuhi di server: User-Agent jelas, cache 10 menit untuk
+POI dan 24 jam untuk geocoding, antrean 1 permintaan/detik ke Nominatim,
+rate limit per IP, dan pemakaian mirror Overpass dengan fallback
+(`GEO_OVERPASS_URL` → daftar cadangan). Bila seluruh endpoint Overpass sedang
+penuh (502/504), pencarian otomatis dialihkan ke pencarian kategori Nominatim
+dalam bounding box radius (`src/services/geo/fallback.js`), dengan data OSM
+yang sama.
+
+### 14.2 Halaman & API
+
+| Rute | Keterangan |
+| --- | --- |
+| `GET /sekitar` | Halaman pencarian; menerima `?lat&lng&name&category` |
+| `GET /api/geo/nearby` | `lat,lng,category,radius,limit` → daftar POI terurut jarak |
+| `GET /api/geo/reverse` | `lat,lng` → nama tempat |
+| `GET /api/geo/places` | `q` → koordinat dari nama tempat |
+| `GET /api/geo/categories` | daftar kategori + atribusi |
+
+Kategori: `transport`, `hotel`, `restaurant`, `atm`, `health`, `emergency`,
+`fuel`, `market`. Radius 300 m–5 km (default 1,2 km).
+
+### 14.3 Lokasi pelanggan saat sinyal hilang
+
+- Halaman detail booking (`/akun/booking/:id`) punya panel **Pembaruan Lokasi
+  Perjalanan**; titik GPS disimpan ke IndexedDB (`public/js/loc-queue.js`) bila
+  jaringan gagal, lalu dikirim saat event `online`, saat halaman dibuka lagi,
+  atau lewat Background Sync di `public/sw.js` (bisa jalan walau tab ditutup).
+- `POST /api/akun/booking/:id/lokasi` — JSON + header `X-CSRF-Token`, hanya
+  pemilik booking, idempoten per `id` titik, maksimal 200 titik/booking.
+  Titik lama tidak menimpa `lastLocation` yang lebih baru.
+- Admin melihat **Lokasi Terbaru** dan riwayat 8 pembaruan terakhir, termasuk
+  penanda "offline sync", di `/admin/booking/:id`.
+- `public/offline.html` tampil sebagai fallback saat navigasi offline.
+
+### 14.4 Environment opsional
+
+```bash
+GEO_OVERPASS_URL=   # kosongkan untuk memakai daftar mirror bawaan
+GEO_NOMINATIM_URL=https://nominatim.openstreetmap.org
+GEO_USER_AGENT=Seayoulatertrip/1.0 (+https://seayoulatertrip.com)
+GEO_TIMEOUT_MS=20000
+```
+
+### 14.5 Uji
+
+```bash
+npm run test:geo      # parser, validasi API, auth/CSRF, offline sync, admin
+```
+
+Uji ini tidak memanggil jaringan: alamat Overpass/Nominatim diarahkan ke port
+lokal yang mati, sehingga aman dijalankan di CI.

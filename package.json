@@ -15,7 +15,8 @@
     "test": "node scripts/test-splash.js",
     "test:upload": "node scripts/test-upload.js",
     "test:admin": "node scripts/test-admin.js",
-    "smoke": "node scripts/smoke-test.js"
+    "smoke": "node scripts/smoke-test.js",
+    "test:geo": "node scripts/test-geo.js"
   },
   "keywords": [
     "wisata",

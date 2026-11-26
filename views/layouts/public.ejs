@@ -38,8 +38,9 @@
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/splash.css">
   <link rel="stylesheet" href="/css/ux.css">
-  <% if (typeof mapData !== 'undefined' && mapData) { %>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+  <link rel="stylesheet" href="/css/geo.css">
+  <% if ((typeof mapData !== 'undefined' && mapData) || (typeof geoPage !== 'undefined' && geoPage)) { %>
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <% } %>
   <%# Script inline di <head> (sebelum body diparse): pasang layer splash
       secepat mungkin supaya situs tidak pernah "terlihat" sebelum splash.
@@ -88,9 +89,14 @@
   <script src="/js/depth.js" defer></script>
   <script src="/js/splash.js" defer></script>
   <script src="/js/upload.js" defer></script>
+  <% if ((typeof mapData !== 'undefined' && mapData) || (typeof geoPage !== 'undefined' && geoPage)) { %>
+    <script src="/vendor/leaflet/leaflet.js"></script>
+  <% } %>
   <% if (typeof mapData !== 'undefined' && mapData) { %>
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
     <script src="/js/map.js"></script>
+  <% } %>
+  <% if (typeof geoPage !== 'undefined' && geoPage) { %>
+    <script src="/js/nearby.js" defer></script>
   <% } %>
 </body>
 </html>

@@ -1,0 +1,81 @@
+<section class="page-hero page-hero--geo">
+  <div class="container">
+    <div class="breadcrumb"><a href="/">Beranda</a> / Sekitar Saya</div>
+    <h1>Temukan yang terdekat</h1>
+    <p>Angkutan umum, hotel, restoran, ATM, dan fasilitas penting di sekitar Anda — dari data peta terbuka OpenStreetMap.</p>
+  </div>
+</section>
+
+<section class="section geo-section">
+  <div class="container">
+    <div class="geo-layout">
+      <div class="geo-panel">
+        <div class="geo-locate-row">
+          <button type="button" id="geo-locate" class="btn btn--sunset">
+            📍 Gunakan lokasi saya
+          </button>
+          <span id="geo-status" class="geo-status" role="status" aria-live="polite">Lokasi belum dipilih.</span>
+        </div>
+
+        <form id="geo-search-form" class="geo-search-row" autocomplete="off">
+          <label class="geo-sr" for="geo-place">Cari nama tempat</label>
+          <input id="geo-place" type="search" placeholder="Atau ketik nama tempat, mis. Labuan Bajo" enterkeyhint="search">
+          <button type="submit" class="btn btn--outline btn--sm">Cari</button>
+        </form>
+        <div id="geo-place-results" class="geo-place-results" hidden></div>
+
+        <div class="geo-field-row">
+          <label class="geo-field">
+            <span>Dari destinasi</span>
+            <select id="geo-dest">
+              <option value="">— pilih destinasi —</option>
+              <% destinations.forEach(function (d) { %>
+                <option value="<%= d.slug %>" data-lat="<%= d.lat %>" data-lng="<%= d.lng %>"><%= d.name %> · <%= d.region %></option>
+              <% }) %>
+            </select>
+          </label>
+          <label class="geo-field">
+            <span>Radius pencarian</span>
+            <select id="geo-radius">
+              <option value="300">300 m</option>
+              <option value="500">500 m</option>
+              <option value="1000">1 km</option>
+              <option value="1200" selected>1,2 km</option>
+              <option value="2000">2 km</option>
+              <option value="3000">3 km</option>
+              <option value="5000">5 km</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="geo-chips" id="geo-chips" role="tablist" aria-label="Kategori fasilitas">
+          <% categories.forEach(function (c) { %>
+            <button type="button" class="geo-chip" role="tab" data-category="<%= c.key %>"
+              aria-selected="<%= c.key === 'transport' ? 'true' : 'false' %>"
+              title="<%= c.hint %>">
+              <span aria-hidden="true"><%= c.icon %></span> <%= c.label %>
+            </button>
+          <% }) %>
+        </div>
+
+        <p class="geo-credit">
+          Data peta: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© kontributor OpenStreetMap</a> (ODbL).
+          Nama tempat: Nominatim. Tanpa API key, tanpa biaya.
+        </p>
+      </div>
+
+      <div class="geo-map-wrap">
+        <div id="geo-map" class="brand-map geo-map" role="img" aria-label="Peta fasilitas di sekitar lokasi terpilih"></div>
+      </div>
+    </div>
+
+    <div id="geo-results" class="geo-results" aria-live="polite">
+      <div class="geo-empty">
+        <h3>Mulai dari lokasi Anda</h3>
+        <p>Tekan <strong>Gunakan lokasi saya</strong>, pilih destinasi, atau ketik nama tempat. Setelah itu daftar fasilitas terdekat muncul di sini, lengkap dengan jarak dan tautan peta.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script id="nearby-config" type="application/json"><%- JSON.stringify({ preset, destinations, categories }).replace(/</g, '\\u003c') %></script>

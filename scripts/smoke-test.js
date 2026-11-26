@@ -109,6 +109,8 @@ async function expectOk(name, pathname, opts = {}) {
     ['Kontak', '/kontak'],
     ['Masuk', '/masuk'],
     ['Daftar', '/daftar'],
+    ['Sekitar', '/sekitar'],
+    ['Sekitar (preset)', '/sekitar?lat=-0.8917&lng=119.8734&name=Labuan%20Bajo&category=hotel'],
     ['Cari', '/cari?q=pulau'],
     ['robots.txt', '/robots.txt'],
     ['sitemap.xml', '/sitemap.xml']

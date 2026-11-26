@@ -42,6 +42,12 @@
         </ul>
       <% } %>
       <a href="/kontak" class="btn btn--sunset" style="width:100%">Tanya Ketersediaan</a>
+      <% if (typeof dest.lat === 'number' && typeof dest.lng === 'number') { %>
+        <div class="geo-cta" style="margin-top:1rem">
+          <p>Sekitar <%= dest.name %><small>Angkutan umum, hotel, restoran, ATM terdekat</small></p>
+          <a class="btn btn--outline btn--sm" href="/sekitar?lat=<%= dest.lat %>&amp;lng=<%= dest.lng %>&amp;name=<%= encodeURIComponent(dest.name) %>&amp;category=transport">Cari di sekitar</a>
+        </div>
+      <% } %>
     </aside>
   </div>
 </section>

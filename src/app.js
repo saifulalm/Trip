@@ -85,6 +85,8 @@ function createApp() {
   app.use(verifyCsrf);
 
   app.use('/', publicRoutes);
+  app.use('/', require('./routes/nearby.routes'));
+  app.use('/', require('./routes/location.routes'));
   app.use('/', require('./routes/payment.routes'));
   app.use('/', require('./routes/account.routes'));
   app.use('/admin', adminRoutes);
