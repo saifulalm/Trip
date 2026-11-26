@@ -241,13 +241,37 @@ function cdp(ws, method, params = {}) {
                   }
                 }
               });
-              return { overflow, worst };
+              const navUnderline = Array.from(document.querySelectorAll('.admin-nav a'))
+                .filter((a) => getComputedStyle(a).textDecorationLine !== 'none').length;
+              let coordsClip = 0;
+              document.querySelectorAll('.transport-coords input').forEach((inp) => {
+                const box = inp.closest('.transport-form');
+                if (box && inp.getBoundingClientRect().right > box.getBoundingClientRect().right + 1) {
+                  coordsClip += 1;
+                }
+              });
+              return { overflow, worst, navUnderline, coordsClip };
             });
             if (data.overflow > 0) {
               fail += 1;
               const detail = data.worst ? ` (${data.worst.tag}.${data.worst.cls})` : '';
               failures.push(`${p} @${vp.name}px → overflow ${data.overflow}px${detail}`);
               console.log(`  GAGAL ${p} @${vp.name}px — overflow ${data.overflow}px${detail}`);
+            } else {
+              pass += 1;
+            }
+            // Regresi: menu sidebar tanpa garis bawah, input koordinat di dalam panelnya.
+            if (data.navUnderline > 0) {
+              fail += 1;
+              failures.push(`${p} @${vp.name}px → ${data.navUnderline} menu sidebar bergaris bawah`);
+              console.log(`  GAGAL ${p} @${vp.name}px — ${data.navUnderline} menu sidebar bergaris bawah`);
+            } else {
+              pass += 1;
+            }
+            if (data.coordsClip > 0) {
+              fail += 1;
+              failures.push(`${p} @${vp.name}px → ${data.coordsClip} input koordinat keluar dari panel`);
+              console.log(`  GAGAL ${p} @${vp.name}px — ${data.coordsClip} input koordinat keluar dari panel`);
             } else {
               pass += 1;
             }
