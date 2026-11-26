@@ -202,6 +202,7 @@
    Sidebar & topbar
    -------------------------------------------------------------------------- */
 .admin-body .admin-sidebar {
+  overflow: hidden;
   background:
     radial-gradient(520px 300px at 8% -6%, rgba(76, 141, 240, 0.16), transparent 70%),
     linear-gradient(180deg, var(--a-sidebar-from), var(--a-sidebar-to));
@@ -212,6 +213,23 @@
   border-radius: 6px;
   color: var(--a2-side-ink);
   min-height: 40px;
+}
+
+/* Menu admin lebih panjang dari layar: gulir di dalam sidebar, jangan
+   sampai menimpa baris versi di bawah. */
+.admin-body .admin-nav {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.2rem;
+  scrollbar-width: thin;
+}
+
+.admin-body .admin-sidebar__foot {
+  flex: 0 0 auto;
+  margin-top: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .admin-body .admin-nav a:hover {
