@@ -1,6 +1,6 @@
 'use strict';
 /**
- * depth.js — mesin efek kedalaman 3D/4D jalanjalanenak.com
+ * depth.js — mesin efek kedalaman 3D/4D seayoulatertrip
  * Semua efek bersifat PROGRESIF ENHANCEMENT: tanpa JS halaman tetap
  * utuh. Dihormati prefers-reduced-motion; tilt dinonaktifkan di perangkat
  * sentuh. Hanya transform/opacity (GPU-friendly), listener passive + rAF.

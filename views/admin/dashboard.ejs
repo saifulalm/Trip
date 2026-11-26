@@ -1,26 +1,26 @@
 <div class="stat-grid">
   <div class="stat-card">
-    <div class="label">Booking Menunggu</div>
+    <div class="label"><svg viewBox="0 0 22 22"><use href="#i-clock"/></svg> Booking Menunggu</div>
     <div class="value"><%= stats.pendingBookings %></div>
     <div class="hint">dari <%= stats.bookings %> total booking</div>
   </div>
   <div class="stat-card">
-    <div class="label">Pesan Belum Dibaca</div>
+    <div class="label"><svg viewBox="0 0 22 22"><use href="#i-mail"/></svg> Pesan Belum Dibaca</div>
     <div class="value"><%= stats.unread %></div>
     <div class="hint">kotak pesan masuk</div>
   </div>
   <div class="stat-card">
-    <div class="label">Destinasi</div>
+    <div class="label"><svg viewBox="0 0 22 22"><use href="#i-island"/></svg> Destinasi</div>
     <div class="value"><%= stats.destinations %></div>
     <div class="hint">pulau terdaftar</div>
   </div>
   <div class="stat-card">
-    <div class="label">Paket Aktif</div>
+    <div class="label"><svg viewBox="0 0 22 22"><use href="#i-ticket"/></svg> Paket Aktif</div>
     <div class="value"><%= stats.packages %></div>
     <div class="hint">paket wisata</div>
   </div>
   <div class="stat-card">
-    <div class="label">Artikel</div>
+    <div class="label"><svg viewBox="0 0 22 22"><use href="#i-article"/></svg> Artikel</div>
     <div class="value"><%= stats.articles %></div>
     <div class="hint">tulisan dipublikasikan</div>
   </div>
@@ -30,10 +30,13 @@
   <section class="panel">
     <div class="panel__head">
       <h2>Booking Terbaru</h2>
-      <a href="/admin/booking" class="btn-a btn-a--ghost btn-a--sm">Lihat semua</a>
+      <a href="/admin/booking" class="btn-a btn-a--ghost btn-a--sm"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-eye"/></svg></span>Lihat semua</a>
     </div>
     <% if (recentBookings.length === 0) { %>
-      <p style="color:var(--a-soft); font-size:0.9rem">Belum ada booking.</p>
+      <div class="a-empty-state">
+        <strong>Belum ada booking</strong>
+        <p>Booking yang masuk akan tampil di sini.</p>
+      </div>
     <% } else { %>
       <div class="table-wrap">
         <table class="a-table">
@@ -60,7 +63,10 @@
       <a href="/admin/pesan" class="btn-a btn-a--ghost btn-a--sm">Kotak pesan</a>
     </div>
     <% if (recentMessages.length === 0) { %>
-      <p style="color:var(--a-soft); font-size:0.9rem">Belum ada pesan.</p>
+      <div class="a-empty-state">
+        <strong>Belum ada pesan</strong>
+        <p>Pesan dari formulir situs akan tampil di sini.</p>
+      </div>
     <% } else { %>
       <% recentMessages.forEach(function (m) { %>
         <div class="msg-item <%= m.read ? '' : 'unread' %>">

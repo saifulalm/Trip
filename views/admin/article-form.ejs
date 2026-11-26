@@ -16,7 +16,7 @@
       </div>
       <div class="a-field">
         <label>Penulis</label>
-        <input type="text" name="author" value="<%= item ? item.author : '' %>" placeholder="Tim JJE">
+        <input type="text" name="author" value="<%= item ? item.author : '' %>" placeholder="Tim <%= brandName %>">
       </div>
       <div class="a-field a-field--full">
         <label>Ringkasan</label>
@@ -27,10 +27,14 @@
         <textarea name="body" rows="14" class="tall" required placeholder="Pisahkan paragraf dengan baris kosong. Gunakan ## Judul Bagian untuk subheading, **tebal** untuk teks tebal."><%= item ? item.body : '' %></textarea>
         <span class="help">Format sederhana: baris kosong = paragraf baru · "## Judul" = heading · **teks** = tebal</span>
       </div>
-      <div class="a-field">
-        <label>Gambar Sampul</label>
-        <input type="file" name="imageFile" accept="image/*">
-        <% if (item && item.coverImage) { %><img src="<%= item.coverImage %>" alt="" class="img-preview" style="margin-top:0.5rem"><% } %>
+      <div class="a-field a-field--full">
+        <%- include('partials/image-upload', {
+          name: 'imageFile',
+          current: item && item.coverImage ? item.coverImage : '',
+          ratio: 'article',
+          label: 'Gambar Sampul',
+          hint: 'Rasio 16:9 (contoh 1280×720) · JPG, PNG, WEBP atau GIF · maksimal 5 MB'
+        }) %>
       </div>
       <div class="a-field">
         <label>Status</label>

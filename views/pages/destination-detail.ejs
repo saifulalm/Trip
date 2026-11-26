@@ -9,7 +9,7 @@
 <section class="section">
   <div class="container detail-grid">
     <div>
-      <img src="<%= dest.image %>" alt="<%= dest.name %>" style="border-radius:var(--radius-m); margin-bottom:1.8rem; width:100%; height:320px; object-fit:cover">
+      <img src="<%= dest.image %>" alt="<%= dest.name %>" style="border-radius:var(--radius-m); margin-bottom:1.8rem; width:100%; height:auto; aspect-ratio:16/10; object-fit:cover; background:var(--sand)">
       <div class="prose"><%- renderRichText(dest.description) %></div>
 
       <h3 style="margin-top:2rem; font-size:1.3rem">Hal menarik di <%= dest.name %></h3>

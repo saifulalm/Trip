@@ -44,7 +44,7 @@
           <% } %>
           <form action="/admin/testimoni/<%= r.id %>/hapus" method="post" onsubmit="return confirm('Hapus ulasan ini?')">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+            <button type="submit" class="btn-a btn-a--danger btn-a--sm"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-trash"/></svg></span>Hapus</button>
           </form>
         </div>
       </div>

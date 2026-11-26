@@ -12,7 +12,7 @@
     <div class="table-wrap">
       <table class="a-table">
         <thead>
-          <tr><th>Nama</th><th>Email</th><th>HP</th><th>Booking</th><th>Booking Terakhir</th><th>Daftar</th><th>Kelola</th></tr>
+          <tr><th>Nama</th><th>Email</th><th>HP</th><th>Booking</th><th>Booking Terakhir</th><% if (presenceOn) { %><th>Lokasi</th><% } %><th>Daftar</th><th>Kelola</th></tr>
         </thead>
         <tbody>
           <% pg.rows.forEach(function (c) { %>
@@ -22,13 +22,25 @@
               <td><%= c.phone || '-' %></td>
               <td><span class="badge badge--<%= c.bookingCount > 0 ? 'confirmed' : 'pending' %>"><%= c.bookingCount %></span></td>
               <td><%= c.lastBooking ? c.lastBooking.code + ' · ' + formatDateShort(c.lastBooking.departureDate) : '-' %></td>
+              <% if (presenceOn) { %>
+                <td>
+                  <% if (c.isOnline) { %>
+                    <span class="badge badge--confirmed">● Online</span><br>
+                    <span style="font-size:0.74rem; opacity:0.75" class="loc-cell__value--mono">
+                      <%= Number(c.livePosition.lat).toFixed(5) %>, <%= Number(c.livePosition.lng).toFixed(5) %>
+                    </span>
+                  <% } else { %>
+                    <span class="badge badge--pending">○ Offline</span>
+                  <% } %>
+                </td>
+              <% } %>
               <td><%= formatDateShort(c.createdAt) %></td>
               <td>
                 <div class="actions">
                   <% if (c.lastBooking) { %><a href="/admin/booking/<%= c.lastBooking.id %>" class="btn-a btn-a--ghost btn-a--sm">Lihat Booking</a><% } %>
                   <form action="/admin/pelanggan/<%= c.id %>/hapus" method="post" onsubmit="return confirm('Hapus akun <%= c.name %>? Booking-nya tetap tersimpan.')">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+                    <button type="submit" class="btn-a btn-a--danger btn-a--sm"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-trash"/></svg></span>Hapus</button>
                   </form>
                 </div>
               </td>

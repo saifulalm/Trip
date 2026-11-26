@@ -7,14 +7,43 @@
 .admin .table-card:hover { box-shadow: 0 18px 36px -20px rgba(6, 31, 37, 0.35); }
 /* ==========================================================================
    Admin panel — Expedition Desk theme
+   Semua token di bawah bersifat semantik agar mode terang/gelap
+   (data-theme) hanya perlu menimpa nilainya, bukan menulis ulang aturan.
    ========================================================================== */
 
 :root {
+  /* Permukaan & teks */
   --a-bg: #f3efe7;
   --a-panel: #ffffff;
+  --a-panel-alt: #fdf9f0;
+  --a-field-bg: #fdfcf9;
   --a-ink: #0a2227;
   --a-soft: #4a6168;
   --a-line: rgba(10, 46, 55, 0.14);
+
+  /* Aksen — nilainya Dioverride oleh service tema (inline style pada <html>) */
+  --accent: #166b7a;
+  --accent-strong: #125663;
+  --accent-deep: #0a3d47;
+  --accent-darkest: #062a32;
+  --accent-soft: #e3f1f3;
+  --accent-softer: #f1f8f9;
+  --accent-glow: rgba(22, 107, 122, 0.22);
+  --accent-line: rgba(22, 107, 122, 0.38);
+  --on-accent: #ffffff;
+
+  /* Sidebar mengikuti tema: warna aksen + mode gelap */
+  --a-sidebar-from: var(--accent-deep);
+  --a-sidebar-to: var(--accent-darkest);
+  /* Tinta sidebar memakai opasitas tinggi supaya tetap terbaca di atas
+     gradasi aksen apa pun (sudah dijamin gelap oleh service tema). */
+  --a-sidebar-ink: rgba(246, 240, 230, 0.94);
+  --a-sidebar-ink-strong: #ffffff;
+  --a-sidebar-label: rgba(246, 240, 230, 0.8);
+  --a-sidebar-hover: rgba(246, 240, 230, 0.09);
+  --a-sidebar-active-bg: linear-gradient(135deg, var(--accent-glow), rgba(255, 255, 255, 0.06));
+
+  /* Status */
   --a-deep: #0a2e37;
   --a-deeper: #061f25;
   --a-teal: #166b7a;
@@ -24,11 +53,70 @@
   --a-green: #2f9e63;
   --a-red: #d64545;
   --a-amber: #d9822b;
+
   --a-radius: 14px;
   --a-shadow: 0 8px 24px -12px rgba(6, 31, 37, 0.25);
+  --a-shadow-strong: 0 18px 36px -20px rgba(6, 31, 37, 0.38);
   --a-font: "Karla", "Segoe UI", sans-serif;
   --a-display: "Fraunces", "Georgia", serif;
+  --a-sidebar-w: 250px;
+  --a-topbar-h: 66px;
 }
+
+/* ---------- Mode gelap ---------- */
+[data-theme="dark"] {
+  --a-bg: #0b191d;
+  --a-panel: #12262c;
+  --a-panel-alt: #162d34;
+  --a-field-bg: #0f2229;
+  --a-ink: #e8f1f2;
+  --a-soft: #9db3b8;
+  --a-line: rgba(246, 240, 230, 0.14);
+
+  --a-deep: #e8f1f2;
+  --a-deeper: #0b191d;
+  --a-teal: var(--teal-400, #2f9fb0);
+  --a-teal-light: var(--teal-300, #6fc4cd);
+
+  --a-shadow: 0 10px 28px -14px rgba(0, 0, 0, 0.7);
+  --a-shadow-strong: 0 20px 40px -20px rgba(0, 0, 0, 0.8);
+}
+
+[data-theme="dark"] .admin-topbar,
+[data-theme="dark"] .panel,
+[data-theme="dark"] .stat-card {
+  background: var(--a-panel);
+}
+
+[data-theme="dark"] .a-field input,
+[data-theme="dark"] .a-field select,
+[data-theme="dark"] .a-field textarea,
+[data-theme="dark"] .filter-bar input,
+[data-theme="dark"] .filter-bar select {
+  background: var(--a-field-bg);
+  color: var(--a-ink);
+  border-color: var(--a-line);
+}
+
+[data-theme="dark"] .a-table tr:hover td { background: var(--accent-glow); }
+[data-theme="dark"] .btn-a--primary { background: var(--accent); color: var(--on-accent); }
+[data-theme="dark"] .btn-a--ghost { color: var(--a-ink); }
+[data-theme="dark"] .login-page { background: var(--a-bg); }
+[data-theme="dark"] .login-main { background: var(--a-bg); }
+[data-theme="dark"] .login-card h1 { color: var(--a-ink); }
+[data-theme="dark"] .a-field label { color: var(--a-ink); }
+[data-theme="dark"] .stat-card .value { color: var(--accent-strong); }
+[data-theme="dark"] .panel__head h2,
+[data-theme="dark"] .admin-topbar h1 { color: var(--a-ink); }
+[data-theme="dark"] .badge--confirmed { background: rgba(47, 158, 99, 0.18); color: #7ee2ac; }
+[data-theme="dark"] .badge--pending { background: rgba(217, 130, 43, 0.18); color: #f5c07a; }
+[data-theme="dark"] .badge--completed { background: rgba(47, 159, 176, 0.18); color: #8fdce6; }
+[data-theme="dark"] .badge--cancelled { background: rgba(214, 69, 69, 0.2); color: #f4a3a3; }
+[data-theme="dark"] .a-flash .flash--success { background: rgba(47, 158, 99, 0.16); color: #a9ecc6; }
+[data-theme="dark"] .a-flash .flash--error { background: rgba(214, 69, 69, 0.18); color: #f7b9b9; }
+[data-theme="dark"] .waypoint-list li { background: var(--a-panel-alt); }
+[data-theme="dark"] .login-hint { background: var(--a-panel-alt); color: var(--a-soft); }
+[data-theme="dark"] .admin-user .avatar { background: var(--accent); color: var(--on-accent); }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -39,30 +127,33 @@ body.admin-body {
   min-height: 100vh;
 }
 
-.admin-shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+.admin-shell { display: grid; grid-template-columns: var(--a-sidebar-w) 1fr; min-height: 100vh; }
 
 /* ---------- Sidebar ---------- */
 .admin-sidebar {
-  background: linear-gradient(180deg, var(--a-deep), var(--a-deeper));
-  color: rgba(246, 240, 230, 0.85);
+  background: linear-gradient(180deg, var(--a-sidebar-from), var(--a-sidebar-to));
+  color: var(--a-sidebar-ink);
   padding: 1.6rem 1.1rem;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.4rem;
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transition: transform 0.3s ease, background 0.4s ease;
 }
 .admin-brand { display: flex; align-items: center; gap: 0.7rem; padding: 0 0.5rem; }
 .admin-brand img { width: 38px; height: 38px; }
-.admin-brand strong { font-family: var(--a-display); font-size: 1.02rem; color: #fff; display: block; line-height: 1.1; }
-.admin-brand small { font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--a-apricot); }
+.admin-brand strong { font-family: var(--a-display); font-size: 1.02rem; color: var(--a-sidebar-ink-strong); display: block; line-height: 1.1; }
+.admin-brand small { font-size: 0.68rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-soft); }
 .admin-nav { display: flex; flex-direction: column; gap: 0.25rem; flex: 1; }
 .admin-nav__label {
   font-size: 0.66rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(246, 240, 230, 0.45);
+  color: var(--a-sidebar-label);
   padding: 1rem 0.75rem 0.35rem;
 }
 .admin-nav a {
@@ -73,17 +164,41 @@ body.admin-body {
   border-radius: 10px;
   font-size: 0.92rem;
   font-weight: 600;
-  color: rgba(246, 240, 230, 0.78);
+  color: var(--a-sidebar-ink);
   transition: background 0.2s, color 0.2s;
 }
-.admin-nav a:hover { background: rgba(246, 240, 230, 0.08); color: #fff; }
+.admin-nav a:hover { background: var(--a-sidebar-hover); color: var(--a-sidebar-ink-strong); }
 .admin-nav a.active {
-  background: linear-gradient(135deg, rgba(242, 166, 90, 0.22), rgba(242, 166, 90, 0.08));
-  color: var(--a-apricot);
-  border-left: 3px solid var(--a-apricot);
+  background: var(--a-sidebar-active-bg);
+  color: var(--a-sidebar-ink-strong);
+  border-left: 3px solid var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
 }
 .admin-nav a .ico { width: 20px; text-align: center; }
-.admin-sidebar__foot { font-size: 0.78rem; color: rgba(246, 240, 230, 0.5); padding: 0 0.6rem; }
+.admin-sidebar__foot { font-size: 0.78rem; color: var(--a-sidebar-label); padding: 0 0.6rem; }
+
+/* Tombol keluar mengikuti tema sidebar (bukan warna hard-coded) */
+.admin-sidebar .btn-a--ghost {
+  color: var(--a-sidebar-ink);
+  border-color: var(--a-sidebar-label);
+}
+.admin-sidebar .btn-a--ghost:hover {
+  background: var(--a-sidebar-hover);
+  color: var(--a-sidebar-ink-strong);
+}
+
+/* Overlay gelap saat sidebar terbuka di layar kecil */
+.admin-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 31, 37, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 95;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.admin-sidebar-overlay.open { opacity: 1; pointer-events: auto; }
 
 /* ---------- Main ---------- */
 .admin-main { display: flex; flex-direction: column; min-width: 0; }
@@ -105,14 +220,29 @@ body.admin-body {
 .admin-user .avatar {
   width: 36px; height: 36px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--a-teal-light), var(--a-teal));
-  color: #fff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-deep));
+  color: var(--on-accent);
   display: grid;
   place-content: center;
   font-weight: 700;
   font-size: 0.82rem;
 }
 .admin-content { padding: 1.8rem 2rem 3rem; }
+
+/* Tombol tema di topbar */
+.theme-toggle {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  border: 1.5px solid var(--a-line);
+  background: transparent;
+  color: var(--a-ink);
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s;
+}
+.theme-toggle:hover { background: var(--accent-glow); border-color: var(--accent-line); transform: translateY(-1px); }
 
 .btn-a {
   display: inline-flex;
@@ -129,11 +259,12 @@ body.admin-body {
   transition: transform 0.2s, box-shadow 0.2s, opacity 0.2s;
 }
 .btn-a:hover { transform: translateY(-1px); }
-.btn-a--primary { background: var(--a-deep); color: var(--a-apricot); }
+.btn-a--primary { background: var(--accent-deep); color: var(--on-accent); }
 .btn-a--sunset { background: linear-gradient(135deg, var(--a-apricot), var(--a-coral)); color: #fff; box-shadow: 0 8px 18px -8px rgba(232, 106, 79, 0.7); }
 .btn-a--ghost { background: transparent; border: 1.5px solid var(--a-line); color: var(--a-ink); }
 .btn-a--danger { background: #fdecea; color: var(--a-red); }
 .btn-a--sm { padding: 0.38rem 0.8rem; font-size: 0.78rem; border-radius: 8px; }
+[data-theme="dark"] .btn-a--danger { background: rgba(214, 69, 69, 0.18); color: #f4a3a3; }
 
 /* ---------- Cards & stats ---------- */
 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1rem; margin-bottom: 1.6rem; }
@@ -172,6 +303,29 @@ body.admin-body {
 
 /* ---------- Table ---------- */
 .table-wrap { overflow-x: auto; }
+
+/*
+ * Pembungkus tabel yang bisa digulir.
+ *
+ * CATATAN: class ini dipakai 7 halaman admin (blast, contacts, reminder,
+ * social*, whatsapp) tapi SEBELUMNYA tidak pernah didefinisikan di CSS mana
+ * pun → `overflow-x` tetap `visible` → tabel lebar (mis. teks pesan inbox
+ * berisi data URL base64) meluber keluar panel dan ikut melebarkan dokumen
+ * (overflow horizontalThousands piksel).
+ */
+.a-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+/* Sel teks panjang (pesan, ringkasan) tidak boleh memaksa tabel melebar. */
+.a-table td,
+.a-table th {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 table.a-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .a-table th {
   text-align: left;
@@ -203,8 +357,11 @@ table.a-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 
 /* ---------- Forms ---------- */
 .a-form { display: grid; gap: 1.1rem; }
-.a-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-.a-field { display: flex; flex-direction: column; gap: 0.3rem; }
+/* minmax(0,1fr) — kolom grid TIDAK boleh mengikuti min-content field.
+   Dengan `1fr` (= minmax(auto,1fr)) textarea/paste panjang memaksa
+   kolom melebar melebihi wadahnya → overflow horizontal di layar kecil. */
+.a-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.a-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
 .a-field--full { grid-column: 1 / -1; }
 .a-field label { font-size: 0.82rem; font-weight: 700; color: var(--a-deep); }
 .a-field label .req { color: var(--a-coral); }
@@ -231,6 +388,85 @@ table.a-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 
 .form-actions { display: flex; gap: 0.7rem; flex-wrap: wrap; padding-top: 0.4rem; }
 .img-preview { width: 130px; height: 82px; object-fit: cover; border-radius: 10px; border: 1px solid var(--a-line); }
+
+/* ---------- Widget unggah gambar ---------- */
+.img-upload {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  border: 1.5px dashed var(--a-line);
+  border-radius: 12px;
+  background: var(--a-field-bg);
+  transition: border-color 0.2s, background 0.2s;
+}
+/* Label di dalam widget: pakai gaya ringkas agar tidak terlalu tebal */
+.img-upload .a-field label,
+.img-upload label { font-size: 0.82rem; font-weight: 700; color: var(--a-ink); }
+.img-upload.is-dragover {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+.img-upload__row { display: flex; gap: 0.9rem; align-items: flex-start; }
+.img-upload__preview {
+  width: 148px;
+  height: 96px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  border: 1px solid var(--a-line);
+  object-fit: cover;
+  background: var(--a-panel-alt);
+}
+.img-upload__preview--empty {
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--a-soft);
+  font-size: 0.72rem;
+  gap: 0.25rem;
+}
+.img-upload__body { flex: 1; min-width: 0; display: grid; gap: 0.4rem; }
+.img-upload__hint { font-size: 0.76rem; color: var(--a-soft); }
+.img-upload__filename {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--a-ink);
+  word-break: break-all;
+}
+.img-upload__meta { font-size: 0.74rem; color: var(--a-soft); }
+.img-upload input[type="file"] {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.img-upload__actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.img-upload__drop {
+  border: 1.5px dashed var(--a-line);
+  border-radius: 10px;
+  padding: 1.1rem 0.8rem;
+  text-align: center;
+  cursor: pointer;
+  color: var(--a-soft);
+  font-size: 0.85rem;
+  transition: border-color 0.2s, background 0.2s, color 0.2s;
+}
+.img-upload__drop:hover { border-color: var(--accent); color: var(--a-ink); background: var(--accent-softer); }
+.img-upload__drop strong { color: var(--accent-strong); }
+.img-upload__drop.is-error { border-color: var(--a-red); color: var(--a-red); }
+.img-upload__drop.is-ready { border-color: var(--a-green); color: var(--a-green); }
+
+/* Rasio gambar sesuai kegunaan slot */
+.img-upload[data-ratio="card"] .img-upload__preview { aspect-ratio: 16 / 10; height: auto; }
+.img-upload[data-ratio="article"] .img-upload__preview { aspect-ratio: 16 / 9; height: auto; }
+.img-upload[data-ratio="hero"] .img-upload__preview { aspect-ratio: 16 / 9; height: auto; }
+.img-upload[data-ratio="og"] .img-upload__preview { aspect-ratio: 1200 / 630; height: auto; }
+.img-upload[data-ratio="logo"] .img-upload__preview { aspect-ratio: 1 / 1; height: auto; }
+.img-upload[data-ratio="proof"] .img-upload__preview { aspect-ratio: 4 / 3; height: auto; }
+
+@media (max-width: 640px) {
+  .img-upload__row { flex-direction: column; }
+  .img-upload__preview { width: 100%; max-width: 260px; }
+}
 
 .filter-bar { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; margin-bottom: 1.1rem; }
 .filter-bar input, .filter-bar select {
@@ -329,21 +565,99 @@ table.a-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .detail-list dt { color: var(--a-soft); }
 .detail-list dd { font-weight: 600; word-break: break-word; }
 
-@media (max-width: 900px) {
-  .admin-shell { grid-template-columns: 1fr; }
-  .admin-sidebar { position: fixed; inset: 0 auto 0 0; width: 250px; z-index: 100; transform: translateX(-100%); transition: transform 0.3s; height: 100vh; }
-  .admin-sidebar.open { transform: none; }
-  .admin-content { padding: 1.2rem; }
-  .admin-topbar { padding: 1rem 1.2rem; }
-  .panel-grid, .a-form-grid { grid-template-columns: 1fr; }
-  .login-page { grid-template-columns: 1fr; }
-  .login-aside { display: none; }
-  .menu-btn { display: inline-flex !important; }
-}
+/* ==========================================================================
+   Responsive — panel admin
+   ========================================================================== */
 .menu-btn { display: none; }
 
+@media (max-width: 1100px) {
+  .panel-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
+  .admin-shell { grid-template-columns: 1fr; }
+
+  /* Sidebar jadi off-canvas: tersembunyi, bisa dibuka lewat tombol menu */
+  .admin-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(280px, 84vw);
+    z-index: 100;
+    transform: translateX(-102%);
+    transition: transform 0.3s ease;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+    height: 100dvh;
+  }
+  .admin-sidebar.open { transform: none; }
+
+  .admin-content { padding: 1.2rem; }
+  .admin-topbar { padding: 0.85rem 1.1rem; gap: 0.6rem; }
+  .admin-topbar h1 { font-size: 1.1rem; }
+  .admin-topbar__actions { gap: 0.5rem; }
+  .admin-user span:not(.avatar) { display: none; }
+
+  .a-form-grid { grid-template-columns: minmax(0, 1fr); }
+  .panel-grid { grid-template-columns: 1fr; }
+  .panel { padding: 1.1rem; }
+  .stat-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; }
+  .stat-card { padding: 1rem 1.05rem; }
+  .stat-card .value { font-size: 1.55rem; }
+
+  .detail-list div,
+  .a-info div { grid-template-columns: 1fr; gap: 0.15rem; }
+
+  .menu-btn { display: inline-flex !important; }
+  .login-page { grid-template-columns: 1fr; }
+  .login-aside { display: none; }
+}
+
+/* Tablet & ponsel kecil */
+@media (max-width: 640px) {
+  .admin-content { padding: 1rem 0.9rem 2rem; }
+  .admin-topbar { padding: 0.75rem 0.9rem; }
+  .admin-topbar h1 { font-size: 1rem; }
+  .admin-topbar .btn-a--ghost.btn-a--sm { display: none; }
+
+  .form-actions .btn-a { flex: 1; justify-content: center; }
+
+  /* Tabel admin jadi kartu agar tidak perlu scroll horizontal */
+  .table-wrap { overflow-x: visible; }
+  .a-table thead { display: none; }
+  .a-table,
+  .a-table tbody,
+  .a-table tr,
+  .a-table td { display: block; width: 100%; }
+  .a-table tr {
+    background: var(--a-panel-alt);
+    border: 1px solid var(--a-line);
+    border-radius: 12px;
+    padding: 0.6rem 0.8rem;
+    margin-bottom: 0.8rem;
+  }
+  .a-table td {
+    border-bottom: 1px dashed var(--a-line);
+    padding: 0.5rem 0;
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 0.6rem;
+    align-items: start;
+  }
+  .a-table td:last-child { border-bottom: none; }
+  .a-table td::before {
+    content: attr(data-label);
+    font-size: 0.68rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--a-soft);
+    font-weight: 700;
+  }
+  .a-table td.actions-cell { grid-template-columns: 1fr; }
+  .a-table td.actions-cell::before { display: none; }
+  .a-table .actions { gap: 0.35rem; }
+}
+
 /* ---------- Peta & Booking Detail ---------- */
-.jje-map { height: 360px; border-radius: 14px; border: 1px solid var(--a-line); z-index: 1; }
+.syl-map { height: 360px; border-radius: 14px; border: 1px solid var(--a-line); z-index: 1; }
 .a-info { display: grid; gap: 0.5rem; font-size: 0.92rem; margin: 0; }
 .a-info div { display: grid; grid-template-columns: 160px 1fr; gap: 0.6rem; padding: 0.45rem 0; border-bottom: 1px dashed var(--a-line); }
 .a-info dt { color: var(--a-soft); }
@@ -368,3 +682,66 @@ table.a-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 .review-item__head strong { margin-right: 0.5rem; }
 .review-item__stars { color: var(--a-coral, #c96f4a); letter-spacing: 0.12em; margin: 0.35rem 0 0.2rem; }
 .review-item__comment { font-size: 0.9rem; color: var(--a-text, #333); margin: 0.2rem 0 0.6rem; }
+/* ---------- Widget unggah galeri (banyak berkas) ---------- */
+.gal-upload {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.85rem;
+  border: 1.5px dashed var(--a-line);
+  border-radius: 12px;
+  background: var(--a-field-bg);
+  transition: border-color 0.2s, background 0.2s;
+}
+.gal-upload.is-dragover {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+.gal-upload__label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--a-ink);
+}
+.gal-upload__hint {
+  font-size: 0.76rem;
+  color: var(--a-soft);
+}
+.gal-upload__existing {
+  display: grid;
+  gap: 0.5rem;
+}
+.gal-upload__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 0.55rem;
+}
+.gal-upload__item {
+  position: relative;
+  margin: 0;
+  border: 1px solid var(--a-line);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--a-panel-alt);
+}
+.gal-upload__item img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+}
+.gal-upload__check {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--a-ink);
+  cursor: pointer;
+  background: var(--a-panel);
+}
+.gal-upload__check input { width: 15px; height: 15px; accent-color: var(--a-red); }
+.gal-upload__drop { margin-top: 0.15rem; }
+
+@media (max-width: 640px) {
+  .gal-upload__grid { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+}

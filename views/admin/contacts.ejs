@@ -1,12 +1,56 @@
 <div class="admin-head">
   <div>
     <h1>Kontak Marketing</h1>
-    <p><%= contacts.length %> kontak terdaftar · <strong><%= marketable %></strong> siap menerima blast (opt-in &amp; bukan opt-out)</p>
+    <p><span data-rt-contacts><%= contacts.length %></span> kontak terdaftar · <strong><span data-rt-marketable><%= marketable %></span></strong> siap menerima blast (opt-in &amp; bukan opt-out)</p>
   </div>
   <div class="admin-head__actions">
-    <% if (!waActive) { %><span class="badge badge--cancelled">WA Cloud API belum aktif</span><% } %>
-    <% if (quietHour) { %><span class="badge badge--pending">Jam tenang (21.00–08.00)</span><% } %>
-    <a href="/admin/marketing/blast" class="btn-a btn-a--sunset">📣 Buat Blast</a>
+    <span class="a-live is-connecting" data-rt-status data-state="connecting" role="status" aria-live="polite">
+      <span data-rt-status-text>Menyambung…</span>
+    </span>
+    <span class="a-device__badge is-off" data-rt-device>
+      <span class="ico"><svg viewBox="0 0 22 22" width="14" height="14"><use href="#i-device"/></svg></span>
+      <span data-rt-device-text>Belum terhubung</span>
+    </span>
+    <a href="/admin/marketing/blast" class="btn-a btn-a--sunset">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-plus"/></svg></span>
+      Buat Blast
+    </a>
+  </div>
+</div>
+
+<!-- ===== Ringkasan KPI ===== -->
+<div class="a-stat-grid" style="margin-bottom:1.4rem">
+  <div class="a-stat">
+    <span class="a-stat__label">
+      <svg viewBox="0 0 22 22"><use href="#i-contacts"/></svg>
+      Total Kontak
+    </span>
+    <span class="a-stat__value" data-rt-contacts><%= contacts.length %></span>
+    <span class="a-stat__hint">Semua kontak yang terdaftar</span>
+  </div>
+  <div class="a-stat">
+    <span class="a-stat__label">
+      <svg viewBox="0 0 22 22"><use href="#i-check"/></svg>
+      Siap Blast
+    </span>
+    <span class="a-stat__value" data-rt-marketable><%= marketable %></span>
+    <span class="a-stat__hint">Opt-in dan bukan opt-out</span>
+  </div>
+  <div class="a-stat">
+    <span class="a-stat__label">
+      <svg viewBox="0 0 22 22"><use href="#i-clock"/></svg>
+      Jam Tenang
+    </span>
+    <span class="a-stat__value" style="font-size:1.05rem; line-height:1.6" data-rt-quiet><%= quietLabel %></span>
+    <span class="a-stat__hint">Blast ditunda otomatis saat jam tenang</span>
+  </div>
+  <div class="a-stat">
+    <span class="a-stat__label">
+      <svg viewBox="0 0 22 22"><use href="#i-mail"/></svg>
+      Pesan Masuk
+    </span>
+    <span class="a-stat__value" data-rt-inbound>0</span>
+    <span class="a-stat__hint">Pesan pelanggan via webhook OpenWA</span>
   </div>
 </div>
 
@@ -18,7 +62,7 @@
     <div class="a-field" style="margin:0"><label>WhatsApp</label><input type="text" name="phone" placeholder="0812xxxx / 62812…" required></div>
     <div class="a-field" style="margin:0"><label>Email (opsional)</label><input type="email" name="email"></div>
     <label class="a-check" style="margin:0 0 0.4rem"><input type="checkbox" name="optIn"> Sudah minta izin promo</label>
-    <button type="submit" class="btn-a btn-a--primary">Tambah</button>
+    <button type="submit" class="btn-a btn-a--primary"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-plus"/></svg></span>Tambah</button>
   </form>
 </div>
 
@@ -47,12 +91,14 @@
             <td>
               <form action="/admin/marketing/kontak/<%= c.id %>/hapus" method="post" onsubmit="return confirm('Hapus kontak <%= c.name %>?')">
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+                <button type="submit" class="btn-a btn-a--danger btn-a--sm"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-trash"/></svg></span>Hapus</button>
               </form>
             </td>
           </tr>
         <% }) %>
-        <% if (!contacts.length) { %><tr><td colspan="5" style="text-align:center; padding:2rem">Belum ada kontak. Tamu booking &amp; pesan kontak otomatis terdaftar di sini.</td></tr><% } %>
+        <% if (!contacts.length) { %>
+          <tr><td colspan="5" class="a-empty-cell">Belum ada kontak. Tamu booking &amp; pesan kontak otomatis terdaftar di sini.</td></tr>
+        <% } %>
       </tbody>
     </table>
   </div>

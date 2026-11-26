@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="SeYouLaterTrip Admin">
+  <title>SeYouLaterTrip — Panel Admin</title>
+  <!--
+    Mark admin: lambang pulau tropis + bulan sabit + riak laut, dalam kotak rounded.
+    Warna datar (deep teal + apricot + pasir) supaya tetap terbaca di sidebar
+    gelap, di favicon 16px, dan di mode terang tanpa perlu gradient.
+  -->
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#0b3a44"/>
+  <!-- ombak bawah sebagai tekstur kedalaman -->
+  <path d="M2 44 q 15 -7 30 0 t 30 0 v 18 h -60 Z" fill="#0f5c6e" opacity="0.55"/>
+  <!-- bulan sabit -->
+  <path d="M43 16 a 9 9 0 1 0 9 12 a 7.2 7.2 0 1 1 -9 -12 Z" fill="#f2a65a"/>
+  <!-- siluet pulau -->
+  <path d="M11 42 q 8 -14 17 -14 t 17 14 Z" fill="#123f4a"/>
+  <!-- garis pantai -->
+  <path d="M9 43 q 12 -5 23 -5 t 23 5 v 2 q -23 5 -46 0 Z" fill="#f6f0e6"/>
+  <!-- riak laut -->
+  <path d="M14 50 q 9 -4 18 0 t 18 0" fill="none" stroke="#8fd0d8" stroke-width="2.6" stroke-linecap="round" opacity="0.9"/>
+  <path d="M20 55 q 7 -3 12 0 t 12 0" fill="none" stroke="#5fb3bf" stroke-width="2.2" stroke-linecap="round" opacity="0.75"/>
+</svg>

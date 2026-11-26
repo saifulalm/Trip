@@ -60,10 +60,14 @@
         <label>Belum Termasuk (satu per baris)</label>
         <textarea name="excludes" rows="4"><%= item && item.excludes ? item.excludes.join('\n') : '' %></textarea>
       </div>
-      <div class="a-field">
-        <label>Gambar Paket</label>
-        <input type="file" name="imageFile" accept="image/*">
-        <% if (item && item.image) { %><img src="<%= item.image %>" alt="" class="img-preview" style="margin-top:0.5rem"><% } %>
+      <div class="a-field a-field--full">
+        <%- include('partials/image-upload', {
+          name: 'imageFile',
+          current: item && item.image ? item.image : '',
+          ratio: 'card',
+          label: 'Gambar Paket',
+          hint: 'Rasio 16:10 (contoh 1280×800) · JPG, PNG, WEBP atau GIF · maksimal 5 MB'
+        }) %>
       </div>
       <div class="a-field" style="justify-content:flex-end">
         <label class="a-check" style="margin-bottom:0.8rem">

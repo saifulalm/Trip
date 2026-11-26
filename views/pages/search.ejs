@@ -1,52 +1,79 @@
 <section class="page-hero">
   <div class="container">
-    <div class="breadcrumb"><a href="/">Beranda</a> / Cari</div>
-    <h1>Hasil pencarian: “<%= q %>”</h1>
-    <p><%= destinations.length + packages.length + articles.length %> hasil ditemukan.</p>
+    <div class="breadcrumb"><a href="/">Beranda</a> / Cari Trip</div>
+    <h1><%= q ? 'Hasil pencarian: “' + q + '”' : 'Cari Trip' %></h1>
+    <p>
+      <%= destinations.length + packages.length + articles.length %> hasil ditemukan<% if (tanggal) { %> untuk rencana keberangkatan <strong><%= tanggal %></strong><% } %>.
+    </p>
   </div>
 </section>
 
 <section class="section">
   <div class="container">
-    <form class="search-bar" action="/cari" method="get">
-      <input type="search" name="q" value="<%= q %>" placeholder="Cari destinasi, paket, artikel…">
+    <!-- Form hasil pencarian: mempertahankan input destino + tanggal -->
+    <form class="search-bar" action="/cari-trip" method="get">
+      <input type="search" name="destinasi" value="<%= q %>" placeholder="Cari destinasi, misal: Sabesi, Raja Ampat…">
+      <input type="date" name="tanggal" value="<%= tanggal || '' %>" style="max-width:190px">
       <button class="btn btn--deep btn--sm" type="submit">Cari</button>
     </form>
 
     <% if (destinations.length + packages.length + articles.length === 0) { %>
-      <div class="empty-state">Tidak ada hasil untuk pencarian ini.</div>
+      <div class="empty-state">Tidak ada hasil untuk pencarian ini. Coba kata kunci lain atau <a href="/paket" style="text-decoration:underline">lihat semua paket</a>.</div>
     <% } %>
 
-    <% if (destinations.length) { %>
-      <h2 style="font-size:1.4rem; margin:1.6rem 0 1rem">Destinasi</h2>
+    <% if (packages.length) { %>
+      <h2 style="font-size:1.4rem; margin:1.8rem 0 1rem">Paket Wisata <span style="font-weight:400; font-size:0.9rem; color:var(--ink-soft)">(<%= packages.length %>)</span></h2>
       <div class="grid grid--3">
-        <% destinations.forEach(function (d) { %>
-          <a href="/destinasi/<%= d.slug %>" class="dest-card">
-            <div class="dest-card__media"><img src="<%= d.image %>" alt="<%= d.name %>"></div>
-            <div class="dest-card__body"><h3><%= d.name %></h3><p><%= d.region %></p></div>
+        <% packages.forEach(function (p) { %>
+          <a href="/paket/<%= p.slug %>" class="dest-card reveal">
+            <div class="dest-card__media"><img src="<%= p.image %>" alt="<%= p.title %>" loading="lazy"></div>
+            <div class="dest-card__body">
+              <h3><%= p.title %></h3>
+              <p><%= p.destinationName %> · <%= p.days %>H<%= p.nights %>M</p>
+              <% if (p.bestSeason) { %>
+                <p style="font-size:0.8rem; color:var(--ink-soft); margin-top:0.35rem">Musim terbaik: <%= p.bestSeason %></p>
+              <% } %>
+              <div class="dest-card__meta">
+                <span class="dest-card__price"><%= formatRupiah(p.price) %> <small>/ orang</small></span>
+                <span class="link-arrow">Detail →</span>
+              </div>
+            </div>
           </a>
         <% }) %>
       </div>
     <% } %>
 
-    <% if (packages.length) { %>
-      <h2 style="font-size:1.4rem; margin:2rem 0 1rem">Paket Wisata</h2>
+    <% if (destinations.length) { %>
+      <h2 style="font-size:1.4rem; margin:2rem 0 1rem">Destinasi <span style="font-weight:400; font-size:0.9rem; color:var(--ink-soft)">(<%= destinations.length %>)</span></h2>
       <div class="grid grid--3">
-        <% packages.forEach(function (p) { %>
-          <a href="/paket/<%= p.slug %>" class="dest-card">
-            <div class="dest-card__media"><img src="<%= p.image %>" alt="<%= p.title %>"></div>
-            <div class="dest-card__body"><h3><%= p.title %></h3><p><%= p.destinationName %></p></div>
+        <% destinations.forEach(function (d) { %>
+          <a href="/destinasi/<%= d.slug %>" class="dest-card reveal">
+            <div class="dest-card__media"><img src="<%= d.image %>" alt="<%= d.name %>" loading="lazy"></div>
+            <div class="dest-card__body">
+              <h3><%= d.name %></h3>
+              <p><%= d.tagline %></p>
+              <div class="dest-card__meta">
+                <span class="dest-card__price"><%= formatRupiah(d.priceFrom) %> <small>mulai / orang</small></span>
+                <span class="link-arrow">Lihat detail →</span>
+              </div>
+            </div>
           </a>
         <% }) %>
       </div>
     <% } %>
 
     <% if (articles.length) { %>
-      <h2 style="font-size:1.4rem; margin:2rem 0 1rem">Artikel</h2>
+      <h2 style="font-size:1.4rem; margin:2rem 0 1rem">Artikel <span style="font-weight:400; font-size:0.9rem; color:var(--ink-soft)">(<%= articles.length %>)</span></h2>
       <div class="grid grid--3">
         <% articles.forEach(function (a) { %>
-          <a href="/artikel/<%= a.slug %>" class="article-card">
-            <div class="article-card__body"><span class="article-card__cat"><%= a.category %></span><h3><%= a.title %></h3></div>
+          <a href="/artikel/<%= a.slug %>" class="article-card reveal">
+            <div class="article-card__media"><img src="<%= a.coverImage %>" alt="<%= a.title %>" loading="lazy"></div>
+            <div class="article-card__body">
+              <span class="article-card__cat"><%= a.category %></span>
+              <h3><%= a.title %></h3>
+              <p><%= excerpt(a.excerpt || a.body, 90) %></p>
+              <div class="article-card__foot"><span><%= a.author %></span><span>·</span><span><%= formatDateShort(a.publishedAt || a.createdAt) %></span></div>
+            </div>
           </a>
         <% }) %>
       </div>

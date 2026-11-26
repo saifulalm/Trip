@@ -1,71 +1,237 @@
-<section class="section">
+<section class="portal-shell">
   <div class="container">
-    <div class="portal-head reveal">
+
+    <!-- ============ Kepala / hero ============ -->
+    <header class="portal-hero reveal">
       <div>
-        <span class="eyebrow">Portal Pelanggan</span>
-        <h1 style="font-family:var(--display); font-size:clamp(1.6rem,3vw,2.2rem); color:var(--deep-teal); margin:0.3rem 0">Halo, <%= currentCustomer.name.split(' ')[0] %> 👋</h1>
-        <p style="color:var(--ink-soft)">Semua booking Anda dalam satu tempat. Check-in GPS saat hari-H, lacak status bayar, dan tinggalkan ulasan.</p>
+        <span class="portal-hero__eyebrow">Portal Pelanggan</span>
+        <h1 class="portal-hero__title">Halo, <%= currentCustomer.name.split(' ')[0] %> 👋</h1>
+        <p class="portal-hero__sub">
+          Semua booking Anda dalam satu tempat. Lacak status pembayaran, cek-in GPS saat hari-H,
+          pantau posisi Anda, dan tinggalkan ulasan.
+        </p>
       </div>
-      <div class="portal-head__actions">
-        <a href="/akun/profil" class="btn btn--outline btn--sm">Profil &amp; Kata Sandi</a>
+      <div class="portal-hero__actions">
+        <a href="/akun/lokasi" class="btn btn--outline btn--sm">📍 Lokasi Saya</a>
+        <a href="/akun/profil" class="btn btn--ghost btn--sm">Profil &amp; Kata Sandi</a>
         <form action="/keluar" method="post" style="display:inline">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <button type="submit" class="btn btn--ghost btn--sm">Keluar</button>
         </form>
       </div>
+    </header>
+
+    <!-- ============ KPI ============ -->
+    <div class="portal-kpi">
+      <div class="kpi">
+        <span class="kpi__label">Total Booking</span>
+        <span class="kpi__value"><%= summary.total %></span>
+        <span class="kpi__hint">Sejak bergabung</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">Akan Datang</span>
+        <span class="kpi__value"><%= summary.upcoming %></span>
+        <span class="kpi__hint">Perjalanan terjadwal</span>
+      </div>
+      <div class="kpi">
+        <span class="kpi__label">Selesai</span>
+        <span class="kpi__value"><%= summary.completed %></span>
+        <span class="kpi__hint">Trip sudah selesai</span>
+      </div>
+      <div class="kpi <%= summary.unpaid > 0 ? 'kpi--accent' : '' %>">
+        <span class="kpi__label">Perlu Bayar</span>
+        <span class="kpi__value"><%= summary.unpaid %></span>
+        <span class="kpi__hint"><%= summary.unpaid > 0 ? 'Selesaikan pembayaran' : 'Semua lunas' %></span>
+      </div>
     </div>
 
-    <% if (bookings.length === 0) { %>
-      <div class="portal-card reveal" style="text-align:center">
-        <p style="color:var(--ink-soft)">Anda belum memiliki booking.</p>
-        <a href="/paket" class="btn btn--sunset btn--sm">Lihat Paket Wisata</a>
-      </div>
-    <% } %>
+    <div class="portal-grid">
+      <!-- ============ Kolom utama: daftar booking ============ -->
+      <div class="portal-stack">
 
-    <% if (bookings.length) { %>
-      <div class="booking-list">
-        <% bookings.forEach(function (b) { %>
-          <article class="booking-row reveal">
-            <div class="booking-row__main">
-              <span class="booking-row__code"><%= b.code %></span>
-              <h3><%= b.packageName %></h3>
-              <p>
-                🗓 <%= formatDateLong(b.departureDate) %> · 👥 <%= b.participants %> orang
-                <% if (b.checkIn) { %> · <span class="badge badge--completed">📍 Sudah check-in</span><% } %>
-              </p>
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">Booking Saya</h2>
+              <p class="portal-panel__hint">Status, pembayaran, dan progres tiap perjalanan Anda.</p>
             </div>
-            <div class="booking-row__badges">
-              <span class="badge badge--<%= bookingStatusTone(b.status) %>"><%= bookingStatusLabel(b.status) %></span>
-              <span class="badge badge--<%= paymentStatusTone(b.paymentStatus || 'unpaid') %>"><%= paymentStatusLabel(b.paymentStatus || 'unpaid') %></span>
+            <a href="/paket" class="btn btn--sunset btn--sm">+ Pesan Trip</a>
+          </div>
+
+          <% if (cards.length === 0) { %>
+            <div class="portal-empty">
+              <div class="portal-empty__icon">🧭</div>
+              <h3 class="portal-empty__title">Belum ada booking</h3>
+              <p>Mulai perjalanan pertama Anda — pilih pulau dan jadwal yang paling Anda sukai.</p>
+              <a href="/paket" class="btn btn--sunset btn--sm">Lihat Paket Wisata</a>
             </div>
-            <div class="booking-row__actions">
-              <a href="/akun/booking/<%= b.id %>" class="btn btn--deep btn--sm">Detail &amp; Check-in →</a>
-              <% if (!b.paymentStatus || b.paymentStatus !== 'paid') { %>
-                <a href="/pembayaran/<%= b.code %>" class="btn btn--outline btn--sm">Bayar</a>
+          <% } %>
+
+          <% cards.forEach(function (c) { %>
+            <% var b = c.booking; %>
+            <article class="trip-card <%= (nextCard && nextCard.booking.id === b.id) ? 'trip-card--next' : '' %>">
+              <div class="trip-card__top">
+                <div>
+                  <span class="trip-card__code"><%= b.code %></span>
+                  <h3 class="trip-card__title"><%= b.packageName %></h3>
+                  <div class="trip-card__meta">
+                    <span>🗓 <%= formatDateLong(b.departureDate) %></span>
+                    <span>👥 <%= b.participants %> orang</span>
+                    <% if (c.destination) { %><span>📍 <%= c.destination.name %></span><% } %>
+                  </div>
+                </div>
+                <div class="trip-card__badges">
+                  <span class="badge badge--<%= bookingStatusTone(b.status) %>"><%= bookingStatusLabel(b.status) %></span>
+                  <span class="badge badge--<%= paymentStatusTone(b.paymentStatus || 'unpaid') %>"><%= paymentStatusLabel(b.paymentStatus || 'unpaid') %></span>
+                </div>
+              </div>
+
+              <% if (b.checkIn) { %>
+                <div class="trip-card__meta">
+                  <span class="trip-card__tag">
+                    📍 Check-in <%= formatDateShort(b.checkIn.at) %>
+                    <% if (c.distanceLabel) { %> · <%= c.distanceLabel %> dari titik kumpul<% } %>
+                  </span>
+                </div>
+              <% } %>
+
+              <!-- Stepper progres -->
+              <ol class="trip-steps" aria-label="Progres booking">
+                <% c.steps.forEach(function (s) { %>
+                  <li class="trip-step <%= s.done ? 'trip-step--done' : (s.active ? 'trip-step--active' : '') %> <%= s.cancelled ? 'trip-step--cancelled' : '' %>">
+                    <span class="trip-step__dot" aria-hidden="true"></span>
+                    <span class="trip-step__label"><%= s.label %></span>
+                  </li>
+                <% }); %>
+              </ol>
+
+              <div class="trip-card__foot">
+                <a href="/akun/booking/<%= b.id %>" class="btn btn--deep btn--sm">Detail &amp; Check-in →</a>
+                <% if (b.paymentStatus !== 'paid') { %>
+                  <a href="/pembayaran/<%= b.code %>" class="btn btn--outline btn--sm">Bayar</a>
+                <% } %>
+                <% if (c.reviewed) { %>
+                  <span class="trip-card__tag">★ Ulasan terkirim</span>
+                <% } %>
+                <% if (c.destination) { %>
+                  <a href="/destinasi/<%= c.destination.slug %>" class="link-arrow" style="font-size:0.85rem">Info <?= c.destination.name %> →</a>
+                <% } %>
+              </div>
+            </article>
+          <% }); %>
+        </section>
+
+        <!-- ============ Rekomendasi ============ -->
+        <% if (recommendations.length) { %>
+          <section class="portal-panel reveal">
+            <div class="portal-panel__head">
+              <div>
+                <h2 class="portal-panel__title">Rekomendasi Untuk Anda</h2>
+                <p class="portal-panel__hint">Paket lain yang mungkin Anda suka.</p>
+              </div>
+              <a href="/paket" class="link-arrow" style="font-size:0.88rem">Semua paket →</a>
+            </div>
+            <div class="portal-grid" style="grid-template-columns:1fr; gap:0.7rem; margin-top:0">
+              <% recommendations.forEach(function (p) { %>
+                <a class="rec-card" href="/paket/<%= p.slug %>">
+                  <img class="rec-card__img" src="<%= p.image || '/img/dest-default.svg' %>" alt="" loading="lazy">
+                  <span>
+                    <span class="rec-card__title"><%= p.title %></span>
+                    <span class="rec-card__meta">
+                      <%= p.destinationName || '' %> ·
+                      <%= formatRupiah(p.price || 0) %> ·
+                      <%= p.days || 1 %> hari
+                    </span>
+                  </span>
+                </a>
+              <% }); %>
+            </div>
+          </section>
+        <% } %>
+      </div>
+
+      <!-- ============ Kolom samping ============ -->
+      <div class="portal-stack">
+
+        <!-- Perjalanan berikutnya -->
+        <% if (nextCard) { %>
+          <section class="portal-panel reveal">
+            <div class="portal-panel__head">
+              <h2 class="portal-panel__title">Perjalanan Berikutnya</h2>
+            </div>
+            <p class="portal-panel__hint" style="margin-bottom:0.8rem">
+              <%= nextCard.booking.code %> · <%= nextCard.booking.packageName %>
+            </p>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Keberangkatan</div>
+              <div class="loc-cell__value"><%= formatDateLong(nextCard.booking.departureDate) %></div>
+            </div>
+            <div class="loc-grid">
+              <div class="loc-cell">
+                <div class="loc-cell__label">Peserta</div>
+                <div class="loc-cell__value"><%= nextCard.booking.participants %> orang</div>
+              </div>
+              <div class="loc-cell">
+                <div class="loc-cell__label">Total</div>
+                <div class="loc-cell__value"><%= formatRupiah(nextCard.booking.totalAmount || 0) %></div>
+              </div>
+              <% if (nextCard.destination) { %>
+                <div class="loc-cell">
+                  <div class="loc-cell__label">Destinasi</div>
+                  <div class="loc-cell__value"><%= nextCard.destination.name %></div>
+                </div>
               <% } %>
             </div>
-          </article>
-        <% }) %>
-      </div>
-    <% } %>
+            <div class="trip-card__foot" style="margin-top:0.9rem">
+              <a href="/akun/booking/<%= nextCard.booking.id %>" class="btn btn--deep btn--sm">Buka Detail</a>
+              <a href="/akun/lokasi" class="btn btn--outline btn--sm">📍 Lihat Lokasi</a>
+            </div>
+          </section>
+        <% } %>
 
-    <div class="portal-card reveal" style="margin-top:2rem">
-      <h3 style="font-family:var(--display); color:var(--deep-teal); margin:0 0 0.4rem">Punya booking lama?</h3>
-      <p style="color:var(--ink-soft); font-size:0.94rem; margin-bottom:1rem">
-        Sambungkan booking yang dibuat tanpa akun menggunakan kode booking &amp; email pemesan.
-      </p>
-      <form action="/akun/sambung-booking" method="post" class="portal-form portal-form--inline">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <div class="portal-field">
-          <label for="code">Kode Booking</label>
-          <input type="text" id="code" name="code" required placeholder="JJE-240501">
-        </div>
-        <div class="portal-field">
-          <label for="email">Email Pemesan</label>
-          <input type="email" id="email" name="email" required placeholder="email saat memesan">
-        </div>
-        <button type="submit" class="btn btn--deep">Sambungkan</button>
-      </form>
+        <!-- Ringkasan pembayaran -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <h2 class="portal-panel__title">Ringkasan Pembayaran</h2>
+          </div>
+          <div class="loc-grid" style="margin-top:0">
+            <div class="loc-cell">
+              <div class="loc-cell__label">Total Lunas</div>
+              <div class="loc-cell__value"><%= formatRupiah(summary.totalPaid) %></div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Belum Lunas</div>
+              <div class="loc-cell__value"><%= summary.unpaid %> booking</div>
+            </div>
+            <div class="loc-cell">
+              <div class="loc-cell__label">Ulasan</div>
+              <div class="loc-cell__value"><%= myReviews.length %></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sambung booking lama -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <div>
+              <h2 class="portal-panel__title">Punya Booking Lama?</h2>
+              <p class="portal-panel__hint">Sambungkan booking yang dibuat tanpa akun.</p>
+            </div>
+          </div>
+          <form action="/akun/sambung-booking" method="post" class="portal-form portal-form--inline">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="portal-field">
+              <label for="code">Kode Booking</label>
+              <input type="text" id="code" name="code" required placeholder="SYL-240501">
+            </div>
+            <div class="portal-field">
+              <label for="email">Email Pemesan</label>
+              <input type="email" id="email" name="email" required placeholder="email saat memesan">
+            </div>
+            <button type="submit" class="btn btn--deep">Sambungkan</button>
+          </form>
+        </section>
+      </div>
     </div>
   </div>
 </section>

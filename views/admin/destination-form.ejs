@@ -61,12 +61,28 @@
         <label>Koordinat GPS — Longitude</label>
         <input type="text" name="lng" value="<%= item && item.lng != null ? item.lng : '' %>" placeholder="130.7515">
       </div>
-      <div class="a-field">
-        <label>Gambar Utama (JPG/PNG/WEBP, maks 5 MB)</label>
-        <input type="file" name="imageFile" accept="image/*">
-        <% if (item && item.image) { %>
-          <img src="<%= item.image %>" alt="" class="img-preview" style="margin-top:0.5rem">
-        <% } %>
+      <div class="a-field a-field--full">
+        <%- include('partials/image-upload', {
+          name: 'imageFile',
+          current: item && item.image ? item.image : '',
+          ratio: 'card',
+          label: 'Gambar Utama',
+          hint: 'Rasio 16:10 (contoh 1280×800) · JPG, PNG, WEBP atau GIF · maksimal 5 MB'
+        }) %>
+      </div>
+      <div class="a-field a-field--full">
+        <%#
+          Galeri ditampilkan TANPA gambar utama, karena gambar utama sudah
+          punya widget sendiri di atas. Kalau gambar utama ikut ditampilkan
+          di sini, admin bisa mencentang "Hapus" untuk foto yang sama dua
+          kali dan bingung mana yang perlu dihapus.
+        %>
+        <%- include('partials/gallery-upload', {
+          name: 'galleryFiles',
+          current: (item && item.gallery) ? item.gallery.filter(function (u) { return u !== item.image; }) : [],
+          label: 'Galeri Foto (opsional, untuk strip galeri beranda)',
+          max: 8
+        }) %>
       </div>
       <div class="a-field" style="justify-content:flex-end">
         <label class="a-check" style="margin-bottom:0.8rem">

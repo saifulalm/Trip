@@ -1,26 +1,57 @@
 <header class="site-header">
   <div class="container site-header__inner">
     <a href="/" class="brand">
-      <img src="/img/logo.svg" alt="Logo <%= settings.siteName || 'jalanjalanenak' %>">
+      <img src="<%= settings.logo || '/img/logo.svg' %>" alt="Logo <%= brandName %>">
       <span class="brand__text">
-        <span class="brand__name">jalanjalan<span>enak</span>.com</span>
+        <span class="brand__name"><%= brandHead %><% if (brandTail) { %><span><%= brandTail %></span><% } %></span>
         <span class="brand__tag">Wisata Bahari Nusantara</span>
       </span>
     </a>
-    <button class="nav-toggle" aria-label="Buka menu"><span></span><span></span><span></span></button>
-    <nav class="nav">
-      <a href="/" class="<%= currentPath === '/' ? 'active' : '' %>">Beranda</a>
-      <a href="/destinasi" class="<%= currentPath.startsWith('/destinasi') ? 'active' : '' %>">Destinasi</a>
-      <a href="/paket" class="<%= currentPath.startsWith('/paket') ? 'active' : '' %>">Paket Wisata</a>
-      <a href="/artikel" class="<%= currentPath.startsWith('/artikel') ? 'active' : '' %>">Artikel</a>
-      <a href="/tentang" class="<%= currentPath === '/tentang' ? 'active' : '' %>">Tentang</a>
-      <a href="/kontak" class="<%= currentPath === '/kontak' ? 'active' : '' %>">Kontak</a>
-      <% if (currentCustomer) { %>
-        <a href="/akun" class="<%= currentPath.startsWith('/akun') ? 'active' : '' %>">👤 <%= currentCustomer.name.split(' ')[0] %></a>
-      <% } else { %>
-        <a href="/masuk" class="<%= currentPath === '/masuk' || currentPath === '/daftar' ? 'active' : '' %>">Masuk</a>
-      <% } %>
-      <a href="/paket" class="btn btn--sunset btn--sm">Pesan Sekarang</a>
+    <button class="nav-toggle" type="button" aria-label="Buka menu" aria-expanded="false" aria-controls="site-nav">
+      <span></span><span></span><span></span>
+    </button>
+
+    <nav class="nav" id="site-nav" aria-label="Navigasi utama">
+      <div class="nav__head">
+        <span class="nav__title">Menu</span>
+        <span class="nav__subtitle">Wisata Bahari Nusantara</span>
+        <button class="nav__close" type="button" aria-label="Tutup menu">&times;</button>
+      </div>
+
+      <div class="nav__list">
+        <a href="<%= isOnepage ? '#hero' : '/' %>" class="nav__link <%= currentPath === '/' ? 'active' : '' %>">Beranda</a>
+        <% if (isOnepage) { %>
+          <% /* Mode onepage: tautan menuju section halaman beranda. */ %>
+          <% onepageNavSections.forEach(function (s) { %>
+            <a href="#<%= s.id %>" class="nav__link" data-section-nav="<%= s.id %>"><%= s.label %></a>
+          <% }); %>
+        <% } else { %>
+          <a href="/destinasi" class="nav__link <%= currentPath.startsWith('/destinasi') ? 'active' : '' %>">Destinasi</a>
+          <a href="/paket" class="nav__link <%= currentPath.startsWith('/paket') ? 'active' : '' %>">Paket Wisata</a>
+          <a href="/artikel" class="nav__link <%= currentPath.startsWith('/artikel') ? 'active' : '' %>">Artikel</a>
+        <% } %>
+        <a href="/tentang" class="nav__link <%= currentPath === '/tentang' ? 'active' : '' %>">Tentang</a>
+        <a href="/kontak" class="nav__link <%= currentPath === '/kontak' ? 'active' : '' %>">Kontak</a>
+        <% if (currentCustomer) { %>
+          <a href="/akun" class="nav__link <%= currentPath === '/akun' ? 'active' : '' %>"><%= currentCustomer.name.split(' ')[0] %></a>
+          <a href="/akun/lokasi" class="nav__link <%= currentPath.startsWith('/akun/lokasi') ? 'active' : '' %>">📍 Lokasi</a>
+        <% } else { %>
+          <a href="/masuk" class="nav__link <%= currentPath === '/masuk' || currentPath === '/daftar' ? 'active' : '' %>">Masuk</a>
+        <% } %>
+      </div>
+
+      <div class="nav__foot">
+        <a href="/paket" class="btn btn--sunset nav__cta">Pesan Sekarang</a>
+        <span class="nav__hint">Butuh bantuan? Hubungi kami lewat WhatsApp.</span>
+      </div>
     </nav>
   </div>
+
+  <!-- Bar progres scroll: menunjukkan seberapa jauh pengunjung sudah
+       membaca halaman beranda. Diisi oleh public/js/onepage.js. -->
+  <div class="scroll-progress" aria-hidden="true">
+    <span class="scroll-progress__bar" data-scroll-progress></span>
+  </div>
+
+  <div class="nav-scrim" hidden></div>
 </header>

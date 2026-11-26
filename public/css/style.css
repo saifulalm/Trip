@@ -1,5 +1,5 @@
 /* ==========================================================================
-   jalanjalanenak.com — Tropical Expedition Editorial
+   seayoulatertrip — Tropical Expedition Editorial
    Palet: deep sea teal, foam sand, apricot sunset
    ========================================================================== */
 
@@ -28,7 +28,101 @@
   --shadow-lift: 0 24px 50px -20px rgba(6, 31, 37, 0.35);
   --font-display: "Fraunces", "Georgia", serif;
   --font-body: "Karla", "Segoe UI", sans-serif;
+
+  /* Alias token yang dipakai banyak aturan (portal, home-motion, template).
+     Sebelumnya undefined sehingga aturan seperti `color: var(--deep-teal)`
+     dibatalkan browser dan teks mewarisi warna tak terduga. */
+  --display: var(--font-display);
+  --deep-teal: #0a3d47;
+
+  /* Token tombol "ghost" — disetel per konteks permukaan (terang/gelap).
+     Default: permukaan terang (kertas) → tinta gelap. */
+  --ghost-ink: var(--ink);
+  --ghost-border: rgba(10, 34, 39, 0.32);
+  --ghost-hover: rgba(10, 34, 39, 0.08);
+
+  /* Teks di atas gradien sunset (apricot → coral).
+     Putih hanya mencapai ~2:1 di atas apricot, jadi memakai tinta gelap. */
+  --on-sunset: #1a1206;
+
+  /* Token semantik per PERMUKAAN (bukan per tema).
+     --on-deep  : teks di atas permukaan yang selalu gelap (hero, footer,
+                  CTA band, galeri). Nilainya tetap krem di kedua tema —
+                  memakai var(--sand) akan berubah gelap di mode gelap dan
+                  membuat teks tak terlihat (rasio 1,06:1).
+     --accent-ink : teks berwarna aksen di atas permukaan terang/gelap.
+     --warm-ink   : teks bernuansa apricot di atas permukaan terang. */
+  --on-deep: #f6f0e6;
+  --accent-ink: var(--accent-deep);
+  --warm-ink: #a85a12;
+
+  /* Aksen dinamis — nilainya ditulis inline oleh service tema.
+     Nilai bawaan di sini dipakai bila inline style tidak tersedia. */
+  --accent: #166b7a;
+  --accent-strong: #125663;
+  --accent-deep: #0a3d47;
+  --accent-darkest: #062a32;
+  --accent-soft: #e3f1f3;
+  --accent-softer: #f1f8f9;
+  --accent-glow: rgba(22, 107, 122, 0.22);
+  --accent-line: rgba(22, 107, 122, 0.38);
+  --on-accent: #ffffff;
 }
+
+/* Mode gelap untuk situs publik (pilihan admin) */
+[data-theme="dark"] {
+  --paper: #0b191d;
+  --sand: #12262c;
+  --sand-dark: #162d34;
+  --white: #12262c;
+  --ink: #e8f1f2;
+  --ink-soft: #a7bec3;
+  --line: rgba(246, 240, 230, 0.14);
+  --sea-900: #061417;
+  --sea-800: #0b2126;
+  --sea-700: #123038;
+  --sea-600: #17414b;
+  --sea-500: var(--accent);
+  --shadow-soft: 0 10px 30px -12px rgba(0, 0, 0, 0.7);
+  --shadow-lift: 0 24px 50px -20px rgba(0, 0, 0, 0.8);
+
+  /* Mode gelap: teks tajuk kini terang (bukan lagi gelap tak terlihat
+     di atas latar terang), tombol ghost memakai tinta terang. */
+  --deep-teal: var(--teal-300);
+  --ghost-ink: var(--ink);
+  --ghost-border: rgba(232, 241, 242, 0.45);
+  --ghost-hover: rgba(232, 241, 242, 0.12);
+
+  /* Aksen di atas latar gelap harus versi terang (rasio --accent hanya 2,9:1). */
+  --accent-ink: var(--teal-300);
+  /* Apricot di atas kartu gelap juga perlu versi lebih terang. */
+  --warm-ink: #f0a95f;
+}
+
+[data-theme="dark"] body { background: var(--paper); color: var(--ink); }
+[data-theme="dark"] .dest-card,
+[data-theme="dark"] .pass-card,
+[data-theme="dark"] .article-card,
+[data-theme="dark"] .sidebar-card,
+[data-theme="dark"] .chip { background: var(--white); }
+[data-theme="dark"] .field input,
+[data-theme="dark"] .field select,
+[data-theme="dark"] .field textarea,
+[data-theme="dark"] .search-bar input,
+[data-theme="dark"] .portal-field input,
+[data-theme="dark"] .portal-field textarea,
+[data-theme="dark"] .portal-field select { background: var(--sand-dark); color: var(--ink); border-color: var(--line); }
+[data-theme="dark"] .field label,
+[data-theme="dark"] .prose h3 { color: var(--ink); }
+[data-theme="dark"] .site-header::before { background: rgba(11, 25, 29, 0.9); }
+[data-theme="dark"] .site-header.is-scrolled::before { background: rgba(11, 25, 29, 0.85); }
+[data-theme="dark"] .pass-card__perf::before,
+[data-theme="dark"] .pass-card__perf::after { background: var(--paper); }
+[data-theme="dark"] .timeline li::before { background: var(--sand-dark); }
+[data-theme="dark"] .portal-card,
+[data-theme="dark"] .booking-row { background: var(--white); }
+[data-theme="dark"] .quote-card,
+[data-theme="dark"] .why-card { background: var(--white); }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -60,9 +154,36 @@ h1, h2, h3, h4 {
 
 .section { padding: 5.5rem 0; }
 .section--sand { background: var(--sand); }
+
+/* Section "Sorotan Pulau" (signature) — gradien lembut yang mengikuti tema.
+   Sebelumnya warna latar ditulis inline (hex terang), sehingga di mode gelap
+   teks terang berada di atas latar terang dan nyaris tak terbaca
+   (rasio 1,03:1). Sekarang latar memakai token semantik. */
+.section--signature {
+  background: linear-gradient(160deg, #f7f2e7 0%, #eef6f3 100%);
+}
+[data-theme="dark"] .section--signature {
+  background: linear-gradient(160deg, #0e242a 0%, #102a30 100%);
+}
+/* Eyebrow (warna aksen) perlu versi terang di mode gelap agar kontrasnya
+   tetap di atas ambang WCAG AA 4,5:1 di atas latar gelap. */
+[data-theme="dark"] .section--signature .eyebrow {
+  color: var(--teal-300);
+}
+
+/* Badge pada section signature: warna badge versi gelap tidak punya
+   kontras cukup bila hanya semi-transparan di atas latar terang
+   (rasio 1,17:1). Mode gelap memakai latar badge pekat + teks terang. */
+[data-theme="dark"] .section--signature .badge {
+  background: rgba(6, 31, 37, 0.62);
+  border-color: rgba(232, 241, 242, 0.28);
+  color: #f4f9fa;
+}
+[data-theme="dark"] .section--signature .badge--pending { color: #f5c07a; }
+[data-theme="dark"] .section--signature .badge--completed { color: #8fdce6; }
 .section--deep {
   background: var(--sea-800);
-  color: var(--sand);
+  color: var(--on-deep);
 }
 
 .eyebrow {
@@ -73,7 +194,7 @@ h1, h2, h3, h4 {
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--apricot-deep);
+  color: var(--accent-ink);
   margin-bottom: 0.9rem;
 }
 .eyebrow::before {
@@ -106,28 +227,78 @@ h1, h2, h3, h4 {
 .btn:hover { transform: translateY(-2px); }
 .btn--sunset {
   background: linear-gradient(135deg, var(--apricot) 0%, var(--coral) 100%);
-  color: var(--white);
+  color: var(--on-sunset);
   box-shadow: 0 12px 26px -12px rgba(232, 106, 79, 0.8);
 }
 .btn--sunset:hover { box-shadow: 0 18px 34px -12px rgba(232, 106, 79, 0.9); }
-.btn--deep { background: var(--sea-700); color: var(--sand); }
+.btn--deep { background: var(--accent-deep); color: var(--on-accent); }
+/* Tombol ghost memakai token --ghost-ink yang mengikuti tema: tinta gelap
+   di atas permukaan terang, tinta terang di atas permukaan gelap.
+   Permukaan gelap selalu (hero/footer/CTA band) memaksa override di bawah. */
 .btn--ghost {
-  border-color: rgba(246, 240, 230, 0.5);
-  color: var(--sand);
+  border-color: var(--ghost-border);
+  color: var(--ghost-ink);
 }
-.btn--ghost:hover { background: rgba(246, 240, 230, 0.12); }
-.btn--outline { border-color: var(--sea-700); color: var(--sea-700); }
-.btn--outline:hover { background: var(--sea-700); color: var(--sand); }
+.btn--ghost:hover { background: var(--ghost-hover); }
+.btn--outline { border-color: var(--accent-deep); color: var(--accent-deep); }
+.btn--outline:hover { background: var(--accent-deep); color: var(--on-accent); }
+/* Mode gelap: --accent-deep terlalu gelap untuk latar gelap, jadi teks
+   outline memakai versi terang (bukan sekadar membalik warna). */
+[data-theme="dark"] .btn--outline {
+  border-color: var(--teal-300);
+  color: var(--teal-300);
+}
+[data-theme="dark"] .btn--outline:hover {
+  background: var(--teal-300);
+  color: var(--accent-darkest);
+}
 .btn--sm { padding: 0.5rem 1.1rem; font-size: 0.85rem; }
+
+/* Permukaan yang selalu gelap (terpisah dari tema) → ghost tetap terang. */
+.hero--animated .btn--ghost,
+.cinematic-hero .btn--ghost,
+.cta-band .btn--ghost,
+.site-footer .btn--ghost {
+  color: rgba(246, 240, 230, 0.96);
+  border-color: rgba(246, 240, 230, 0.5);
+}
+.hero--animated .btn--ghost:hover,
+.cinematic-hero .btn--ghost:hover,
+.cta-band .btn--ghost:hover,
+.site-footer .btn--ghost:hover {
+  background: rgba(246, 240, 230, 0.14);
+}
 
 /* ---------- Header ---------- */
 .site-header {
   position: sticky;
   top: 0;
   z-index: 60;
+  border-bottom: 1px solid var(--line);
+}
+/* Saat drawer mobile terbuka, header dinaikkan agar scrim & drawer
+   berada di atas elemen luar header (mis. tombol WhatsApp mengambang).
+   .site-header adalah stacking context, jadi z-index drawer's 90
+   hanya dibandingkan terhadap saudara di dalam header — bukan terhadap
+   elemen halaman. Menaikkan header ke 100 menutup celah itu. */
+.site-header.is-nav-open { z-index: 100; }
+/* Lapisan kabut (frosted glass) dipisah ke pseudo-element.
+   Alasannya: `backdrop-filter`/`filter` pada sebuah elemen menjadikannya
+   containing block untuk anak-anaknya yang ber-position: fixed. Bila blur
+   diletakkan langsung di .site-header, drawer navigasi mobile (fixed)
+   akan terikat ke header — bukan viewport — sehingga drawer hanya
+   setinggi header dan isi menumpuk/tidak terbaca.
+   Pseudo-element tidak menjadi ancestor, jadi fixed tetap ke viewport. */
+.site-header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background: rgba(251, 248, 242, 0.92);
   backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(12px);
+  transition: background 0.35s ease;
 }
 .site-header__inner {
   display: flex;
@@ -135,6 +306,7 @@ h1, h2, h3, h4 {
   justify-content: space-between;
   gap: 1.5rem;
   padding: 0.85rem 0;
+  position: relative;
 }
 .brand { display: flex; align-items: center; gap: 0.7rem; }
 .brand img { width: 44px; height: 44px; }
@@ -145,7 +317,7 @@ h1, h2, h3, h4 {
   font-size: 1.18rem;
   color: var(--sea-800);
 }
-.brand__name span { color: var(--apricot-deep); }
+.brand__name span { color: var(--warm-ink); }
 .brand__tag { font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); }
 
 .nav { display: flex; align-items: center; gap: 1.6rem; }
@@ -165,8 +337,27 @@ h1, h2, h3, h4 {
   transition: width 0.25s ease;
 }
 .nav a:hover, .nav a.active { color: var(--sea-800); }
+/* Mode gelap: tautan nav aktif/hover memakai versi terang. */
+[data-theme="dark"] .nav a:hover,
+[data-theme="dark"] .nav a.active { color: var(--teal-300); }
 .nav a:hover::after, .nav a.active::after { width: 100%; }
 .nav .btn { margin-left: 0.4rem; }
+
+/* Struktur nav: header/list/foot. Di desktop, list jadi baris horizontal
+   dan foot hanya menampilkan tombol CTA. Di mobile (≤720px) semuanya
+   ditumpuk di dalam drawer. */
+.nav__head { display: none; }
+.nav__list { display: flex; align-items: center; gap: 1.6rem; }
+.nav__foot { display: flex; align-items: center; margin-left: 0.4rem; }
+.nav__hint { display: none; }
+.nav .nav__cta { margin-left: 0; }
+/* Tombol CTA nav memakai gradien sunset, tapi aturan umum `.nav a` lebih
+   spesifik sehingga warna teksnya tertimpa jadi tinta gelap di atas
+   apricot (rasio hanya 3,92:1). Kunci warna teksnya di sini. */
+.nav .nav__cta.btn--sunset { color: var(--on-sunset); }
+
+/* Overlay gelap di belakang drawer (hanya mobile) */
+.nav-scrim { display: none; }
 
 .nav-toggle {
   display: none;
@@ -190,7 +381,7 @@ h1, h2, h3, h4 {
   background:
     radial-gradient(1200px 500px at 85% -10%, rgba(242, 166, 90, 0.28), transparent 60%),
     linear-gradient(180deg, var(--sea-900) 0%, var(--sea-700) 70%, var(--sea-600) 100%);
-  color: var(--sand);
+  color: var(--on-deep);
   overflow: hidden;
 }
 .hero::before {
@@ -243,7 +434,7 @@ h1, h2, h3, h4 {
   display: block;
   font-family: var(--font-display);
   font-size: 1.7rem;
-  color: var(--apricot);
+  color: var(--accent-soft);
 }
 .hero__stat span { font-size: 0.82rem; color: rgba(246, 240, 230, 0.7); }
 
@@ -257,7 +448,7 @@ h1, h2, h3, h4 {
   border: 6px solid rgba(246, 240, 230, 0.14);
   animation: floaty 7s ease-in-out infinite;
 }
-.hero__card img { width: 100%; height: 380px; object-fit: cover; }
+.hero__card img { width: 100%; height: 380px; object-fit: cover; aspect-ratio: 16 / 10; }
 .hero__stamp {
   position: absolute;
   right: -12px; bottom: 26px;
@@ -328,7 +519,7 @@ h1, h2, h3, h4 {
   position: absolute;
   top: 0.9rem; left: 0.9rem;
   background: rgba(6, 31, 37, 0.78);
-  color: var(--sand);
+  color: #f6f0e6;
   padding: 0.28rem 0.8rem;
   border-radius: 999px;
   font-size: 0.72rem;
@@ -347,9 +538,9 @@ h1, h2, h3, h4 {
   border-top: 1px dashed var(--line);
   margin-top: 0.4rem;
 }
-.dest-card__price { font-family: var(--font-display); font-weight: 700; color: var(--sea-600); }
+.dest-card__price { font-family: var(--font-display); font-weight: 700; color: var(--accent-ink); }
 .dest-card__price small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 0.72rem; color: var(--ink-soft); }
-.link-arrow { font-weight: 700; color: var(--apricot-deep); font-size: 0.9rem; }
+.link-arrow { font-weight: 700; color: var(--accent-ink); font-size: 0.9rem; }
 .link-arrow:hover { text-decoration: underline; }
 
 /* Paket: kartu boarding-pass */
@@ -369,7 +560,7 @@ h1, h2, h3, h4 {
   font-size: 0.7rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--apricot-deep);
+  color: var(--warm-ink);
   border: 1px solid var(--apricot);
   border-radius: 6px;
   padding: 0.15rem 0.55rem;
@@ -400,7 +591,7 @@ h1, h2, h3, h4 {
   padding: 1rem 1.6rem 1.4rem;
   gap: 1rem;
 }
-.pass-card__price { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; color: var(--sea-700); }
+.pass-card__price { font-family: var(--font-display); font-weight: 700; font-size: 1.25rem; color: var(--accent-ink); }
 .pass-card__price small { display: block; font-family: var(--font-body); font-weight: 500; font-size: 0.72rem; color: var(--ink-soft); }
 
 /* ---------- Artikel ---------- */
@@ -421,7 +612,7 @@ h1, h2, h3, h4 {
   font-size: 0.72rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--teal-400);
+  color: var(--accent-ink);
   font-weight: 700;
 }
 .article-card__body h3 { font-size: 1.2rem; }
@@ -433,12 +624,12 @@ h1, h2, h3, h4 {
   background:
     radial-gradient(900px 380px at 10% 0%, rgba(242, 166, 90, 0.25), transparent 60%),
     linear-gradient(160deg, var(--sea-900), var(--sea-700));
-  color: var(--sand);
+  color: var(--on-deep);
   padding: 4rem 0 4.5rem;
 }
 .page-hero h1 { font-size: clamp(2rem, 4.5vw, 3.1rem); margin-bottom: 0.6rem; }
 .page-hero p { color: var(--teal-300); max-width: 42rem; }
-.breadcrumb { font-size: 0.82rem; color: rgba(246, 240, 230, 0.65); margin-bottom: 1.2rem; }
+.breadcrumb { font-size: 0.82rem; color: rgba(246, 240, 230, 0.85); margin-bottom: 1.2rem; }
 .breadcrumb a:hover { color: var(--apricot); }
 
 .detail-grid {
@@ -466,7 +657,7 @@ h1, h2, h3, h4 {
   border-radius: var(--radius-s);
   font-size: 0.95rem;
 }
-.fact-list li::before { content: "⚑"; color: var(--apricot-deep); }
+.fact-list li::before { content: "⚑"; color: var(--warm-ink); }
 
 .chip-row { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.8rem; }
 .chip {
@@ -490,7 +681,7 @@ h1, h2, h3, h4 {
 .sidebar-card .price-big {
   font-family: var(--font-display);
   font-size: 1.9rem;
-  color: var(--sea-700);
+  color: var(--accent-ink);
   font-weight: 700;
 }
 .sidebar-card .price-big small { font-family: var(--font-body); font-size: 0.8rem; font-weight: 500; color: var(--ink-soft); display: block; }
@@ -527,7 +718,7 @@ h1, h2, h3, h4 {
   font-size: 0.7rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--apricot-deep);
+  color: var(--warm-ink);
   font-weight: 700;
   margin-bottom: 0.15rem;
 }
@@ -550,8 +741,8 @@ h1, h2, h3, h4 {
 }
 .field input:focus, .field select:focus, .field textarea:focus {
   outline: none;
-  border-color: var(--teal-400);
-  box-shadow: 0 0 0 3px rgba(47, 159, 176, 0.18);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
 }
 .field textarea { resize: vertical; min-height: 110px; }
 
@@ -566,6 +757,9 @@ h1, h2, h3, h4 {
 }
 .flash--success { background: #e7f6ee; color: #14532d; border-color: #22c55e; }
 .flash--error { background: #fdecea; color: #7f1d1d; border-color: #ef4444; }
+/* .flash--info dipakai untuk peringatan non-blocking (mis. check-in
+   di luar radius) — sebelumnya tanpa gaya sehingga tampil polos. */
+.flash--info { background: #e0f2f7; color: #0e4a5a; border-color: #0e7490; }
 @keyframes slide-in { from { transform: translateX(30px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 .search-bar {
@@ -583,14 +777,14 @@ h1, h2, h3, h4 {
   font-family: var(--font-body);
   background: var(--white);
 }
-.search-bar input:focus { outline: none; border-color: var(--teal-400); }
+.search-bar input:focus { outline: none; border-color: var(--accent); }
 
 /* ---------- CTA band ---------- */
 .cta-band {
   background:
     radial-gradient(700px 300px at 90% 20%, rgba(242, 166, 90, 0.3), transparent 65%),
     var(--sea-800);
-  color: var(--sand);
+  color: var(--on-deep);
   border-radius: var(--radius-l);
   padding: 3.2rem 3.4rem;
   display: flex;
@@ -611,11 +805,14 @@ h1, h2, h3, h4 {
 }
 .footer-grid {
   display: grid;
-  grid-template-columns: 1.4fr 1fr 1fr 1.2fr;
+  /* Kolom otomatis: bila admin menambah tautan media sosial, kolom baru
+     otomatis membungkus tanpa membuat footer meluber. */
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 2.4rem;
   padding-bottom: 3rem;
 }
-.site-footer h4 { color: var(--sand); font-size: 1rem; margin-bottom: 1rem; }
+.footer-brand { grid-column: span 1; min-width: 0; }
+.site-footer h4 { color: var(--on-deep); font-size: 1rem; margin-bottom: 1rem; }
 .site-footer a:hover { color: var(--apricot); }
 .site-footer ul { display: grid; gap: 0.55rem; font-size: 0.92rem; }
 .footer-brand p { font-size: 0.92rem; margin-top: 0.8rem; max-width: 22rem; }
@@ -629,6 +826,37 @@ h1, h2, h3, h4 {
   font-size: 0.84rem;
 }
 .footer-bottom .dotline { color: var(--apricot); letter-spacing: 0.3em; }
+
+/* ---------- Footer: tautan media sosial ---------- */
+.footer-social { gap: 0.7rem; }
+.footer-social__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: rgba(246, 240, 230, 0.82);
+  text-decoration: none;
+  font-size: 0.9rem;
+  transition: color 0.2s;
+}
+.footer-social__link:hover { color: var(--apricot); }
+.footer-social__logo {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  display: grid;
+  place-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  /* Warna merek platform; teks putih karena semua warna merek gelap.
+     Ditambah lapisan gelap 18% supaya teks putih tetap mencapai
+     rasio kontras ≥ 4,5:1 (mis. IG #E1306C: 4,34:1 → 6,02:1). */
+  background:
+    linear-gradient(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.18)),
+    var(--brand, #475569);
+  color: #ffffff;
+  box-shadow: 0 4px 12px -6px rgba(0, 0, 0, 0.6);
+}
 
 /* ---------- Utility ---------- */
 .empty-state {
@@ -652,32 +880,221 @@ h1, h2, h3, h4 {
   .grid--3 { grid-template-columns: repeat(2, 1fr); }
   .detail-grid { grid-template-columns: 1fr; }
   .sidebar-card { position: static; }
-  .footer-grid { grid-template-columns: 1fr 1fr; }
+  .footer-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.8rem; }
+}
+
+/* ========================================================================
+   Drawer navigasi responsif (ponsel & tablet)
+   Breakpoint 1000px dipilih karena pada lebar di bawah itu nav horizontal
+   meluber keluar container: link "Masuk" dan tombol "Pesan Sekarang"
+   keluar dari area tampilan. Jadi tablet ikut memakai drawer.
+   ======================================================================== */
+@media (max-width: 1000px) {
+    /* ---------- Drawer navigasi mobile ----------
+       Redesign: drawer bukan lagi "panel transparan di atas header".
+       Sekarang drawer adalah panel penuh (full-height) dengan latar
+       gradien gelap pekat, teks ber-kontras tinggi, tombol close,
+       dan overlay (scrim) yangdelegasi scroll-lock. */
+    .nav {
+      position: fixed;
+      inset: 0 0 0 auto;
+      width: min(340px, 88vw);
+      height: 100dvh;
+      max-height: 100dvh;
+      background:
+        radial-gradient(120% 60% at 100% 0%, rgba(47, 159, 176, 0.28) 0%, transparent 60%),
+        linear-gradient(180deg, var(--sea-800) 0%, var(--sea-900) 100%);
+      flex-direction: column;
+      align-items: stretch;
+      padding: 1.5rem 1.5rem 2rem;
+      gap: 0;
+      transform: translateX(100%);
+      transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+      /* Di atas tombol hamburger (z-index 90) supaya drawer menutupi
+         tombol itu sepenuhnya. Tanpa ini keduanya bertumpuk dan saling
+         menutupi. Tombol tutup tersedia di kepala drawer. */
+      z-index: 95;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      box-shadow: -24px 0 60px rgba(0, 0, 0, 0.55);
+      visibility: hidden;
+    }
+    .nav.open { transform: none; visibility: visible; }
+
+    /* Kepala drawer: judul + tombol tutup */
+    .nav__head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 0.2rem 1rem;
+      padding-bottom: 1.1rem;
+      margin-bottom: 1.1rem;
+      border-bottom: 1px solid rgba(246, 240, 230, 0.16);
+    }
+    .nav__title {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 700;
+      /* Krem tetap — bukan var(--sand) yang berubah gelap di mode gelap. */
+      color: rgba(246, 240, 230, 0.96);
+      line-height: 1.2;
+    }
+    .nav__subtitle {
+      grid-column: 1;
+      font-size: 0.7rem;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(246, 240, 230, 0.62);
+    }
+    .nav__close {
+      grid-row: 1 / span 2;
+      grid-column: 2;
+      width: 40px;
+      height: 40px;
+      display: grid;
+      place-items: center;
+      font-size: 1.6rem;
+      line-height: 1;
+      color: rgba(246, 240, 230, 0.92);
+      background: rgba(246, 240, 230, 0.1);
+      border: 1px solid rgba(246, 240, 230, 0.18);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: background 0.2s ease, transform 0.2s ease;
+    }
+    .nav__close:hover { background: rgba(246, 240, 230, 0.2); transform: rotate(90deg); }
+
+    /* Daftar tautan: kartu bertumpuk, kontras tinggi */
+    .nav__list {
+      display: grid;
+      gap: 0.45rem;
+      align-content: start;
+      flex: 1 1 auto;
+    }
+    .nav .nav__link {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      width: 100%;
+      padding: 0.85rem 1rem;
+      border-radius: 14px;
+      color: rgba(246, 240, 230, 0.94);
+      font-weight: 600;
+      font-size: 1rem;
+      background: rgba(246, 240, 230, 0.05);
+      border: 1px solid rgba(246, 240, 230, 0.08);
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+    }
+    .nav .nav__link::after { display: none; }
+    .nav .nav__link:hover {
+      color: #ffffff;
+      background: rgba(246, 240, 230, 0.13);
+      border-color: rgba(246, 240, 230, 0.22);
+      transform: translateX(3px);
+    }
+    .nav .nav__link.active {
+      color: var(--accent-darkest);
+      background: linear-gradient(135deg, var(--apricot) 0%, var(--coral) 100%);
+      border-color: transparent;
+      box-shadow: 0 10px 24px -14px rgba(232, 106, 79, 0.9);
+    }
+    .nav .nav__link.active:hover { color: var(--accent-darkest); }
+
+    /* Kaki drawer: CTA + petunjuk */
+    .nav__foot {
+      display: grid;
+      gap: 0.75rem;
+      margin: 1.4rem 0 0;
+      padding-top: 1.2rem;
+      border-top: 1px solid rgba(246, 240, 230, 0.16);
+    }
+    .nav .nav__cta {
+      width: 100%;
+      margin-left: 0;
+      justify-content: center;
+      padding: 0.8rem 1.2rem;
+      font-size: 0.95rem;
+    }
+    .nav__hint {
+      display: block;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      color: rgba(246, 240, 230, 0.62);
+      text-align: center;
+    }
+
+    /* Overlay di belakang drawer */
+    .nav-scrim {
+      display: block;
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      background: rgba(6, 31, 37, 0.62);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .nav-scrim[hidden] { display: none; }
+    .nav-scrim.is-visible { opacity: 1; }
+
+    /* Tombol hamburger: kamera animasi ke tanda silang */
+    .nav-toggle {
+      display: grid;
+      place-content: center;
+      gap: 0;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      z-index: 90;
+      color: var(--sea-800);
+      background: rgba(251, 248, 242, 0.75);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .nav-toggle span {
+      width: 22px;
+      height: 2px;
+      margin: 3.5px 0;
+      border-radius: 2px;
+    }
+    .nav-toggle[aria-expanded="true"] span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+    .nav-toggle[aria-expanded="true"] span:nth-child(2) { opacity: 0; }
+    .nav-toggle[aria-expanded="true"] span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
 }
 
 @media (max-width: 720px) {
-  .nav {
-    position: fixed;
-    inset: 0 0 0 auto;
-    width: min(300px, 80vw);
-    background: var(--sea-800);
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 5rem 1.8rem 2rem;
-    gap: 1.2rem;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
-    z-index: 70;
-  }
-  .nav.open { transform: none; }
-  .nav a { color: var(--sand); }
-  .nav a:hover, .nav a.active { color: var(--apricot); }
-  .nav-toggle { display: block; z-index: 80; }
   .grid--3, .grid--2, .form-grid { grid-template-columns: 1fr; }
   .cta-band { padding: 2.2rem 1.6rem; }
-  .footer-grid { grid-template-columns: 1fr; }
+  .footer-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1.5rem; }
   .hero__stamp { width: 92px; height: 92px; font-size: 0.7rem; right: 4px; }
   .section { padding: 3.5rem 0; }
+
+  /* Hero & kartu: rasio gambar disesuaikan agar tidak terpotong weird */
+  .hero__card img { height: 260px; }
+  .hero__stats { gap: 1.4rem; }
+  .page-hero { padding: 2.6rem 0 3rem; }
+  .gallery { grid-template-columns: repeat(2, 1fr); gap: 0.6rem; }
+  .detail-grid { gap: 2rem; }
+
+  /* Tabel detail (halaman paket) jadi baris bertumpuk */
+  .info-list div,
+  .fact-list li { font-size: 0.88rem; }
+}
+
+/* Ponsel kecil */
+@media (max-width: 480px) {
+  .container { width: min(1160px, 92%); }
+  .section { padding: 2.8rem 0; }
+  .hero__card img { height: 210px; }
+  .gal-strip { grid-template-columns: repeat(2, 1fr); }
+  .gallery { grid-template-columns: 1fr; }
+  .search-bar { flex-direction: column; }
+  .search-bar input { border-radius: 999px; }
+  .cta-band { padding: 1.8rem 1.2rem; }
+  .btn { width: 100%; justify-content: center; }
+  .hero__actions .btn { width: 100%; }
 }
 
 /* ============ Portal Pelanggan ============ */
@@ -753,7 +1170,7 @@ h1, h2, h3, h4 {
 .rating-select { max-width: 260px; }
 
 /* ============ Peta (Leaflet) ============ */
-.jje-map {
+.syl-map {
   height: 340px;
   border-radius: 16px;
   border: 1px solid rgba(15, 64, 60, 0.15);
@@ -884,6 +1301,39 @@ h1, h2, h3, h4 {
   .wa-float__btn { width: 50px; height: 50px; }
 }
 
+/* ============ Widget Unggah Bukti Transfer (publik) ============ */
+.proof-upload { display: grid; gap: 0.6rem; }
+.proof-upload input[type="file"] {
+  position: absolute;
+  width: 1px; height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.proof-upload__drop {
+  display: grid;
+  gap: 0.2rem;
+  border: 1.5px dashed var(--line);
+  border-radius: var(--radius-s);
+  padding: 1.1rem 0.9rem;
+  text-align: center;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+.proof-upload__drop:hover,
+.proof-upload__drop.is-dragover { border-color: var(--accent); background: var(--accent-glow); }
+.proof-upload__drop strong { color: var(--accent); }
+.proof-upload__filename { font-size: 0.8rem; font-weight: 700; color: var(--ink); word-break: break-all; }
+.proof-upload__preview {
+  width: 100%;
+  max-width: 320px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--line);
+  object-fit: cover;
+  aspect-ratio: 4 / 3;
+}
+
 /* ==========================================================================
    Kedalaman 3D/4D — Layered Ocean Depth
    Ditempatkan di akhir file agar menimpa aturan dasar (efek press tombol,
@@ -893,9 +1343,11 @@ h1, h2, h3, h4 {
 /* ---------- Header saat scroll ---------- */
 .site-header { transition: box-shadow 0.35s ease, background 0.35s ease; }
 .site-header.is-scrolled {
-  background: rgba(251, 248, 242, 0.82);
   box-shadow: 0 14px 34px -22px rgba(6, 31, 37, 0.55);
 }
+/* Warna latar header ada di pseudo-element (lihat catatan backdrop-filter
+   di atas), jadi state "is-scrolled" juga harus menimpa ::before. */
+.site-header.is-scrolled::before { background: rgba(251, 248, 242, 0.82); }
 
 /* ---------- Scene hero berlapis ---------- */
 .hero__scene { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }

@@ -32,19 +32,18 @@
               <td><%= formatRupiah(b.totalAmount || 0) %></td>
               <td>
                 <span class="badge badge--<%= b.paymentStatus === 'paid' ? 'completed' : b.paymentStatus === 'failed' ? 'cancelled' : 'pending' %>">
-                  <%= b.paymentStatus === 'paid' ? 'Lunas' : b.paymentStatus === 'awaiting_review' ? 'Cek bukti' : b.paymentStatus === 'failed' ? 'Gagal' : 'Belum' %>
+                  <%= b.paymentStatus === 'paid' ? 'Lunas' : b.paymentStatus === 'failed' ? 'Gagal' : b.paymentStatus === 'pending' ? 'Menunggu' : 'Belum' %>
                 </span>
                 <% if (b.paymentMethod) { %><br><small style="color:var(--a-soft)"><%= b.paymentMethod %></small><% } %>
-                <% if (b.proofImage) { %><br><a href="<%= b.proofImage %>" target="_blank" rel="noopener" style="font-size:0.72rem">Lihat bukti ↗</a><% } %>
               </td>
               <td><span class="badge badge--<%= bookingStatusTone(b.status) %>"><%= bookingStatusLabel(b.status) %></span></td>
               <td>
                 <div class="actions">
                   <a href="/admin/booking/<%= b.id %>" class="btn-a btn-a--ghost btn-a--sm">Detail</a>
-                  <% if (b.paymentStatus === 'awaiting_review' || b.paymentStatus !== 'paid') { %>
+                  <% if (b.paymentStatus !== 'paid') { %>
                     <form action="/admin/booking/<%= b.id %>/bayar" method="post" onsubmit="return confirm('Tandai lunas booking <%= b.code %>?')">
                       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                      <button type="submit" class="btn-a btn-a--primary btn-a--sm" <%= b.paymentStatus === 'paid' ? 'disabled' : '' %>>Lunas</button>
+                      <button type="submit" class="btn-a btn-a--primary btn-a--sm">Lunas</button>
                     </form>
                   <% } %>
                   <form action="/admin/booking/<%= b.id %>/status" method="post" style="display:flex; gap:0.35rem">
@@ -59,7 +58,7 @@
                   </form>
                   <form action="/admin/booking/<%= b.id %>/hapus" method="post" onsubmit="return confirm('Hapus booking <%= b.code %>?')">
                     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button type="submit" class="btn-a btn-a--danger btn-a--sm">Hapus</button>
+                    <button type="submit" class="btn-a btn-a--danger btn-a--sm"><span class="ico"><svg viewBox="0 0 22 22"><use href="#i-trash"/></svg></span>Hapus</button>
                   </form>
                 </div>
               </td>

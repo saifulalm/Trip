@@ -1,6 +1,20 @@
 node_modules/
 data/db.json
+data/db.backup-*.json
+data/db.json.preaudit.bak
+data/presence.json
+data/wa-session/
 public/uploads/*
 !public/uploads/.gitkeep
 .env
 npm-debug.log*
+.wwebjs_cache/
+verify-server-*.log
+mock-postiz.log
+
+# Artefak audit lokal (berkas HTML hasil verifikasi + cookie sesi)
+.audit/
+
+# Log proses lokal
+server.log
+server.err

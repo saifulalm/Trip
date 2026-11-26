@@ -4,18 +4,64 @@
     <p>Kirim pesan promosi ke kontak yang sudah memberi izin. Maksimal <%= maxPerRun %> pesan/blast, jeda <%= minDelay %>ms antar pesan, berhenti otomatis setelah 5 gagal beruntun.</p>
   </div>
   <div class="admin-head__actions">
-    <a href="/admin/marketing/kontak" class="btn-a btn-a--ghost btn-a--sm">Kelola Kontak</a>
+    <span class="a-live is-connecting" data-rt-status data-state="connecting" role="status" aria-live="polite">
+      <span data-rt-status-text>Menyambung…</span>
+    </span>
+    <a href="/admin/marketing/kontak" class="btn-a btn-a--ghost btn-a--sm">
+      <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-contacts"/></svg></span>
+      Kelola Kontak
+    </a>
   </div>
 </div>
 
-<% if (!waActive) { %>
+<% if (!waActive && !deviceReady) { %>
   <div class="flash flash--error" style="margin-bottom:1.2rem">
-    WhatsApp Cloud API belum dikonfigurasi. Isi <strong>Access Token</strong> &amp; <strong>Phone Number ID</strong> di <a href="/admin/pengaturan">Pengaturan</a>. Anda tetap bisa mencoba <em>mode uji</em> untuk memvalidasi template &amp; penerima.
+    Belum ada kanal WhatsApp aktif. Hubungkan perangkat di <a href="/admin/marketing/whatsapp">Hub WhatsApp</a>
+    (scan QR WhatsApp Web).
+    Anda tetap bisa mencoba <em>mode uji</em> untuk memvalidasi template &amp; penerima.
   </div>
 <% } %>
 <% if (quietHour) { %>
-  <div class="flash flash--info" style="margin-bottom:1.2rem">Sedang jam tenang (21.00–08.00). Blast sungguhan akan ditolak — kirim lagi pagi hari.</div>
+  <div class="flash flash--info" style="margin-bottom:1.2rem">Sedang jam tenang (<%= quietLabel %>). Blast sungguhan akan ditunda sampai jam sibuk.</div>
 <% } %>
+
+<!-- ===== Panel progres realtime ===== -->
+<section class="a-blast is-empty" data-rt-blast-card aria-live="polite">
+  <div class="a-blast__head">
+    <h2 class="a-blast__title">
+      <span class="ico"><svg viewBox="0 0 22 22" width="18" height="18"><use href="#i-broadcast"/></svg></span>
+      Progres Blast Realtime
+    </h2>
+    <span class="a-blast__state" data-rt-blast-state>Tidak ada blast berjalan</span>
+  </div>
+
+  <div class="a-blast__progress" role="progressbar" aria-label="Progres pengiriman blast">
+    <div class="a-blast__bar" data-rt-blast-bar></div>
+  </div>
+
+  <div class="a-blast__stats">
+    <div class="a-blast__stat is-ok">
+      <strong data-rt-blast-sent>0</strong>
+      <span>Terkirim</span>
+    </div>
+    <div class="a-blast__stat is-warn">
+      <strong data-rt-blast-skipped>0</strong>
+      <span>Dilewati</span>
+    </div>
+    <div class="a-blast__stat is-danger">
+      <strong data-rt-blast-failed>0</strong>
+      <span>Gagal</span>
+    </div>
+    <div class="a-blast__stat">
+      <strong data-rt-blast-total>0</strong>
+      <span>Total Target</span>
+    </div>
+    <div class="a-blast__stat">
+      <strong><span data-rt-blast-percent>0</span>%</strong>
+      <span>Selesai</span>
+    </div>
+  </div>
+</section>
 
 <div class="panel" style="margin-bottom:1.4rem">
   <div class="panel__head"><h2>Buat Blast</h2></div>
@@ -27,28 +73,38 @@
         <option value="all">Semua kontak opt-in (<%= marketable %>)</option>
         <option value="booking">Pernah booking</option>
         <option value="leads">Lead dari pesan kontak</option>
+        <option value="customers">Pelanggan akun</option>
       </select>
     </div>
     <div class="a-field">
       <label>Template Pesan</label>
       <textarea name="template" rows="6" required><%= defaultTemplate %></textarea>
-      <span class="help">Placeholder: {'{{nama}}'} (nama kontak). Hindari klaim berlebihan &amp; selalu sediakan cara berhenti menerima pesan.</span>
+      <span class="help">Placeholder: {'{{nama}}'} (nama kontak), {'{{kode}}'}, {'{{namaPaket}}'}, {'{{tanggal}}'}. Hindari klaim berlebihan &amp; selalu sediakan cara berhenti menerima pesan.</span>
     </div>
-    <div class="form-actions" style="display:flex; gap:0.6rem">
-      <button type="submit" name="action" value="test" class="btn-a btn-a--ghost">🧪 Mode Uji (tanpa kirim)</button>
-      <button type="submit" name="action" value="send" class="btn-a btn-a--sunset" <%= !waActive ? 'disabled' : '' %>>📣 Kirim Blast Sekarang</button>
+    <div class="form-actions" style="display:flex; gap:0.6rem; flex-wrap:wrap">
+      <button type="submit" name="action" value="test" class="btn-a btn-a--ghost">
+        <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-check"/></svg></span>
+        Mode Uji (tanpa kirim)
+      </button>
+      <button type="submit" name="action" value="send" class="btn-a btn-a--sunset" <%= (!waActive && !deviceReady) ? 'disabled' : '' %>>
+        <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-broadcast"/></svg></span>
+        Kirim Blast Sekarang
+      </button>
     </div>
   </form>
 </div>
 
 <div class="panel">
-  <div class="panel__head"><h2>Riwayat Blast Terakhir</h2></div>
+  <div class="panel__head">
+    <h2>Riwayat Blast Terakhir</h2>
+    <span class="a-quiet-pill" data-rt-quiet>Jam tenang: <%= quietLabel %></span>
+  </div>
   <div class="a-table-wrap">
     <table class="a-table">
       <thead><tr><th>Waktu</th><th>Segmen</th><th>Status</th><th>Terkirim</th><th>Gagal</th><th>Aksi</th></tr></thead>
       <tbody>
         <% broadcasts.forEach((j) => { %>
-          <tr>
+          <tr <%= (j.status === 'queued' || j.status === 'running') ? 'data-rt-row="active"' : '' %>>
             <td><small><%= formatDateShort(j.createdAt) %></small></td>
             <td><%= j.segment %> <%= j.dryRun ? '🧪' : '' %></td>
             <td><span class="badge badge--<%= j.status === 'done' ? 'completed' : j.status === 'aborted' || j.status === 'error' ? 'cancelled' : 'pending' %>"><%= j.status %></span></td>
@@ -58,7 +114,10 @@
               <% if (j.status === 'queued' || j.status === 'running') { %>
                 <form action="/admin/marketing/blast/<%= j.id %>/batal" method="post">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                  <button type="submit" class="btn-a btn-a--danger btn-a--sm">Batalkan</button>
+                  <button type="submit" class="btn-a btn-a--danger btn-a--sm">
+                    <span class="ico"><svg viewBox="0 0 22 22"><use href="#i-trash"/></svg></span>
+                    Batalkan
+                  </button>
                 </form>
               <% } else { %>
                 <details>
@@ -73,7 +132,9 @@
             </td>
           </tr>
         <% }) %>
-        <% if (!broadcasts.length) { %><tr><td colspan="6" style="text-align:center; padding:1.6rem">Belum ada blast.</td></tr><% } %>
+        <% if (!broadcasts.length) { %>
+          <tr><td colspan="6" class="a-empty-cell">Belum ada blast. Buat blast pertama di atas — progresnya tampil realtime di panel atas.</td></tr>
+        <% } %>
       </tbody>
     </table>
   </div>

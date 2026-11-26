@@ -1,127 +1,345 @@
-<section class="section">
+<section class="portal-shell">
   <div class="container">
-    <a href="/akun" class="link-arrow" style="font-size:0.92rem">← Kembali ke akun saya</a>
-    <div class="portal-head reveal" style="margin-top:0.6rem">
+
+    <a href="/akun" class="link-arrow" style="font-size:0.92rem">← Kembali ke dashboard</a>
+
+    <header class="portal-hero reveal" style="margin-top:0.8rem">
       <div>
-        <span class="eyebrow">Detail Booking</span>
-        <h1 style="font-family:var(--display); font-size:clamp(1.5rem,3vw,2rem); color:var(--deep-teal); margin:0.3rem 0">
-          <%= booking.code %> · <%= booking.packageName %>
-        </h1>
-        <div style="display:flex; gap:0.5rem; flex-wrap:wrap">
+        <span class="portal-hero__eyebrow">Detail Booking · <%= booking.code %></span>
+        <h1 class="portal-hero__title"><%= booking.packageName %></h1>
+        <p class="portal-hero__sub">
+          <%= formatDateLong(booking.departureDate) %> ·
+          <%= booking.participants %> orang ·
+          <%= formatRupiah(booking.totalAmount || 0) %>
+          <% if (destination) { %> · 📍 <%= destination.name %><% } %>
+        </p>
+        <div class="portal-hero__actions" style="margin-top:0.9rem">
           <span class="badge badge--<%= bookingStatusTone(booking.status) %>"><%= bookingStatusLabel(booking.status) %></span>
           <span class="badge badge--<%= paymentStatusTone(booking.paymentStatus || 'unpaid') %>"><%= paymentStatusLabel(booking.paymentStatus || 'unpaid') %></span>
           <% if (booking.checkIn) { %><span class="badge badge--completed">📍 Check-in tercatat</span><% } %>
         </div>
       </div>
-      <% if (booking.paymentStatus !== 'paid') { %>
-        <a href="/pembayaran/<%= booking.code %>" class="btn btn--sunset btn--sm">Bayar Sekarang</a>
-      <% } %>
-    </div>
+      <div class="portal-hero__actions">
+        <a href="/akun/lokasi" class="btn btn--ghost btn--sm">📍 Lokasi Saya</a>
+        <% if (booking.paymentStatus !== 'paid') { %>
+          <a href="/pembayaran/<%= booking.code %>" class="btn btn--outline btn--sm">Bayar Sekarang</a>
+        <% } %>
+        <!-- Form logout selalu dirender agar halaman ini selalu punya
+             token CSRF. Sebelumnya form logout hanya ada di dashboard,
+             sehingga halaman detail booking tidak menyertakan token
+             CSRF sama sekali ketika check-in sudah tercatat. -->
+        <form action="/keluar" method="post">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn btn--ghost btn--sm">Keluar</button>
+        </form>
+      </div>
+    </header>
 
-    <div class="panel-grid" style="margin-top:1.4rem">
-      <section class="panel">
-        <div class="panel__head"><h2>Informasi Perjalanan</h2></div>
-        <dl class="info-list">
-          <div><dt>Peserta</dt><dd><%= booking.participants %> orang</dd></div>
-          <div><dt>Keberangkatan</dt><dd><%= formatDateLong(booking.departureDate) %></dd></div>
-          <div><dt>Total Tagihan</dt><dd><%= formatRupiah(booking.totalAmount || 0) %></dd></div>
-          <% if (booking.notes) { %><div><dt>Catatan</dt><dd><%= booking.notes %></dd></div><% } %>
-        </dl>
+    <!-- ============ Stepper progres ============ -->
+    <section class="portal-panel reveal" style="margin-top:1.2rem">
+      <div class="portal-panel__head">
+        <div>
+          <h2 class="portal-panel__title">Progres Perjalanan</h2>
+          <p class="portal-panel__hint">Ikuti status booking Anda dari pemesanan hingga trip selesai.</p>
+        </div>
+      </div>
+      <ol class="trip-steps" aria-label="Progres booking">
+        <% steps.forEach(function (s) { %>
+          <li class="trip-step <%= s.done ? 'trip-step--done' : (s.active ? 'trip-step--active' : '') %> <%= s.cancelled ? 'trip-step--cancelled' : '' %>">
+            <span class="trip-step__dot" aria-hidden="true"></span>
+            <span class="trip-step__label"><%= s.label %></span>
+          </li>
+        <% }); %>
+      </ol>
+    </section>
 
+    <div class="portal-grid">
+      <!-- ============ Kolom utama ============ -->
+      <div class="portal-stack">
+
+        <!-- Informasi perjalanan -->
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <h2 class="portal-panel__title">Informasi Perjalanan</h2>
+          </div>
+          <dl class="info-list">
+            <div><dt>Kode Booking</dt><dd><%= booking.code %></dd></div>
+            <div><dt>Peserta</dt><dd><%= booking.participants %> orang</dd></div>
+            <div><dt>Keberangkatan</dt><dd><%= formatDateLong(booking.departureDate) %></dd></div>
+            <div><dt>Total Tagihan</dt><dd><%= formatRupiah(booking.totalAmount || 0) %></dd></div>
+            <% if (destination) { %><div><dt>Destinasi</dt><dd><%= destination.name %> · <%= destination.region || '' %></dd></div><% } %>
+            <% if (booking.notes) { %><div><dt>Catatan</dt><dd><%= booking.notes %></dd></div><% } %>
+          </dl>
+        </section>
+
+        <!-- ============ Check-in GPS ============ -->
         <% if (canCheckIn) { %>
-          <div class="checkin-box">
-            <h3>📍 Check-in GPS Keberangkatan</h3>
-            <p>Pastikan Anda berada di titik kumpul, lalu tekan tombol di bawah. Koordinat Anda akan terekam sebagai bukti keberangkatan.</p>
-            <button type="button" class="btn btn--sunset" id="checkinBtn" data-booking="<%= booking.id %>">Check-in Sekarang (GPS)</button>
-            <p class="checkin-box__note" id="checkinNote" hidden></p>
+          <section class="portal-panel reveal">
+            <div class="portal-panel__head">
+              <div>
+                <h2 class="portal-panel__title">📍 Check-in GPS Keberangkatan</h2>
+                <p class="portal-panel__hint">
+                  Pastikan Anda berada di titik kumpul, lalu tekan tombol di bawah.
+                  Koordinat akan terekam sebagai bukti keberangkatan.
+                </p>
+              </div>
+            </div>
+
+            <div class="loc-bar">
+              <span class="loc-bar__status">
+                <span class="loc-dot loc-dot--pending" id="ciDot" aria-hidden="true"></span>
+                <span id="ciStatus">Menunggu izin lokasi…</span>
+              </span>
+              <button type="button" class="btn btn--sunset btn--sm" id="checkinBtn">Check-in Sekarang (GPS)</button>
+              <button type="button" class="btn btn--outline btn--sm" id="ciRecheckBtn" hidden>⟳ Periksa Ulang</button>
+            </div>
+
+            <p class="loc-note" id="checkinNote" role="status" aria-live="polite"></p>
+
+            <% if (destination) { %>
+              <div class="loc-grid">
+                <div class="loc-cell">
+                  <div class="loc-cell__label">Titik Kumpul</div>
+                  <div class="loc-cell__value"><%= destination.name %></div>
+                </div>
+                <div class="loc-cell">
+                  <div class="loc-cell__label">Koordinat Titik Kumpul</div>
+                  <div class="loc-cell__value loc-cell__value--mono">
+                    <%= Number(destination.lat).toFixed(5) %>, <%= Number(destination.lng).toFixed(5) %>
+                  </div>
+                </div>
+                <div class="loc-cell">
+                  <div class="loc-cell__label">Radius Check-in</div>
+                  <div class="loc-cell__value"><%= Math.round(checkinRadius / 1000) %> km</div>
+                </div>
+              </div>
+              <p class="loc-note">
+                Radius check-in adalah <strong><%= Math.round(checkinRadius / 1000) %> km</strong> dari titik kumpul.
+                Jika posisi Anda di luar radius, check-in tetap tercatat namun tim kami akan memverifikasi manual.
+              </p>
+            <% } %>
+
             <form action="/akun/booking/<%= booking.id %>/checkin" method="post" id="checkinForm" hidden>
               <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <input type="hidden" name="lat" id="ciLat">
               <input type="hidden" name="lng" id="ciLng">
               <input type="hidden" name="accuracy" id="ciAcc">
             </form>
-          </div>
+          </section>
         <% } else if (booking.checkIn) { %>
-          <div class="checkin-box checkin-box--done">
-            <h3>✅ Check-in Tercatat</h3>
-            <p>
-              <strong><%= booking.checkIn.lat.toFixed(5) %>, <%= booking.checkIn.lng.toFixed(5) %></strong><br>
-              <%= formatDateLong(booking.checkIn.at) %>
-              <% if (booking.checkIn.accuracy) { %> · Akurasi ± <%= Math.round(booking.checkIn.accuracy) %> m<% } %>
-            </p>
-          </div>
+          <section class="portal-panel reveal">
+            <div class="portal-panel__head">
+              <h2 class="portal-panel__title">✅ Check-in Tercatat</h2>
+            </div>
+            <div class="loc-grid" style="margin-top:0">
+              <div class="loc-cell">
+                <div class="loc-cell__label">Waktu Check-in</div>
+                <div class="loc-cell__value"><%= formatDateLong(booking.checkIn.at) %></div>
+              </div>
+              <div class="loc-cell">
+                <div class="loc-cell__label">Koordinat</div>
+                <div class="loc-cell__value loc-cell__value--mono">
+                  <%= booking.checkIn.lat.toFixed(5) %>, <%= booking.checkIn.lng.toFixed(5) %>
+                </div>
+              </div>
+              <div class="loc-cell">
+                <div class="loc-cell__label">Akurasi GPS</div>
+                <div class="loc-cell__value">
+                  <%= booking.checkIn.accuracy ? '± ' + Math.round(booking.checkIn.accuracy) + ' m' : '—' %>
+                </div>
+              </div>
+              <% if (distanceLabel) { %>
+                <div class="loc-cell">
+                  <div class="loc-cell__label">Jarak ke Titik Kumpul</div>
+                  <div class="loc-cell__value"><%= distanceLabel %></div>
+                </div>
+              <% } %>
+            </div>
+            <% if (distanceLabel && distance > checkinRadius) { %>
+              <p class="loc-note loc-note--warn">
+                ⚠️ Posisi check-in Anda berjarak <%= distanceLabel %> dari titik kumpulan.
+                Tim kami akan memverifikasi kehadiran secara manual.
+              </p>
+            <% } %>
+          </section>
         <% } %>
 
+        <!-- ============ Ulasan ============ -->
         <% if (canReview) { %>
-          <form action="/akun/booking/<%= booking.id %>/ulasan" method="post" class="portal-form" style="margin-top:1.4rem; border-top:1px dashed rgba(15,64,60,.25); padding-top:1.4rem">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <h3 style="font-family:var(--display); color:var(--deep-teal); margin:0 0 0.5rem">Beri Ulasan</h3>
-            <div class="portal-field">
-              <label for="rating">Rating</label>
-              <select id="rating" name="rating" class="rating-select">
-                <option value="5">★★★★★ (5) — Luar biasa</option>
-                <option value="4">★★★★ (4) — Bagus</option>
-                <option value="3">★★★ (3) — Cukup</option>
-                <option value="2">★★ (2) — Kurang</option>
-                <option value="1">★ (1) — Buruk</option>
-              </select>
+          <section class="portal-panel reveal">
+            <div class="portal-panel__head">
+              <div>
+                <h2 class="portal-panel__title">Beri Ulasan</h2>
+                <p class="portal-panel__hint">Ceritakan pengalaman trip Anda — ini membantu traveler lain memilih.</p>
+              </div>
             </div>
-            <div class="portal-field">
-              <label for="comment">Ceritakan pengalamanmu</label>
-              <textarea id="comment" name="comment" rows="3" required minlength="10" placeholder="Minimal 10 karakter…"></textarea>
-            </div>
-            <button type="submit" class="btn btn--deep btn--sm">Kirim Ulasan</button>
-          </form>
+            <form action="/akun/booking/<%= booking.id %>/ulasan" method="post" class="portal-form">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="portal-field">
+                <label for="rating">Rating</label>
+                <select id="rating" name="rating" class="rating-select">
+                  <option value="5">★★★★★ (5) — Luar biasa</option>
+                  <option value="4">★★★★ (4) — Bagus</option>
+                  <option value="3">★★★ (3) — Cukup</option>
+                  <option value="2">★★ (2) — Kurang</option>
+                  <option value="1">★ (1) — Buruk</option>
+                </select>
+              </div>
+              <div class="portal-field">
+                <label for="comment">Ceritakan pengalamanmu</label>
+                <textarea id="comment" name="comment" rows="4" required minlength="10" placeholder="Minimal 10 karakter…"></textarea>
+              </div>
+              <button type="submit" class="btn btn--deep btn--sm">Kirim Ulasan</button>
+            </form>
+          </section>
         <% } %>
-      </section>
+      </div>
 
-      <section class="panel">
-        <div class="panel__head"><h2>Peta Perjalanan</h2></div>
-        <p style="font-size:0.88rem; color:var(--ink-soft); margin-bottom:0.8rem">
-          <% if (destination && destination.lat) { %>
-            Lokasi destinasi <strong><%= destination.name %></strong> — jejak rute &amp; titik check-in tampil di peta.
-          <% } else { %>
-            Peta akan menampilkan titik check-in GPS Anda.
-          <% } %>
-        </p>
-        <div id="jje-map" class="jje-map" role="img" aria-label="Peta perjalanan"></div>
-        <script id="map-data" type="application/json"><%- mapData %></script>
-      </section>
+      <!-- ============ Kolom samping ============ -->
+      <div class="portal-stack">
+        <section class="portal-panel reveal">
+          <div class="portal-panel__head">
+            <h2 class="portal-panel__title">Peta Perjalanan</h2>
+          </div>
+          <p class="portal-panel__hint" style="margin-bottom:0.8rem">
+            <% if (destination) { %>
+              Lokasi destinasi <strong><%= destination.name %></strong> — jejak rute &amp; titik check-in tampil di peta.
+            <% } else { %>
+              Peta akan menampilkan titik check-in GPS Anda.
+            <% } %>
+          </p>
+          <div id="syl-map" class="portal-map" role="img" aria-label="Peta perjalanan"></div>
+          <script id="map-data" type="application/json"><%- mapData %></script>
+        </section>
+
+        <% if (destination) { %>
+          <section class="portal-panel reveal">
+            <div class="portal-panel__head">
+              <h2 class="portal-panel__title">Informasi Destinasi</h2>
+            </div>
+            <p class="portal-panel__hint" style="margin-bottom:0.6rem"><%= destination.tagline || '' %></p>
+            <div class="trip-card__foot">
+              <a href="/destinasi/<%= destination.slug %>" class="btn btn--outline btn--sm">Lihat Destinasi →</a>
+              <a href="/akun/lokasi" class="btn btn--deep btn--sm">📍 Lokasi Saya</a>
+            </div>
+          </section>
+        <% } %>
+      </div>
     </div>
   </div>
 </section>
 
+<script src="/js/location-permission.js"></script>
 <script>
 (function () {
   var btn = document.getElementById('checkinBtn');
   if (!btn) return;
-  btn.addEventListener('click', function () {
-    var note = document.getElementById('checkinNote');
-    if (!navigator.geolocation) {
-      note.hidden = false;
-      note.textContent = 'Perangkat Anda tidak mendukung GPS. Gunakan ponsel untuk check-in.';
+
+  var note = document.getElementById('checkinNote');
+  var dot = document.getElementById('ciDot');
+  var statusEl = document.getElementById('ciStatus');
+  var recheckBtn = document.getElementById('ciRecheckBtn');
+  var LP = window.LocationPermission;
+
+  function setDot(state) {
+    if (!dot) return;
+    dot.className = 'loc-dot';
+    if (state === 'granted') dot.classList.add('loc-dot--granted');
+    else if (state === 'denied') dot.classList.add('loc-dot--denied');
+    else if (state === 'busy') dot.classList.add('loc-dot--busy');
+    else dot.classList.add('loc-dot--pending');
+  }
+
+  function setNote(text, kind) {
+    if (!note) return;
+    note.textContent = text || '';
+    note.className = 'loc-note' + (kind ? ' loc-note--' + kind : '');
+  }
+
+  function doCheckIn() {
+    if (!LP || !LP.request) {
+      setNote('Modul izin lokasi gagal dimuat. Muat ulang halaman.', 'warn');
       return;
     }
     btn.disabled = true;
     btn.textContent = 'Mendapatkan lokasi…';
-    navigator.geolocation.getCurrentPosition(
+    setDot('busy');
+    if (statusEl) statusEl.textContent = 'Membaca GPS…';
+    setNote('');
+
+    LP.request(
       function (pos) {
-        document.getElementById('ciLat').value = pos.coords.latitude;
-        document.getElementById('ciLng').value = pos.coords.longitude;
-        document.getElementById('ciAcc').value = pos.coords.accuracy || '';
+        document.getElementById('ciLat').value = pos.lat;
+        document.getElementById('ciLng').value = pos.lng;
+        document.getElementById('ciAcc').value = pos.accuracy || '';
+        setDot('granted');
+        if (statusEl) statusEl.textContent = 'Lokasi terbaca';
+        setNote('Merekam koordinat…', 'ok');
         document.getElementById('checkinForm').submit();
       },
-      function (err) {
+      function (code, message) {
         btn.disabled = false;
         btn.textContent = 'Coba Lagi (GPS)';
-        note.hidden = false;
-        note.textContent =
-          err.code === 1
-            ? 'Izin lokasi ditolak. Aktifkan izin GPS lalu coba lagi.'
-            : 'Gagal mendapatkan lokasi. Pastikan GPS aktif dan coba lagi.';
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        setDot(code === 'denied' ? 'denied' : 'pending');
+        if (statusEl) {
+          statusEl.textContent =
+            code === 'denied' ? 'Izin lokasi ditolak' :
+            code === 'unsupported' ? 'GPS tidak didukung' :
+            code === 'insecure' ? 'Koneksi tidak aman (http)' :
+            'Lokasi tidak terbaca';
+        }
+        if (code === 'denied') {
+          btn.hidden = true;
+          if (recheckBtn) recheckBtn.hidden = false;
+        }
+        setNote(message, 'warn');
+      }
     );
-  });
+  }
+
+  btn.addEventListener('click', doCheckIn);
+  if (recheckBtn) {
+    recheckBtn.addEventListener('click', function () {
+      if (LP && LP.getState) {
+        LP.getState().then(function (st) {
+          if (st.state === 'granted') {
+            btn.hidden = false;
+            recheckBtn.hidden = true;
+            doCheckIn();
+          } else {
+            setNote(st.message || LP.MESSAGES.denied, 'warn');
+          }
+        });
+      }
+    });
+  }
+
+  // Periksa status izin awal: beri instruksi bila sudah ditolak atau
+  // konteks tidak aman, tanpa memaksa pengguna.
+  if (LP && LP.getState) {
+    LP.getState().then(function (st) {
+      if (st.state === 'denied') {
+        btn.hidden = true;
+        if (recheckBtn) recheckBtn.hidden = false;
+        setDot('denied');
+        if (statusEl) statusEl.textContent = 'Izin lokasi ditolak';
+        setNote(LP.MESSAGES.denied, 'warn');
+      } else if (st.state === 'unsupported') {
+        btn.hidden = true;
+        setDot('denied');
+        if (statusEl) statusEl.textContent = 'GPS tidak didukung';
+        setNote(LP.MESSAGES.unsupported, 'warn');
+      } else if (st.state === 'insecure') {
+        btn.hidden = true;
+        setDot('denied');
+        if (statusEl) statusEl.textContent = 'Koneksi tidak aman (http)';
+        setNote(LP.MESSAGES.insecure, 'warn');
+      } else {
+        setDot('pending');
+        if (statusEl) statusEl.textContent = 'Izin lokasi belum diberikan';
+        setNote(LP.MESSAGES.prompt);
+      }
+    });
+  }
 })();
 </script>
