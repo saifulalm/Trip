@@ -338,6 +338,94 @@ test('pelanggan beda rombongan tetap tidak saling terlihat', () => {
   assert.strictEqual(peers.length, 0, 'bukan sekelompok tidak boleh terlihat');
 });
 
+/* ------------------------------------------------------------------ */
+/* Kasus tepi kontrak visibleBookingCodes                            */
+/* ------------------------------------------------------------------ */
+
+console.log('\n=== kasus tepi visibleBookingCodes ===');
+
+test('visibleBookingCodes mengembalikan kode unik (tanpa duplikat)', () => {
+  const SVC = loadWith(TMP_FILE);
+  const data = {
+    bookings: [
+      { id: 'b1', code: 'SYL-1', customerId: 'c1' },
+      { id: 'b2', code: 'SYL-1', customerId: 'c1' }
+    ],
+    // Kode yang sama sengaja diulang → harus tetap unik di hasil.
+    tripGroups: [
+      { id: 'g1', name: 'Rombongan A', bookingCodes: ['SYL-1', 'SYL-2', 'SYL-1'] },
+      { id: 'g2', name: 'Rombongan B', bookingCodes: ['SYL-2'] }
+    ]
+  };
+  const codes = SVC.visibleBookingCodes(data, 'c1');
+  assert.strictEqual(new Set(codes).size, codes.length, 'hasil harus unik');
+});
+
+test('visibleBookingCodes aman untuk group tanpa bookingCodes / array kosong', () => {
+  const SVC = loadWith(TMP_FILE);
+  const data = {
+    bookings: [
+      { id: 'b1', code: 'SYL-1', customerId: 'c1' },
+      { id: 'b2', code: 'SYL-2', customerId: 'c2' }
+    ],
+    tripGroups: [
+      // Catatan: `roster.groupsForCustomer()` sudah menyaring group yang
+      // `bookingCodes`-nya kosong/tidak ada, jadi group seperti di bawah
+      // tidak pernah sampai ke loop. Test ini mengunci bahwa policymakers
+      // hal itu TIDAK membuat pemanggilan gagal dan TIDAK memotong group
+      // sehat lain.
+      { id: 'g0', name: 'Rusak (tanpa bookingCodes)' },
+      { id: 'g1', name: 'Kosong', bookingCodes: [] },
+      { id: 'g2', name: 'Sehat', bookingCodes: ['SYL-1', 'SYL-2'] }
+    ]
+  };
+  let codes = null;
+  assert.doesNotThrow(() => { codes = SVC.visibleBookingCodes(data, 'c1'); }, 'tidak boleh melempar');
+  assert.ok(codes.includes('SYL-1'), 'booking sendiri harus masuk');
+  assert.ok(codes.includes('SYL-2'), 'group sehat harus tetap terbaca walau ada group rusak');
+});
+
+test('pelanggan tanpa group hanya melihat kode booking sendiri', () => {
+  const SVC = loadWith(TMP_FILE);
+  const data = {
+    bookings: [
+      { id: 'b1', code: 'SYL-1', customerId: 'c1' },
+      { id: 'b2', code: 'SYL-2', customerId: 'c2' }
+    ],
+    tripGroups: []
+  };
+  const codes = SVC.visibleBookingCodes(data, 'c1');
+  assert.deepStrictEqual(codes, ['SYL-1'], 'hanya booking sendiri');
+});
+
+test('visibleBookingCodes dengan data undefined mengembalikan array kosong', () => {
+  const SVC = loadWith(TMP_FILE);
+  let codes = null;
+  assert.doesNotThrow(() => { codes = SVC.visibleBookingCodes(undefined, 'c1'); }, 'tidak boleh melempar');
+  assert.ok(Array.isArray(codes), 'harus array');
+  assert.strictEqual(codes.length, 0, 'harus kosong');
+});
+
+test('bookingCodesFor (isi POST /ping) TIDAK ikut diperluas oleh rombongan', () => {
+  const SVC = loadWith(TMP_FILE);
+  const data = {
+    bookings: [
+      { id: 'b1', code: 'SYL-1', customerId: 'c1' },
+      { id: 'b2', code: 'SYL-2', customerId: 'c2' }
+    ],
+    tripGroups: [
+      { id: 'g1', name: 'Rombongan A', bookingCodes: ['SYL-1', 'SYL-2'] }
+    ]
+  };
+  // Yang dikirim bersama ping = kode milik orang itu sendiri.
+  const forPing = SVC.bookingCodesFor(data, 'customer', 'c1');
+  assert.deepStrictEqual(forPing, ['SYL-1'], 'ping hanya membawa kode sendiri');
+  // Yang dipakai privasi = kode sendiri + fellow traveler satu rombongan.
+  const visible = SVC.visibleBookingCodes(data, 'c1');
+  assert.ok(visible.includes('SYL-2'), 'privasi tetap melihat fellow traveler');
+  assert.ok(!forPing.includes('SYL-2'), 'kode fellow traveler tidak boleh ikut ke ping');
+});
+
 cleanup();
 delete process.env.PRESENCE_FILE;
 

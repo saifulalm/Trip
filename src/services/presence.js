@@ -341,7 +341,10 @@ function list(settings) {
  *  - Admin melihat semua partisipan.
  *  - Pelanggan melihat admin/tim (agar mudah dihubungi).
  *  - Pelanggan hanya melihat pelanggan lain bila KOMPONEN booking-nya sama
- *    (grup dwelt bersama) — supaya antar pelanggan tidak saling.
+ *    (grup dwelt bersama) ATAU bila fellow traveler-nya satu rombongan
+ *    (satu kapal / trip group) — supaya antar pelanggan beda’accompagnement
+ *    tidak saling. Kode yang "boleh dilihat" dihitung lewat
+ *    `visibleBookingCodes()` (lihat fungsi itu untuk rinciannya).
  *
  * @param {object} me identitas partisipan peminta {role, refId}
  * @param {object} data data aplikasi (untuk data.bookings)
