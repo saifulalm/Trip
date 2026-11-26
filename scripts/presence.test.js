@@ -275,6 +275,69 @@ test('presence.json memakai schema versi 2', () => {
   assert.ok(raw.lastSeen, 'field lastSeen harus ada');
 });
 
+/* ------------------------------------------------------------------ */
+/* Privasi berbasis rombongan (fellow traveler satu kapal)            */
+/* ------------------------------------------------------------------ */
+
+console.log('\n=== privasi berbasis rombongan ===');
+
+// Suite berikut memakai helper `loadWith(TMP_FILE)` agar data uji tidak
+// menyentuh `data/presence.json` produksi.
+test('visibleBookingCodes memuat booking sendiri + booking fellow traveler satu rombongan', () => {
+  const SVC = loadWith(TMP_FILE);
+  const data = {
+    bookings: [
+      { id: 'b1', code: 'SYL-1', customerId: 'c1' },
+      { id: 'b2', code: 'SYL-2', customerId: 'c2' },
+      { id: 'b3', code: 'SYL-9', customerId: 'c9' }
+    ],
+    tripGroups: [
+      { id: 'g1', name: 'Rombongan A', bookingCodes: ['SYL-1', 'SYL-2'] }
+    ]
+  };
+  const codes = SVC.visibleBookingCodes(data, 'c1');
+  assert.ok(codes.includes('SYL-1'), 'booking sendiri harus masuk');
+  assert.ok(codes.includes('SYL-2'), 'booking fellow traveler satu rombongan harus masuk');
+  assert.ok(!codes.includes('SYL-9'), 'booking orang lain tidak boleh masuk');
+});
+
+test('pelanggan sekelompok saling terlihat meski kode booking berbeda', () => {
+  const SVC = loadWith(TMP_FILE);
+  // Bersihkan sisa entri suite sebelumnya agar hasil benar-benar dari skenario ini.
+  SVC.reset();
+  const data = {
+    bookings: [
+      { id: 'b1', code: 'SYL-1', customerId: 'c1' },
+      { id: 'b2', code: 'SYL-2', customerId: 'c2' }
+    ],
+    tripGroups: [
+      { id: 'g1', name: 'Rombongan A', bookingCodes: ['SYL-1', 'SYL-2'] }
+    ]
+  };
+  SVC.upsert({ role: 'customer', refId: 'c2', name: 'Sari', lat: 1, lng: 2, bookingCodes: ['SYL-2'] },
+    { presenceEnabled: true, presenceTtlMin: 60 });
+  const peers = SVC.peersOf({ role: 'customer', refId: 'c1', lat: 1, lng: 2 }, data,
+    { presenceEnabled: true, presenceTtlMin: 60 });
+  assert.ok(peers.some((p) => p.refId === 'c2'), 'sekelompok harus terlihat');
+});
+
+test('pelanggan beda rombongan tetap tidak saling terlihat', () => {
+  const SVC = loadWith(TMP_FILE);
+  SVC.reset();
+  const data = {
+    bookings: [
+      { id: 'b1', code: 'SYL-1', customerId: 'c1' },
+      { id: 'b2', code: 'SYL-2', customerId: 'c2' }
+    ],
+    tripGroups: []
+  };
+  SVC.upsert({ role: 'customer', refId: 'c2', name: 'Sari', lat: 1, lng: 2, bookingCodes: ['SYL-2'] },
+    { presenceEnabled: true, presenceTtlMin: 60 });
+  const peers = SVC.peersOf({ role: 'customer', refId: 'c1', lat: 1, lng: 2 }, data,
+    { presenceEnabled: true, presenceTtlMin: 60 });
+  assert.strictEqual(peers.length, 0, 'bukan sekelompok tidak boleh terlihat');
+});
+
 cleanup();
 delete process.env.PRESENCE_FILE;
 

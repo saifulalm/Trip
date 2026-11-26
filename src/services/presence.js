@@ -31,6 +31,7 @@ const path = require('path');
 const { EventEmitter } = require('events');
 
 const geo = require('./geo');
+const roster = require('./roster');
 
 // Folder data. `SABESI_DATA_DIR` dipakai skrip uji & runner E2E supaya
 // berkas presence uji tidak bercampur dengan yang sedang berjalan.
@@ -350,7 +351,7 @@ function list(settings) {
 function peersOf(me, data, settings) {
   if (!me) return [];
   const all = list(settings);
-  const mine = me.role === 'admin' ? null : customerBookingCodes(data, me.refId);
+  const mine = me.role === 'admin' ? null : visibleBookingCodes(data, me.refId);
   // Bila peminta belum punya posisi (belum membagikan lokasi), jaraknya
   // tidak bisa dihitung — peer tetap ditampilkan tanpa info jarak.
   const hasSelf = geo.isValidLatLng(me.lat, me.lng);
@@ -393,6 +394,33 @@ function customerBookingCodes(data, customerId) {
   return bookings
     .filter((b) => b.customerId === customerId && b.code)
     .map((b) => String(b.code));
+}
+
+/**
+ * Kode-kode booking yang boleh dilihat seorang pelanggan.
+ *
+ * Selain booking miliknya sendiri, ini mencakup booking fellow traveler
+ * di rombongan yang sama — satu kapal. Tanpa ini, dua pelanggan dengan kode
+ * booking berbeda tapi satu Voyage tidak saling melihat — padahal kasus
+ * "terpisah dari rombongan" justru butuh mereka saling terlihat.
+ *
+ * @param {object} data data aplikasi
+ * @param {string} customerId id pelanggan
+ * @returns {string[]} daftar kode booking (unik)
+ */
+function visibleBookingCodes(data, customerId) {
+  const own = customerBookingCodes(data, customerId);
+  const out = new Set(own);
+  let groups = [];
+  try {
+    groups = roster.groupsForCustomer(data, customerId) || [];
+  } catch (err) {
+    groups = [];
+  }
+  groups.forEach((g) => {
+    (g.bookingCodes || []).forEach((c) => out.add(String(c)));
+  });
+  return Array.from(out);
 }
 
 /**
@@ -439,5 +467,6 @@ module.exports = {
   peersOf,
   bookingCodesFor,
   customerBookingCodes,
+  visibleBookingCodes,
   subscribe
 };
